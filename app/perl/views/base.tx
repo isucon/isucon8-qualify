@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Torb</title>
+    <link rel="shortcut icon" href="<: $c.req.uri_for('/favicon.ico') :>" type="image/vnd.microsoft.icon" />
+    <link rel="stylesheet" href="<: $c.req.uri_for('/css/bootstrap.min.css') :>">
+    <style>
+    body {
+      padding-top: 60px;
+    }
+    </style>
+    <link rel="stylesheet" href="<: $c.req.uri_for('/css/bootstrap-responsive.min.css') :>" />
+  </head>
+<body>
+
+<div class="navbar navbar-fixed-top">
+<div class="navbar-inner">
+<div class="container">
+<a class="btn btn-navbar" data-toggle="collapse" data-target=".nav-collapse">
+<span class="icon-bar"></span>
+<span class="icon-bar"></span>
+<span class="icon-bar"></span>
+</a>
+<a class="brand" href="<: $c.req.uri_for('/') :>">Torb</a>
+<div class="nav-collapse">
+<ul class="nav">
+<li class="active"><a href="<: $c.req.uri_for('/') :>">Home</a></li>
+<li><a href="#about">About</a></li>
+<li><a href="#contact">Contact</a></li>
+</ul>
+</div> <!--/.nav-collapse -->
+</div>
+</div>
+</div>
+
+<div class="container">
+
+: block content -> { }
+
+</div> <!-- /container -->
+
+<script type="text/javascript" src="<: $c.req.uri_for('/js/jquery.min.js') :>"></script>
+<script type="text/javascript" src="<: $c.req.uri_for('/js/bootstrap.min.js') :>"></script>
+</body>
+</html>
+
+
