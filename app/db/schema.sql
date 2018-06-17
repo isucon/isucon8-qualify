@@ -1,0 +1,23 @@
+CREATE TABLE users (
+    id          INTEGER UNSIGNED PRIMARY KEY AUTO_INCREMENT,
+    username    VARCHAR(64) NOT NULL,
+    pass_hash   VARCHAR(64) NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE events (
+    id          INTEGER UNSIGNED PRIMARY KEY AUTO_INCREMENT,
+    title       VARCHAR(64) NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE sheets (
+    rank        INTEGER UNSIGNED NOT NULL,
+    n           INTEGER UNSIGNED NOT NULL,
+    PRIMARY KEY (rank, n)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE reservations (
+    event_id    INTEGER UNSIGNED NOT NULL,
+    sheet_id    INTEGER UNSIGNED NOT NULL,
+    user_id     INTEGER UNSIGNED NOT NULL
+    PRIMARY KEY (event_id, sheet_id, user_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
