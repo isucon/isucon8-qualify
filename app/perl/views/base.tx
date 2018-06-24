@@ -11,7 +11,7 @@
     <link rel="stylesheet" href="<: $c.req.uri_for('/css/layout.css') :>">
   </head>
   <body>
-    <div id="container" class="container-fluid">
+    <div id="container" class="container">
       <h1><img src="<: $c.req.uri_for('/img/logo.png') :>" /></h1>
 :     block content -> { }
     </div>
@@ -20,7 +20,7 @@
     <!-- jQuery first, then Popper.js, then Bootstrap JS -->
     <script type="text/javascript" src="<: $c.req.uri_for('/js/jquery-3.3.1.slim.min.js') :>"></script>
     <script type="text/javascript" src="<: $c.req.uri_for('/js/bootstrap.bundle.min.js') :>"></script>
-    <script type="text/javascript" src="<: $c.req.uri_for('/js/vue.runtime.min.js') :>"></script>
+    <script type="text/javascript" src="<: $c.req.uri_for('/js/vue.min.js') :>"></script>
     <script type="text/javascript" src="<: $c.req.uri_for('/js/fetch.min.js') :>"></script>
     <script type="text/javascript" src="<: $c.req.uri_for('/js/app.js') :>"></script>
   </body>
