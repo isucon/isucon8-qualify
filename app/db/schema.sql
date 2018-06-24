@@ -15,10 +15,10 @@ CREATE TABLE IF NOT EXISTS events (
 
 CREATE TABLE IF NOT EXISTS sheets (
     id          INTEGER UNSIGNED PRIMARY KEY AUTO_INCREMENT,
-    rank        VARCHAR(128)     NOT NULL,
+    `rank`      VARCHAR(128)     NOT NULL,
     num         INTEGER UNSIGNED NOT NULL,
     price       INTEGER UNSIGNED NOT NULL,
-    UNIQUE KEY rank_num_uniq (rank, num)
+    UNIQUE KEY rank_num_uniq (`rank`, num)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS reservations (

@@ -188,7 +188,7 @@ sub get_event {
     my $event = $self->dbh->select_row('SELECT * FROM events WHERE id = ?', $event_id);
     return unless $event;
 
-    my $sheets = $self->dbh->select_all('SELECT * FROM sheets ORDER BY rank, num');
+    my $sheets = $self->dbh->select_all('SELECT * FROM sheets ORDER BY `rank`, num');
     for my $sheet (@$sheets) {
         $event->{sheets}->{price}->{$sheet->{rank}} ||= $event->{price} + $sheet->{price};
 
@@ -232,7 +232,7 @@ post '/api/events/{id}/actions/reserve' => [qw/login_required/] => sub {
 
     my $sheet;
     while (1) {
-        $sheet = $self->dbh->select_row('SELECT * FROM sheets WHERE id NOT IN (SELECT sheet_id FROM reservations event_id = ?) AND rank = ? ORDER BY RAND() LIMIT 1', $event->{id}, $rank);
+        $sheet = $self->dbh->select_row('SELECT * FROM sheets WHERE id NOT IN (SELECT sheet_id FROM reservations WHERE event_id = ?) AND `rank` = ? ORDER BY RAND() LIMIT 1', $event->{id}, $rank);
         unless ($sheet) {
             my $res = $c->render_json({
                 error => 'sold_out',
@@ -273,7 +273,7 @@ router ['DELETE'] => '/api/events/{id}/sheets/{rank}/{num}/reservation' => [qw/l
 
     my $txn = $self->dbh->txn_scope();
     eval {
-        my $sheet = $self->dbh->select_row('SELECT * FROM sheets WHERE rank = ? AND num = ?', $rank, $num);
+        my $sheet = $self->dbh->select_row('SELECT * FROM sheets WHERE `rank` = ? AND num = ?', $rank, $num);
         unless ($sheet) {
             $error = 'invalid_sheet';
             $txn->rollback();
