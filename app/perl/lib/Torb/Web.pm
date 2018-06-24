@@ -6,8 +6,6 @@ use utf8;
 use Kossy;
 
 use JSON::XS 3.00;
-use JSON::Types;
-
 use DBIx::Sunny;
 use Plack::Session;
 use Time::Moment;
@@ -16,10 +14,8 @@ filter login_required => sub {
     my $app = shift;
     return sub {
         my ($self, $c) = @_;
-        my $session = Plack::Session->new($c->env);
 
-        my $user_id = $session->get('user_id');
-        my $user = $self->get_user($user_id);
+        my $user = $self->get_login_user($c);
         unless ($user) {
             my $res = $c->render_json({
                 error => 'login_required',
@@ -36,13 +32,19 @@ filter fillin_user => sub {
     my $app = shift;
     return sub {
         my ($self, $c) = @_;
-        my $session = Plack::Session->new($c->env);
 
-        if (my $user_id = $session->get('user_id')) {
-            my $user = $self->get_user($user_id);
-            $c->stash->{user} = $user;
-        }
+        my $user = $self->get_login_user($c);
+        $c->stash->{user} = $user if $user;
 
+        $app->($self, $c);
+    };
+};
+
+filter allow_json_request => sub {
+    my $app = shift;
+    return sub {
+        my ($self, $c) = @_;
+        $c->env->{'kossy.request.parse_json_body'} = 1;
         $app->($self, $c);
     };
 };
@@ -60,10 +62,26 @@ sub dbh {
 
 get '/' => [qw/fillin_user/] => sub {
     my ($self, $c) = @_;
-    return $c->render('index.tx');
+    return $c->render('index.tx', {
+        encode_json => \&JSON::XS::encode_json,
+    });
 };
 
-post '/api/users' => sub {
+post '/_api/initialize' => sub {
+    my ($self, $c) = @_;
+
+    my $txn = $self->dbh->txn_scope();
+    $self->dbh->query('DELETE FROM users');
+    $self->dbh->query('DELETE FROM reservations');
+    $self->dbh->query('DELETE FROM events WHERE id > 2');
+    $self->dbh->query('UPDATE events SET title = ?, public_fg = ?, price = ? WHERE id = 1', '「風邪をひいたなう」しか', 1, 3000);
+    $self->dbh->query('UPDATE events SET title = ?, public_fg = ?, price = ? WHERE id = 2', 'となりのトロロ芋', 0, 1000);
+    $txn->commit();
+
+    return $c->req->new_response(204, [], '');
+};
+
+post '/api/users' => [qw/allow_json_request/] => sub {
     my ($self, $c) = @_;
     my $nickname   = $c->req->body_parameters->get('nickname');
     my $login_name = $c->req->body_parameters->get('login_name');
@@ -118,17 +136,18 @@ sub get_login_user {
 
     my $session = Plack::Session->new($c->env);
     my $user_id = $session->get('user_id');
+    return unless $user_id;
     return $self->get_user($user_id);
 }
 
-post '/api/actions/login' => sub {
+post '/api/actions/login' => [qw/allow_json_request/] => sub {
     my ($self, $c) = @_;
     my $login_name = $c->req->body_parameters->get('login_name');
     my $password   = $c->req->body_parameters->get('password');
 
     my $user      = $self->dbh->select_row('SELECT * FROM users WHERE login_name = ?', $login_name);
     my $pass_hash = $self->dbh->select_one('SELECT SHA2(?, 256)', $password);
-    if ($pass_hash ne $user->{pass_hash}) {
+    if (!$user || $pass_hash ne $user->{pass_hash}) {
         my $res = $c->render_json({
             error => 'authentication_failed',
         });
@@ -138,7 +157,9 @@ post '/api/actions/login' => sub {
 
     my $session = Plack::Session->new($c->env);
     $session->set('user_id' => $user->{id});
-    return $c->req->new_response(204, [], '');
+
+    $user = $self->get_login_user($c);
+    return $c->render_json($user);
 };
 
 post '/api/actions/logout' => [qw/login_required/] => sub {
@@ -157,7 +178,7 @@ get '/api/events' => sub {
         my $event = $self->get_event($event_id);
         next unless $event->{public_fg};
 
-        delete $event->{sheets}->{detail};
+        delete $event->{sheets}->{$_}->{detail} for keys %{ $event->{sheets} };
         push @events => $self->sanitize_event($event);
     }
 
@@ -190,25 +211,26 @@ sub get_event {
 
     my $sheets = $self->dbh->select_all('SELECT * FROM sheets ORDER BY `rank`, num');
     for my $sheet (@$sheets) {
-        $event->{sheets}->{price}->{$sheet->{rank}} ||= $event->{price} + $sheet->{price};
+        $event->{sheets}->{$sheet->{rank}}->{price} ||= $event->{price} + $sheet->{price};
 
-        $event->{sheets}->{total}->{all} += 1;
-        $event->{sheets}->{total}->{$sheet->{rank}} += 1;
+        $event->{total} += 1;
+        $event->{sheets}->{$sheet->{rank}}->{total} += 1;
 
         my $reservation = $self->dbh->select_row('SELECT * FROM reservations WHERE event_id = ? AND sheet_id = ?', $event->{id}, $sheet->{id});
         if ($reservation) {
-            $sheet->{reserved}    = 1;
+            $sheet->{mine}        = JSON::XS::true if $login_user_id && $reservation->{user_id} == $login_user_id;
+            $sheet->{reserved}    = JSON::XS::true;
             $sheet->{reserved_at} = $reservation->{reserved_at};
-            $sheet->{is_mine}     = 1 if $login_user_id && $reservation->{user_id} == $login_user_id;
         } else {
-            $event->{sheets}->{remains}->{all} += 1;
-            $event->{sheets}->{remains}->{$sheet->{rank}} += 1;
+            $event->{remains} += 1;
+            $event->{sheets}->{$sheet->{rank}}->{remains} += 1;
         }
+
+        push @{ $event->{sheets}->{$sheet->{rank}}->{detail} } => $sheet;
 
         delete $sheet->{id};
         delete $sheet->{price};
-
-        push @{ $event->{sheets}->{detail}->{$sheet->{rank}} } => $sheet;
+        delete $sheet->{rank};
     }
 
     return $event;
@@ -222,7 +244,7 @@ sub sanitize_event {
     return $sanitized;
 }
 
-post '/api/events/{id}/actions/reserve' => [qw/login_required/] => sub {
+post '/api/events/{id}/actions/reserve' => [qw/allow_json_request login_required/] => sub {
     my ($self, $c) = @_;
     my $event_id = $c->args->{id};
     my $rank = $c->req->body_parameters->get('sheet_rank');
@@ -243,13 +265,16 @@ post '/api/events/{id}/actions/reserve' => [qw/login_required/] => sub {
 
         my $txn = $self->dbh->txn_scope();
         eval {
-            $self->dbh->query('INSERT INTO reservations (event_id, sheet_id, user_id, reserved_at) VALUES (?, ?, ?, CURRENT_TIMESTAMP)', $event->{id}, $sheet->{id}, $user->{id});
+            $self->dbh->query('INSERT INTO reservations (event_id, sheet_id, user_id, reserved_at) VALUES (?, ?, ?, UNIX_TIMESTAMP())', $event->{id}, $sheet->{id}, $user->{id});
             $txn->commit();
         };
         if ($@) {
             $txn->rollback();
+            warn "re-try: rollbacked by $@";
             next; # retry
         }
+
+        last;
     }
 
     my $res = $c->render_json({
@@ -355,7 +380,7 @@ get '/admin/' => [qw/fillin_administrator/] => sub {
     return $c->render('admin.tx');
 };
 
-post '/admin/api/actions/login' => sub {
+post '/admin/api/actions/login' => [qw/allow_json_request/] => sub {
     my ($self, $c) = @_;
     my $login_name = $c->req->body_parameters->get('login_name');
     my $password   = $c->req->body_parameters->get('password');
@@ -405,7 +430,7 @@ get '/admin/api/events' => [qw/admin_login_required/] => sub {
     my @event_ids = map { $_->{id} } @{ $self->dbh->select_all('SELECT id FROM events') };
     for my $event_id (@event_ids) {
         my $event = $self->get_event($event_id);
-        delete $event->{sheets}->{detail};
+        delete $event->{sheets}->{$_}->{detail} for keys %{ $event->{sheets} };
         $event->{public} = delete $event->{public_fg} ? JSON::XS::true : JSON::XS::false;
         push @events => $event;
     }
@@ -413,7 +438,7 @@ get '/admin/api/events' => [qw/admin_login_required/] => sub {
     return $c->render_json(\@events);
 };
 
-post '/admin/api/events' => [qw/admin_login_required/] => sub {
+post '/admin/api/events' => [qw/allow_json_request admin_login_required/] => sub {
     my ($self, $c) = @_;
     my $title  = $c->req->body_parameters->get('title');
     my $public = $c->req->body_parameters->get('public') ? 1 : 0;
@@ -452,7 +477,7 @@ get '/admin/api/events/{id}' => [qw/admin_login_required/] => sub {
     return $c->render_json($event);
 };
 
-post '/admin/api/events/{id}/actions/edit' => [qw/admin_login_required/] => sub {
+post '/admin/api/events/{id}/actions/edit' => [qw/allow_json_request admin_login_required/] => sub {
     my ($self, $c) = @_;
     my $event_id = $c->args->{id};
     my $title  = $c->req->body_parameters->get('title');
@@ -488,15 +513,18 @@ get '/admin/api/reports/events/{id}/sales' => [qw/admin_login_required/] => sub 
     my $event = $self->get_event($event_id);
 
     my @reports;
-    for my $sheet (map { @$_ } values %{ $event->{sheets}->{detail} }) {
-        next unless $sheet->{reserved};
 
-        my $report = {
-            event_id => $event->{id},
-            sold_at  => Time::Moment->from_epoch($sheet->{reserved_at}, 0)->as_string,
-            price    => $event->{sheets}->{price}->{$sheet->{rank}},
-        };
-        push @reports => $report;
+    for my $rank (keys %{ $event->{sheets} }) {
+        for my $sheet (@{ $event->{sheets}->{$rank}->{detail} }) {
+            next unless $sheet->{reserved};
+
+            my $report = {
+                event_id => $event->{id},
+                sold_at  => Time::Moment->from_epoch($sheet->{reserved_at}, 0)->as_string,
+                price    => $event->{sheets}->{$rank}->{price},
+            };
+            push @reports => $report;
+        }
     }
 
     return $self->render_report_csv($c, \@reports);
@@ -512,15 +540,17 @@ get '/admin/api/reports/sales' => [qw/admin_login_required/] => sub {
     my @event_ids = map { $_->{id} } @{ $self->dbh->select_all('SELECT id FROM events') };
     for my $event_id (@event_ids) {
         my $event = $self->get_event($event_id);
-        for my $sheet (map { @$_ } values %{ $event->{sheets}->{detail} }) {
-            next unless $sheet->{reserved};
+        for my $rank (keys %{ $event->{sheets} }) {
+            for my $sheet (@{ $event->{sheets}->{$rank}->{detail} }) {
+                next unless $sheet->{reserved};
 
-            my $report = {
-                event_id => $event->{id},
-                sold_at  => Time::Moment->from_epoch($sheet->{reserved_at}, 0)->as_string,
-                price    => $event->{sheets}->{price}->{$sheet->{rank}},
-            };
-            push @reports => $report;
+                my $report = {
+                    event_id => $event->{id},
+                    sold_at  => Time::Moment->from_epoch($sheet->{reserved_at}, 0)->as_string,
+                    price    => $event->{sheets}->{$rank}->{price},
+                };
+                push @reports => $report;
+            }
         }
     }
 
