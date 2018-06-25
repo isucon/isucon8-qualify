@@ -12,7 +12,6 @@
   </head>
   <body>
     <div id="container" class="container">
-      <h1><img src="<: $c.req.uri_for('/img/logo.png') :>" /></h1>
 :     block content -> { }
     </div>
 

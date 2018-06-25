@@ -1,3 +1,7 @@
-#container {
-  padding: 60px 20px 0;
+.events {
+  padding: 1rem 2.5rem 0 1.5rem;
+}
+
+.events span.badge {
+  margin: .1rem;
 }

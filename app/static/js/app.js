@@ -107,7 +107,25 @@ Object.defineProperty(Torb, 'currentUser', {
 });
 
 new Vue({
-  el: '#login-modal .modal-content',
+  el: '.events',
+  data: {
+    events: Torb.events,
+    ranks: ['S', 'A', 'B', 'C'],
+  },
+  methods: {
+    submit: function () {
+      API.User.login(this.loginName, this.password).then(function (user) {
+        Torb.currentUser = user;
+        DOM.loginModal.modal('hide');
+      }).catch(function (err) {
+        alert(err);
+      });;
+    },
+  },
+});
+
+new Vue({
+  el: '#login-modal .modal-dialog',
   data: {
     loginName: '',
     password: '',
@@ -125,7 +143,7 @@ new Vue({
 });
 
 new Vue({
-  el: '#register-modal .modal-content',
+  el: '#register-modal .modal-dialog',
   data: {
     nickname: '',
     loginName: '',
@@ -147,3 +165,6 @@ new Vue({
   },
 });
 
+$('body').on('shown.bs.modal', '.modal', function (e) {
+  $('input', e.target).first().focus();
+});
