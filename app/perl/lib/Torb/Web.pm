@@ -129,6 +129,9 @@ post '/api/users' => [qw/allow_json_request/] => sub {
 sub get_user {
     my ($self, $user_id) = @_;
     my $user = $self->dbh->select_row('SELECT * FROM users WHERE id = ?', $user_id);
+    return unless $user;
+
+    # sanitize fields
     delete $user->{login_name};
     delete $user->{pass_hash};
     return $user;
