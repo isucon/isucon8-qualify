@@ -8,4 +8,23 @@
 
 #confirm-modal {
   z-index: 9999 !important;
+  margin-top: 3rem;
+}
+
+.event-modal-content table {
+  max-height: 24rem;
+  overflow: scroll;
+  font-size: 10px;
+}
+
+.event-modal-content table td {
+  padding: .5em;
+}
+
+.event-modal-content table tbody td {
+  text-align: center;
+}
+
+.event-modal-content table tbody td .mine {
+  color: #11FF33;
 }

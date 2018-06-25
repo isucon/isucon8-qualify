@@ -122,6 +122,14 @@ var EventModal = new Vue({
     ranks: ['S', 'A', 'B', 'C'],
   },
   methods: {
+    divRange: function (n ,d) {
+      var max = Math.floor(n / d);
+      var range = [];
+      for (var i = 1; i <= max; i++) {
+        range.push(i);
+      }
+      return range;
+    },
     isSoldOut: function (sheetRank) {
       return this.event.sheets[sheetRank].remains === 0;
     },
@@ -146,9 +154,25 @@ var EventModal = new Vue({
       });
     },
     freeSheet: function (sheetRank, sheetNum) {
-      API.Event.reserveSheet(this.event.id, sheetRank, sheetNum).then(function () {
-      }).catch(function (err) {
-        alert(err);
+      var sheet = this.event.sheets[sheetRank].detail[sheetNum-1];
+      if (!sheet.mine) return;
+
+      var eventId = this.event.id;
+      var message = 'Do you cancel the sheet reservation?: '+sheetRank+'-'+sheet.num;
+      confirm('Cancel Sheet Reservation', message, function () {
+        API.Event.freeSheet(eventId, sheetRank, sheetNum).then(function () {
+          updateEventModal(eventId, function (event) {
+            var events = EventList.$data.events;
+            for (var i = 0, l = events.length; i < l; i++) {
+              if (events[i].id !== event.id) continue;
+              events[i] = event;
+              break;
+            }
+            EventList.$forceUpdate();
+          });
+        }).catch(function (err) {
+          alert(err);
+        });
       });
     },
   },
