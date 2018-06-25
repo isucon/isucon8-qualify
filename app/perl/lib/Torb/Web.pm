@@ -62,7 +62,10 @@ sub dbh {
 
 get '/' => [qw/fillin_user/] => sub {
     my ($self, $c) = @_;
+
+    my @events = $self->get_events();
     return $c->render('index.tx', {
+        events      => \@events,
         encode_json => \&JSON::XS::encode_json,
     });
 };
@@ -171,17 +174,7 @@ post '/api/actions/logout' => [qw/login_required/] => sub {
 
 get '/api/events' => sub {
     my ($self, $c) = @_;
-
-    my @events;
-    my @event_ids = map { $_->{id} } @{ $self->dbh->select_all('SELECT id FROM events') };
-    for my $event_id (@event_ids) {
-        my $event = $self->get_event($event_id);
-        next unless $event->{public_fg};
-
-        delete $event->{sheets}->{$_}->{detail} for keys %{ $event->{sheets} };
-        push @events => $self->sanitize_event($event);
-    }
-
+    my @events = $self->get_events();
     return $c->render_json(\@events);
 };
 
@@ -202,6 +195,22 @@ get '/api/events/{id}' => sub {
     $event = $self->sanitize_event($event);
     return $c->render_json($event);
 };
+
+sub get_events {
+    my $self = shift;
+
+    my @events;
+    my @event_ids = map { $_->{id} } @{ $self->dbh->select_all('SELECT id FROM events') };
+    for my $event_id (@event_ids) {
+        my $event = $self->get_event($event_id);
+        next unless $event->{public_fg};
+
+        delete $event->{sheets}->{$_}->{detail} for keys %{ $event->{sheets} };
+        push @events => $self->sanitize_event($event);
+    }
+
+    return @events;
+}
 
 sub get_event {
     my ($self, $event_id, $login_user_id) = @_;
