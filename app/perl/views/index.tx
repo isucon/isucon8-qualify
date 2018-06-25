@@ -19,7 +19,7 @@ Torb.events = <: mark_raw($encode_json($events)) :>;
   <h3>開催中のイベント</h3>
 
   <div class="list-group">
-    <a v-bind:href="'#/events/'+event.id" v-for="event in events" class="list-group-item" >
+    <a href="#" v-for="event in events" v-on:click.stop.prevent="open(event.id)" class="list-group-item" >
       <div class="d-flex w-100 justify-content-between">
         <h5 class="mb-1">{{ event.title }}</h5>
         <small class="text-muted">{{ event.remains }} / {{ event.total }}</small>
@@ -30,6 +30,26 @@ Torb.events = <: mark_raw($encode_json($events)) :>;
 </div>
 
 <div class="modals">
+  <div class="modal" id="confirm-modal" tabindex="-1" role="dialog">
+    <div class="modal-dialog" role="document">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title">{{ title }}</h5>
+          <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+            <span aria-hidden="true">&times;</span>
+          </button>
+        </div>
+        <div class="modal-body">
+          <p>{{ message }}</p>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-primary" v-on:click.stop.prevent="ok()">OK</button>
+          <button type="button" class="btn btn-secondary" data-dismiss="modal">NG</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <div class="modal" id="login-modal" tabindex="-1" role="dialog">
     <div class="modal-dialog" role="document">
       <form action="#" v-on:submit.stop.prevent="submit">
@@ -104,8 +124,10 @@ Torb.events = <: mark_raw($encode_json($events)) :>;
         <div class="modal-body">
         </div>
         <div class="modal-footer">
-          <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
-          <button type="buttom" class="btn btn-primary" v-for="rank in ranks" v-on:click.stop.prevent="reserve(rank)">{{ rank }} {{ event.sheets[rank].price }}円</button>
+          <div class="btn-group" role="group" aria-label="Reserve sheet">
+            <button type="buttom" class="btn btn-primary" v-for="rank in ranks" v-bind:disabled="isSoldOut(rank)" v-on:click.stop.prevent="reserveSheet(rank)">{{ rank }} {{ event.sheets[rank].price }}円</button>
+          </div>
+          <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
         </div>
       </div>
     </div>

@@ -66,7 +66,7 @@ get '/' => [qw/fillin_user/] => sub {
     my @events = $self->get_events();
     return $c->render('index.tx', {
         events      => \@events,
-        encode_json => \&JSON::XS::encode_json,
+        encode_json => sub { JSON::XS->new->encode(@_) },
     });
 };
 
@@ -220,6 +220,14 @@ sub get_event {
 
     my $event = $self->dbh->select_row('SELECT * FROM events WHERE id = ?', $event_id);
     return unless $event;
+
+    # zero fill
+    $event->{total}   = 0;
+    $event->{remains} = 0;
+    for my $rank (qw/S A B C/) {
+        $event->{sheets}->{$rank}->{total}   = 0;
+        $event->{sheets}->{$rank}->{remains} = 0;
+    }
 
     my $sheets = $self->dbh->select_all('SELECT * FROM sheets ORDER BY `rank`, num');
     for my $sheet (@$sheets) {

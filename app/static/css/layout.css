@@ -5,3 +5,7 @@
 .events span.badge {
   margin: .1rem;
 }
+
+#confirm-modal {
+  z-index: 9999 !important;
+}
