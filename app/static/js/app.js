@@ -5,6 +5,12 @@ var DOM = {
   eventModal: $('#event-modal'),
 };
 
+function showError(err) {
+  setTimeout(function () {
+    alert(err);
+  }, 1);
+}
+
 var API = (function () {
   var handleJSON = function (res) {
     return res.json();
@@ -149,7 +155,7 @@ var EventModal = new Vue({
             EventList.$forceUpdate();
           });
         }).catch(function (err) {
-          alert(err);
+          showError(err);
         });
       });
     },
@@ -171,7 +177,7 @@ var EventModal = new Vue({
             EventList.$forceUpdate();
           });
         }).catch(function (err) {
-          alert(err);
+          showError(err);
         });
       });
     },
@@ -183,7 +189,7 @@ function updateEventModal(eventId, callback) {
     EventModal.$data.event = event;
     callback(event);
   }).catch(function (err) {
-    alert(err);
+    showError(err);
   });
 }
 
@@ -205,7 +211,7 @@ new Vue({
         Torb.currentUser = user;
         DOM.loginModal.modal('hide');
       }).catch(function (err) {
-        alert(err);
+        showError(err);
       });;
     },
   },
@@ -228,7 +234,7 @@ new Vue({
         Torb.currentUser = user;
         DOM.registerModal.modal('hide');
       }).catch(function (err) {
-        alert(err);
+        showError(err);
       });
     },
   },
