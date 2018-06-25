@@ -8,7 +8,7 @@ var DOM = {
 function showError(err) {
   setTimeout(function () {
     alert(err);
-  }, 1);
+  }, 100);
 }
 
 var API = (function () {
