@@ -1,4 +1,5 @@
 requires 'DBIx::Sunny';
+requires 'DBD::mysql';
 requires 'JSON::XS', '3.00';
 requires 'Kossy';
 requires 'Plack::Builder';
