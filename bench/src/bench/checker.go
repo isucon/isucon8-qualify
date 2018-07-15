@@ -27,7 +27,7 @@ const IsubataAppHost = "isubata.example.com"
 var (
 	RedirectAttemptedError = fmt.Errorf("redirect attempted")
 	RequestTimeoutError    = fmt.Errorf("リクエストがタイムアウトしました")
-	UserAgent              = "isucon7q-benchmarker"
+	UserAgent              = "isucon8q-benchmarker"
 	GetTimeout             = 10 * time.Second
 	PostTimeout            = 3 * time.Second
 	InitializeTimeout      = 10 * time.Second

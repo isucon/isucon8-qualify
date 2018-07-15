@@ -159,7 +159,7 @@ func runWorkerMode(tempDir, portalUrl string) {
 
 	for {
 		job := getJobLoop()
-		name := fmt.Sprintf("isucon7q-benchresult-%d-%d.json", time.Now().Unix(), job.ID)
+		name := fmt.Sprintf("isucon8q-benchresult-%d-%d.json", time.Now().Unix(), job.ID)
 		output := path.Join(tempDir, name)
 
 		var args []string
