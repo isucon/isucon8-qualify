@@ -24,32 +24,32 @@ import (
 )
 
 var (
-	loginReg = regexp.MustCompile(`^/login$`)
+	loginReg = regexp.MustCompile(`^/api/actions/login$`)
 )
 
-func validateJsonMessage(state *State, chanID int, lastMessageID int, msgs []*JsonMessage) error {
-	if len(msgs) == 0 {
-		return nil
-	}
-	if 100 < len(msgs) {
-		return fatalErrorf("メッセージの件数が正しくありません")
-	}
-	if lastMessageID >= msgs[0].ID {
-		return fatalErrorf("メッセージの順番が正しくありません")
-	}
-	for i := 0; i < len(msgs)-1; i++ {
-		if msgs[i].ID >= msgs[i+1].ID {
-			return fatalErrorf("メッセージの順番が正しくありません")
-		}
-	}
-	for _, msg := range msgs {
-		err := state.ValidateJsonMessage(chanID, msg)
-		if err != nil {
-			return fatalErrorf("メッセージの検証に失敗 %v", err)
-		}
-	}
-	return nil
-}
+// func validateJsonMessage(state *State, chanID int, lastMessageID int, msgs []*JsonMessage) error {
+// 	if len(msgs) == 0 {
+// 		return nil
+// 	}
+// 	if 100 < len(msgs) {
+// 		return fatalErrorf("メッセージの件数が正しくありません")
+// 	}
+// 	if lastMessageID >= msgs[0].ID {
+// 		return fatalErrorf("メッセージの順番が正しくありません")
+// 	}
+// 	for i := 0; i < len(msgs)-1; i++ {
+// 		if msgs[i].ID >= msgs[i+1].ID {
+// 			return fatalErrorf("メッセージの順番が正しくありません")
+// 		}
+// 	}
+// 	for _, msg := range msgs {
+// 		err := state.ValidateJsonMessage(chanID, msg)
+// 		if err != nil {
+// 			return fatalErrorf("メッセージの検証に失敗 %v", err)
+// 		}
+// 	}
+// 	return nil
+// }
 
 func checkHTML(f func(*http.Response, *goquery.Document) error) func(*http.Response, *bytes.Buffer) error {
 	return func(res *http.Response, body *bytes.Buffer) error {
@@ -61,27 +61,28 @@ func checkHTML(f func(*http.Response, *goquery.Document) error) func(*http.Respo
 	}
 }
 
-func genPostProfileBody(dispName, fileName string, avatar []byte) (*bytes.Buffer, string, error) {
+// func genPostProfileBody(nickname, fileName string, avatar []byte) (*bytes.Buffer, string, error) {
+func genPostProfileBody(nickname, fileName string) (*bytes.Buffer, string, error) {
 	body := new(bytes.Buffer)
 	writer := multipart.NewWriter(body)
 
-	if avatar != nil {
-		part, err := writer.CreateFormFile("avatar_icon", filepath.Base(fileName))
-		if err != nil {
-			return nil, "", err
-		}
+	// if avatar != nil {
+	// 	part, err := writer.CreateFormFile("avatar_icon", filepath.Base(fileName))
+	// 	if err != nil {
+	// 		return nil, "", err
+	// 	}
 
-		for sum := 0; sum < len(avatar); {
-			n, err := part.Write(avatar)
-			if err != nil {
-				return nil, "", err
-			}
-			sum += n
-		}
-	}
+	// 	for sum := 0; sum < len(avatar); {
+	// 		n, err := part.Write(avatar)
+	// 		if err != nil {
+	// 			return nil, "", err
+	// 		}
+	// 		sum += n
+	// 	}
+	// }
 
-	if dispName != "" {
-		err := writer.WriteField("display_name", dispName)
+	if nickname != "" {
+		err := writer.WriteField("nickname", nickname)
 		if err != nil {
 			return nil, "", err
 		}
@@ -141,19 +142,20 @@ func goLoadAvatar(ctx context.Context, checker *Checker, paths ...string) {
 	goLoadStaticFiles(ctx, checker, paths...)
 }
 
-func LoadRegister(ctx context.Context, state *State) error {
+func LoadSignUp(ctx context.Context, state *State) error {
 	user, checker, push := state.PopNewUser()
 	if user == nil {
 		return nil
 	}
 
 	err := checker.Play(ctx, &CheckAction{
-		Method:    "POST",
-		Path:      "/register",
-		CheckFunc: checkRedirectStatusCode,
+		Method:             "POST",
+		Path:               "/api/users",
+		ExpectedStatusCode: 201,
 		PostData: map[string]string{
-			"name":     user.Name,
-			"password": user.Password,
+			"nickname":   user.Nickname,
+			"login_name": user.LoginName,
+			"password":   user.Password,
 		},
 		Description: "新規ユーザが作成できること",
 	})
@@ -162,9 +164,9 @@ func LoadRegister(ctx context.Context, state *State) error {
 	}
 
 	err = checker.Play(ctx, &CheckAction{
-		Method:    "POST",
-		Path:      "/login",
-		CheckFunc: checkRedirectStatusCode,
+		Method:             "POST",
+		Path:               "/api/actions/login",
+		ExpectedStatusCode: 200,
 		PostData: map[string]string{
 			"name":     user.Name,
 			"password": user.Password,
@@ -175,24 +177,24 @@ func LoadRegister(ctx context.Context, state *State) error {
 		return err
 	}
 
-	user.Avatar = DataSet.Avatars[rand.Intn(len(DataSet.Avatars))]
+	// user.Avatar = DataSet.Avatars[rand.Intn(len(DataSet.Avatars))]
 
-	body := new(bytes.Buffer)
-	writer := multipart.NewWriter(body)
-	part, err := writer.CreateFormFile("avatar_icon", filepath.Base(user.Avatar.FilePath))
-	if err != nil {
-		return err
-	}
+	// body := new(bytes.Buffer)
+	// writer := multipart.NewWriter(body)
+	// part, err := writer.CreateFormFile("avatar_icon", filepath.Base(user.Avatar.FilePath))
+	// if err != nil {
+	// 	return err
+	// }
 
-	for sum := 0; sum < len(user.Avatar.Bytes); {
-		n, err := part.Write(user.Avatar.Bytes)
-		if err != nil {
-			return err
-		}
-		sum += n
-	}
+	// for sum := 0; sum < len(user.Avatar.Bytes); {
+	// 	n, err := part.Write(user.Avatar.Bytes)
+	// 	if err != nil {
+	// 		return err
+	// 	}
+	// 	sum += n
+	// }
 
-	err = writer.WriteField("display_name", user.DisplayName)
+	err = writer.WriteField("nickname", user.Nickname)
 	if err != nil {
 		return err
 	}
@@ -202,17 +204,17 @@ func LoadRegister(ctx context.Context, state *State) error {
 		return err
 	}
 
-	err = checker.Play(ctx, &CheckAction{
-		Method:      "POST",
-		Path:        "/profile",
-		ContentType: writer.FormDataContentType(),
-		PostBody:    body,
-		CheckFunc:   checkRedirectStatusCode,
-		Description: "プロフィールを変更できること",
-	})
-	if err != nil {
-		return err
-	}
+	// err = checker.Play(ctx, &CheckAction{
+	// 	Method:      "POST",
+	// 	Path:        "/profile",
+	// 	ContentType: writer.FormDataContentType(),
+	// 	PostBody:    body,
+	// 	CheckFunc:   checkRedirectStatusCode,
+	// 	Description: "プロフィールを変更できること",
+	// })
+	// if err != nil {
+	// 	return err
+	// }
 
 	push()
 
@@ -1184,7 +1186,7 @@ func CheckRegisterProfile(ctx context.Context, state *State) error {
 		return err
 	}
 
-	checkSelfProfile := func(name, dispName string, avatar *Avatar) error {
+	checkSelfProfile := func(name, nickname string, avatar *Avatar) error {
 		return checker.Play(ctx, &CheckAction{
 			Method:             "GET",
 			Path:               fmt.Sprintf("/profile/%s", name),
@@ -1196,7 +1198,7 @@ func CheckRegisterProfile(ctx context.Context, state *State) error {
 				}
 
 				// デフォルトではユーザ名 = 表示名
-				if doc.Find("body > div > div > main > form > div > div:nth-child(4) > input").AttrOr("value", "") != dispName {
+				if doc.Find("body > div > div > main > form > div > div:nth-child(4) > input").AttrOr("value", "") != nickname {
 					return fatalErrorf("自分のプロフィール画面に表示名が正しく表示されていません ユーザ名 %s", name)
 				}
 
@@ -1221,7 +1223,7 @@ func CheckRegisterProfile(ctx context.Context, state *State) error {
 		})
 	}
 
-	checkOtherProfile := func(name, dispName string, avatar *Avatar) error {
+	checkOtherProfile := func(name, nickname string, avatar *Avatar) error {
 		return checker2.Play(ctx, &CheckAction{
 			Method:             "GET",
 			Path:               fmt.Sprintf("/profile/%s", name),
@@ -1232,8 +1234,8 @@ func CheckRegisterProfile(ctx context.Context, state *State) error {
 					return fatalErrorf("他人のプロフィール画面にユーザ名が正しく表示されていません ユーザ名 %s", name)
 				}
 
-				if doc.Find("body > div > div > main > div > div:nth-child(4) > p").Text() != dispName {
-					return fatalErrorf("他人のプロフィール画面に表示名が正しく表示されていません ユーザ名 %s", dispName)
+				if doc.Find("body > div > div > main > div > div:nth-child(4) > p").Text() != nickname {
+					return fatalErrorf("他人のプロフィール画面に表示名が正しく表示されていません ユーザ名 %s", nickname)
 				}
 
 				url, exists := doc.Find("body > div > div > main > div > div:nth-child(6) > img").Attr("src")
@@ -1763,19 +1765,19 @@ func CheckGetHistory(ctx context.Context, state *State, chanID int, mode PageFol
 						return false
 					}
 
-					name := trim(userName[idx+1:])
-					dispName := trim(userName[:idx])
+					login_name := trim(userName[idx+1:])
+					nickname := trim(userName[:idx])
 					if name == "" {
 						e = fatalErrorf("表示名のフォーマットが正しくありません")
 						return false
 					}
 
-					u, ok := state.FindUserByName(name)
+					u, ok := state.FindUserByName(login_name)
 					if !ok {
 						e = fatalErrorf("ユーザ名の表示が正しくありません")
 						return false
 					}
-					if dispName != u.DisplayName {
+					if nickname != u.Nickname {
 						e = fatalErrorf("表示名の表示が正しくありません")
 						return false
 					}
@@ -1792,7 +1794,7 @@ func CheckGetHistory(ctx context.Context, state *State, chanID int, mode PageFol
 					}
 					messageSet[content] = true
 
-					avatarPathMap[u.Name] = avatarPath
+					avatarPathMap[u.LoginName] = avatarPath
 					return true
 				})
 				if e != nil {
@@ -2333,18 +2335,18 @@ func CheckMessageScenario(ctx context.Context, state *State) error {
 				return fatalErrorf("表示名のフォーマットが正しくありません")
 			}
 
-			name := trim(userName[idx+1:])
-			dispName := trim(userName[:idx])
+			login_name := trim(userName[idx+1:])
+			nickname := trim(userName[:idx])
 			if name == "" {
 				return fatalErrorf("表示名の表示が正しくありません")
 			}
 
-			u, ok := state.FindUserByName(name)
+			u, ok := state.FindUserByName(login_name)
 			if !ok {
 				return fatalErrorf("ユーザ名の表示が正しくありません")
 			}
 
-			if dispName != u.DisplayName {
+			if nickname != u.Nickname {
 				return fatalErrorf("表示名の表示が正しくありません")
 			}
 
@@ -2357,8 +2359,8 @@ func CheckMessageScenario(ctx context.Context, state *State) error {
 				return fatalErrorf("送信したメッセージが表示されていません")
 			}
 
-			if u.Name != user1.Name {
-				return fatalErrorf("ユーザ名が正しくありません")
+			if u.LoginName != user1.LoginName {
+				return fatalErrorf("ログインユーザ名が正しくありません")
 			}
 
 			return nil
