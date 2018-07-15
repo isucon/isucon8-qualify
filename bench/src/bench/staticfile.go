@@ -8,17 +8,13 @@ type StaticFile struct {
 
 var (
 	StaticFiles = []*StaticFile{
-		&StaticFile{"/css/bootstrap.min.css", 150996, "7e923ad223e9f33e54d22e50cf2bcce5"},
-		&StaticFile{"/css/main.css", 1741, "d8c2a974e5816bd9f839f84a77348970"},
-		&StaticFile{"/favicon.ico", 318, "7157dc4688c274fe0bc2e3122cac19c9"},
-		&StaticFile{"/fonts/glyphicons-halflings-regular.eot", 20127, "f4769f9bdb7466be65088239c12046d1"},
-		&StaticFile{"/fonts/glyphicons-halflings-regular.svg", 108738, "89889688147bd7575d6327160d64e760"},
-		&StaticFile{"/fonts/glyphicons-halflings-regular.ttf", 45404, "e18bbf611f2a2e43afc071aa2f4e1512"},
-		&StaticFile{"/fonts/glyphicons-halflings-regular.woff", 23424, "fa2772327f55d8198301fdb8bcfc8158"},
-		&StaticFile{"/fonts/glyphicons-halflings-regular.woff2", 18028, "448c34a56d699c29117adc64c43affeb"},
-		&StaticFile{"/js/bootstrap.min.js", 46653, "0827a0bdcd9a917990eee461a77dd33e"},
-		&StaticFile{"/js/chat.js", 4162, "c557e68d34fdfb347fa4cf00e1eba7bd"},
-		&StaticFile{"/js/jquery.min.js", 86659, "c9f5aeeca3ad37bf2aa006139b935f0a"},
-		&StaticFile{"/js/tether.min.js", 24632, "1c4a5999a2b43cdd3aaa88a04f24c961"},
+		&StaticFile{"/favicon.ico", 1092, "07b21a6c8984e04d108064c585411601"},
+		&StaticFile{"/css/bootstrap.min.css", 140930, "a7022c6fa83d91db67738d6e3cd3252d"},
+		&StaticFile{"/css/layout.css", 426, "69b5c07f3aa24cc2efac2903c694e9be"},
+		&StaticFile{"/js/jquery-3.3.1.slim.min.js", 69917, "99b0a83cf1b0b1e2cb16041520e87641"},
+		&StaticFile{"/js/bootstrap.bundle.min.js", 70682, "d70c474886678aebe3e9d91965dc8b62"},
+		&StaticFile{"/js/vue.min.js", 86452, "5283b86cbf48a538ee3cbebac633ccd4"},
+		&StaticFile{"/js/fetch.min.js", 7337, "b72077f7f0fa3fc8f79a2fc57c15d827"},
+		&StaticFile{"/js/app.js", 7284, "ea40880f8dbde79b31e0a492f48612c8"},
 	}
 )
