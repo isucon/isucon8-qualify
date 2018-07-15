@@ -77,41 +77,41 @@ func requestInitialize(targetHost string) error {
 func preTest(ctx context.Context, state *bench.State) error {
 	var err error
 
-	maxChannelCount := 100
-	var chanID int
-	for state.TotalChannelCount() < maxChannelCount {
-		chanID, err = bench.CheckPostAddChannel(ctx, state)
-		if err != nil {
-			return err
-		}
-	}
+	// maxChannelCount := 100
+	// var chanID int
+	// for state.TotalChannelCount() < maxChannelCount {
+	// 	chanID, err = bench.CheckPostAddChannel(ctx, state)
+	// 	if err != nil {
+	// 		return err
+	// 	}
+	// }
 
-	state.DistributeTmpChannelIDs()
+	// state.DistributeTmpChannelIDs()
 
-	err = bench.CheckGetAddChannel(ctx, state)
-	if err != nil {
-		return err
-	}
+	// err = bench.CheckGetAddChannel(ctx, state)
+	// if err != nil {
+	// 	return err
+	// }
 
-	err = bench.CheckPostAddChannelFail(ctx, state)
-	if err != nil {
-		return err
-	}
+	// err = bench.CheckPostAddChannelFail(ctx, state)
+	// if err != nil {
+	// 	return err
+	// }
 
-	err = bench.CheckGetProfileFail(ctx, state)
-	if err != nil {
-		return err
-	}
+	// err = bench.CheckGetProfileFail(ctx, state)
+	// if err != nil {
+	// 	return err
+	// }
 
-	err = bench.CheckGetHistory(ctx, state, chanID, bench.FollowModeTail)
-	if err != nil {
-		return err
-	}
+	// err = bench.CheckGetHistory(ctx, state, chanID, bench.FollowModeTail)
+	// if err != nil {
+	// 	return err
+	// }
 
-	err = bench.CheckGetHistory(ctx, state, 1, bench.FollowModeTail)
-	if err != nil {
-		return err
-	}
+	// err = bench.CheckGetHistory(ctx, state, 1, bench.FollowModeTail)
+	// if err != nil {
+	// 	return err
+	// }
 
 	err = bench.CheckNotLoggedInUser(ctx, state)
 	if err != nil {
@@ -128,36 +128,37 @@ func preTest(ctx context.Context, state *bench.State) error {
 		return err
 	}
 
-	err = bench.CheckRegisterProfile(ctx, state)
-	if err != nil {
-		return err
-	}
+	// err = bench.CheckRegisterProfile(ctx, state)
+	// if err != nil {
+	// 	return err
+	// }
 
-	err = bench.CheckGetChannel(ctx, state)
-	if err != nil {
-		return err
-	}
+	// err = bench.CheckGetChannel(ctx, state)
+	// if err != nil {
+	// 	return err
+	// }
 
-	err = bench.CheckFecthRegisterAndLogin(ctx, state)
-	if err != nil {
-		return err
-	}
+	// err = bench.CheckFecthRegisterAndLogin(ctx, state)
+	// if err != nil {
+	// 	return err
+	// }
 
-	err = bench.CheckFecthUnreadCount(ctx, state)
-	if err != nil {
-		return err
-	}
+	// err = bench.CheckFecthUnreadCount(ctx, state)
+	// if err != nil {
+	// 	return err
+	// }
 
-	err = bench.CheckMessageScenario(ctx, state)
-	if err != nil {
-		return err
-	}
+	// err = bench.CheckMessageScenario(ctx, state)
+	// if err != nil {
+	// 	return err
+	// }
 
 	return nil
 }
 
 func validationMain(ctx context.Context, state *bench.State) error {
-	for r := range rand.Perm(8) {
+	//for r := range rand.Perm(8) {
+	for r := range rand.Perm(3) {
 		if ctx.Err() != nil {
 			return nil
 		}
@@ -175,22 +176,22 @@ func validationMain(ctx context.Context, state *bench.State) error {
 		case 2:
 			err = bench.CheckLogin(ctx, state)
 			log.Println("CheckLogin", time.Since(t))
-		case 3:
-			err = bench.CheckRegisterProfile(ctx, state)
-			log.Println("CheckRegisterProfile", time.Since(t))
-		case 4:
-			err = bench.CheckGetChannel(ctx, state)
-			log.Println("CheckGetChannel", time.Since(t))
-		case 5:
-			chanID := state.GetActiveChannelID()
-			err = bench.CheckGetHistory(ctx, state, chanID, bench.FollowModeRandom)
-			log.Println("CheckGetHistory", time.Since(t))
-		case 6:
-			err = bench.CheckFecthUnreadCount(ctx, state)
-			log.Println("CheckFecthUnreadCount", time.Since(t))
-		case 7:
-			err = bench.CheckMessageScenario(ctx, state)
-			log.Println("CheckMessageScenario", time.Since(t))
+			//case 3:
+			//	err = bench.CheckRegisterProfile(ctx, state)
+			//	log.Println("CheckRegisterProfile", time.Since(t))
+			//case 4:
+			//	err = bench.CheckGetChannel(ctx, state)
+			//	log.Println("CheckGetChannel", time.Since(t))
+			//case 5:
+			//	chanID := state.GetActiveChannelID()
+			//	err = bench.CheckGetHistory(ctx, state, chanID, bench.FollowModeRandom)
+			//	log.Println("CheckGetHistory", time.Since(t))
+			//case 6:
+			//	err = bench.CheckFecthUnreadCount(ctx, state)
+			//	log.Println("CheckFecthUnreadCount", time.Since(t))
+			//case 7:
+			//	err = bench.CheckMessageScenario(ctx, state)
+			//	log.Println("CheckMessageScenario", time.Since(t))
 		}
 
 		isFatalError := false
@@ -212,16 +213,17 @@ func validationMain(ctx context.Context, state *bench.State) error {
 }
 
 func benchmarkMain(ctx context.Context, state *bench.State) {
-	addChannelUser := func(chanID, n int) {
-		for i := 0; i < n; i++ {
-			go bench.LoadReadWriteUser(ctx, state, chanID)
-			go bench.LoadReadOnlyUser(ctx, state, chanID)
-		}
-	}
+	// addChannelUser := func(chanID, n int) {
+	// 	for i := 0; i < n; i++ {
+	// 		go bench.LoadReadWriteUser(ctx, state, chanID)
+	// 		go bench.LoadReadOnlyUser(ctx, state, chanID)
+	// 	}
+	// }
 
-	addChannelUser(state.GetInactiveChannelID(), 10)
-	addChannelUser(state.GetActiveChannelID(), 10)
+	// addChannelUser(state.GetInactiveChannelID(), 10)
+	// addChannelUser(state.GetActiveChannelID(), 10)
 
+	// TODO(sonots): what is 10?
 	for i := 0; i < 10; i++ {
 		go func() {
 			for {
@@ -278,6 +280,7 @@ func benchmarkMain(ctx context.Context, state *bench.State) {
 
 func printCounterSummary() {
 	m := map[string]int64{}
+	// TODO(sonots): Fix
 	for key, count := range counter.GetMap() {
 		if strings.HasPrefix(key, "GET|/history/") {
 			key = "GET|/history/*"
@@ -395,6 +398,7 @@ func startBenchmark(remoteAddrs []string) *BenchResult {
 
 	printCounterSummary()
 
+	// TODO(sonots): Fix
 	getCount := counter.SumPrefix(`GET|/`)
 	fetchCount := counter.SumPrefix(`GET|/fetch`)
 	postCount := counter.SumPrefix(`POST|/`)
@@ -471,10 +475,10 @@ func main() {
 	}
 	log.Println("Remotes", remoteAddrs)
 
-	addLoadFunc(1, bench.LoadProfile)
+	//addLoadFunc(1, bench.LoadProfile)
 	addLoadFunc(1, bench.LoadSignUp)
-	addLoadFunc(1, bench.LoadGetChannel)
-	addLoadFunc(1, bench.LoadGetHistory)
+	//addLoadFunc(1, bench.LoadGetChannel)
+	//addLoadFunc(1, bench.LoadGetHistory)
 
 	bench.SetTargetHosts(remoteAddrs)
 
