@@ -419,7 +419,7 @@ func startBenchmark(remoteAddrs []string) *BenchResult {
 
 func main() {
 	log.SetFlags(log.LstdFlags | log.Lmicroseconds | log.Lshortfile)
-	log.SetPrefix("[isu7q-bench] ")
+	log.SetPrefix("[isu8q-bench] ")
 
 	var (
 		workermode bool
