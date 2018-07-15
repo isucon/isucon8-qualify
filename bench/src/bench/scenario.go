@@ -6,19 +6,19 @@ import (
 	"context"
 	"crypto/md5"
 	"encoding/hex"
-	"encoding/json"
+	//"encoding/json"
 	"fmt"
 	"io"
-	"log"
-	"math/rand"
+	//"log"
+	//"math/rand"
 	"mime/multipart"
 	"net/http"
-	"path/filepath"
+	//"path/filepath"
 	"regexp"
-	"strconv"
-	"strings"
-	"sync"
-	"time"
+	//"strconv"
+	//"strings"
+	//"sync"
+	//"time"
 
 	"github.com/PuerkitoBio/goquery"
 )
@@ -168,8 +168,8 @@ func LoadSignUp(ctx context.Context, state *State) error {
 		Path:               "/api/actions/login",
 		ExpectedStatusCode: 200,
 		PostData: map[string]string{
-			"name":     user.Name,
-			"password": user.Password,
+			"login_name": user.LoginName,
+			"password":   user.Password,
 		},
 		Description: "作成したユーザでログインできること",
 	})
@@ -179,8 +179,8 @@ func LoadSignUp(ctx context.Context, state *State) error {
 
 	// user.Avatar = DataSet.Avatars[rand.Intn(len(DataSet.Avatars))]
 
-	// body := new(bytes.Buffer)
-	// writer := multipart.NewWriter(body)
+	body := new(bytes.Buffer)
+	writer := multipart.NewWriter(body)
 	// part, err := writer.CreateFormFile("avatar_icon", filepath.Base(user.Avatar.FilePath))
 	// if err != nil {
 	// 	return err

@@ -1,13 +1,12 @@
 package bench
 
 import (
-	"fmt"
+	//"fmt"
 	"math/rand"
-	"strings"
+	//"strings"
 	"sync"
-	"time"
-
-	"bench/counter"
+	//"time"
+	//"bench/counter"
 )
 
 // type JsonUser struct {

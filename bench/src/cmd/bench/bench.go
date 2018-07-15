@@ -113,10 +113,10 @@ func preTest(ctx context.Context, state *bench.State) error {
 	// 	return err
 	// }
 
-	err = bench.CheckNotLoggedInUser(ctx, state)
-	if err != nil {
-		return err
-	}
+	// err = bench.CheckNotLoggedInUser(ctx, state)
+	// if err != nil {
+	// 	return err
+	// }
 
 	err = bench.CheckStaticFiles(ctx, state)
 	if err != nil {
@@ -158,7 +158,7 @@ func preTest(ctx context.Context, state *bench.State) error {
 
 func validationMain(ctx context.Context, state *bench.State) error {
 	//for r := range rand.Perm(8) {
-	for r := range rand.Perm(3) {
+	for r := range rand.Perm(2) {
 		if ctx.Err() != nil {
 			return nil
 		}
@@ -168,14 +168,14 @@ func validationMain(ctx context.Context, state *bench.State) error {
 
 		switch r {
 		case 0:
-			err = bench.CheckNotLoggedInUser(ctx, state)
-			log.Println("CheckNotLoggedInUser", time.Since(t))
-		case 1:
 			err = bench.CheckStaticFiles(ctx, state)
 			log.Println("CheckStaticFiles", time.Since(t))
-		case 2:
+		case 1:
 			err = bench.CheckLogin(ctx, state)
 			log.Println("CheckLogin", time.Since(t))
+			//case 2:
+			//	err = bench.CheckNotLoggedInUser(ctx, state)
+			//	log.Println("CheckNotLoggedInUser", time.Since(t))
 			//case 3:
 			//	err = bench.CheckRegisterProfile(ctx, state)
 			//	log.Println("CheckRegisterProfile", time.Since(t))
@@ -267,8 +267,9 @@ func benchmarkMain(ctx context.Context, state *bench.State) {
 				loadLogs = append(loadLogs, fmt.Sprintf("%v 負荷レベルが上昇しました。", now))
 				counter.IncKey("load-level-up")
 				log.Println("Increase Load Level.")
-				addChannelUser(state.GetInactiveChannelID(), 5)
-				addChannelUser(state.GetActiveChannelID(), 5)
+				// TODO(sonots): Add go channels
+				//addChannelUser(state.GetInactiveChannelID(), 5)
+				//addChannelUser(state.GetActiveChannelID(), 5)
 			}
 		case <-ctx.Done():
 			// ベンチ終了、このタイミングでエラーの収集をやめる。

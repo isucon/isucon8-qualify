@@ -2,14 +2,14 @@ package bench
 
 import (
 	"bufio"
-	"bytes"
+	//"bytes"
 	"compress/gzip"
-	"crypto/md5"
+	//"crypto/md5"
 	"crypto/sha1"
 	"encoding/hex"
 	"fmt"
 	"io"
-	"io/ioutil"
+	//"io/ioutil"
 	"log"
 	"math/rand"
 	"os"
@@ -17,7 +17,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
-	"unicode/utf8"
+	//"unicode/utf8"
 )
 
 var (
