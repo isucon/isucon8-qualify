@@ -1,6 +1,6 @@
 bin
 pkg
-vendor
+/bench/vendor/src/
 .perl-version
 .DS_store
 isucon8q-initial-dataset.sql.gz
