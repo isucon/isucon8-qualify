@@ -3,3 +3,4 @@ pkg
 vendor
 .perl-version
 .DS_store
+isucon8q-initial-dataset.sql.gz
