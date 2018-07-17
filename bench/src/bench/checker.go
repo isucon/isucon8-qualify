@@ -22,7 +22,7 @@ import (
 	"bench/urlcache"
 )
 
-const IsubataAppHost = "isubata.example.com"
+const TorbAppHost = "torb.example.com"
 
 var (
 	RedirectAttemptedError = fmt.Errorf("redirect attempted")
@@ -299,7 +299,7 @@ func (c *Checker) NewRequest(method, uri string, body io.Reader) (*http.Request,
 		parsedURL.Scheme = "http"
 	}
 
-	parsedURL.Host = IsubataAppHost
+	parsedURL.Host = TorbAppHost
 
 	req, err := http.NewRequest(method, parsedURL.String(), body)
 

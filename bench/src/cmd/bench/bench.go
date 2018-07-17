@@ -52,7 +52,7 @@ func requestInitialize(targetHost string) error {
 	}
 
 	req.Header.Set("User-Agent", bench.UserAgent)
-	req.Host = bench.IsubataAppHost
+	req.Host = bench.TorbAppHost
 
 	client := &http.Client{
 		Timeout: bench.InitializeTimeout,
