@@ -5,13 +5,13 @@ import (
 	//"bytes"
 	"compress/gzip"
 	//"crypto/md5"
-	"crypto/sha1"
+	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
 	"io"
 	//"io/ioutil"
 	"log"
-	"math/rand"
+	//"math/rand"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -215,13 +215,13 @@ func PrepareDataSet() {
 
 var saltRunes = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
 
-func genSalt(n int, rnd *rand.Rand) string {
-	b := make([]rune, n)
-	for i := range b {
-		b[i] = saltRunes[rnd.Intn(len(saltRunes))]
-	}
-	return string(b)
-}
+// func genSalt(n int, rnd *rand.Rand) string {
+// 	b := make([]rune, n)
+// 	for i := range b {
+// 		b[i] = saltRunes[rnd.Intn(len(saltRunes))]
+// 	}
+// 	return string(b)
+// }
 
 func fbadf(w io.Writer, f string, params ...interface{}) {
 	for i, param := range params {
@@ -250,8 +250,8 @@ func GenerateInitialDataSetSQL(outputPath string) {
 	fbadf(w, "SET NAMES utf8mb4;")
 	fbadf(w, "BEGIN;")
 
-	rnd := rand.New(rand.NewSource(3656))
-	baseTime, _ := time.Parse("2006-01-02", "2017-01-01")
+	// rnd := rand.New(rand.NewSource(3656))
+	// baseTime, _ := time.Parse("2006-01-02", "2017-01-01")
 	// channel
 	// for i, c := range DataSet.Channels {
 	// 	t := baseTime.Add(time.Duration(i+2) * time.Minute)
@@ -260,16 +260,18 @@ func GenerateInitialDataSetSQL(outputPath string) {
 
 	// user
 	for i, user := range DataSet.Users {
-		salt := genSalt(20, rnd)
-		passDigest := fmt.Sprintf("%x", sha1.Sum([]byte(salt+user.Password)))
+		// salt := genSalt(20, rnd)
+		// passDigest := fmt.Sprintf("%x", sha1.Sum([]byte(salt+user.Password)))
+		passDigest := fmt.Sprintf("%x", sha256.Sum256([]byte(user.Password)))
 		must(err)
 		// avatar_name := "default.png"
 		// if user.Avatar != nil {
 		// 	avatar_name = user.Avatar.SHA1 + filepath.Ext(user.Avatar.FilePath)
 		// }
-		t := baseTime.AddDate(0, 1, 0).Add(time.Duration(3656*i) * time.Minute)
-		fbadf(w, "INSERT INTO user (id, login_name, salt, password, nickname, created_at) VALUES (%s, %s, %s, %s, %s, %s, %s);",
-			i+1, user.LoginName, salt, passDigest, user.Nickname, t)
+		// t := baseTime.AddDate(0, 1, 0).Add(time.Duration(3656*i) * time.Minute)
+		// fbadf(w, "INSERT INTO user (id, login_name, salt, password, nickname, created_at) VALUES (%s, %s, %s, %s, %s, %s, %s);",
+		fbadf(w, "INSERT INTO users (id, nickname, login_name, pass_hash) VALUES (%s, %s, %s, %s);",
+			i+1, user.Nickname, user.LoginName, passDigest)
 	}
 
 	// default image
