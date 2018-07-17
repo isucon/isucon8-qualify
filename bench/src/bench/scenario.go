@@ -177,45 +177,6 @@ func LoadSignUp(ctx context.Context, state *State) error {
 		return err
 	}
 
-	// user.Avatar = DataSet.Avatars[rand.Intn(len(DataSet.Avatars))]
-
-	body := new(bytes.Buffer)
-	writer := multipart.NewWriter(body)
-	// part, err := writer.CreateFormFile("avatar_icon", filepath.Base(user.Avatar.FilePath))
-	// if err != nil {
-	// 	return err
-	// }
-
-	// for sum := 0; sum < len(user.Avatar.Bytes); {
-	// 	n, err := part.Write(user.Avatar.Bytes)
-	// 	if err != nil {
-	// 		return err
-	// 	}
-	// 	sum += n
-	// }
-
-	err = writer.WriteField("nickname", user.Nickname)
-	if err != nil {
-		return err
-	}
-
-	err = writer.Close()
-	if err != nil {
-		return err
-	}
-
-	// err = checker.Play(ctx, &CheckAction{
-	// 	Method:      "POST",
-	// 	Path:        "/profile",
-	// 	ContentType: writer.FormDataContentType(),
-	// 	PostBody:    body,
-	// 	CheckFunc:   checkRedirectStatusCode,
-	// 	Description: "プロフィールを変更できること",
-	// })
-	// if err != nil {
-	// 	return err
-	// }
-
 	push()
 
 	return nil
@@ -344,57 +305,45 @@ func LoadSignUp(ctx context.Context, state *State) error {
 //
 // 	return nil
 // }
-//
-// func LoadProfile(ctx context.Context, state *State) error {
-// 	user, checker, push := state.PopRandomUser()
-// 	if user == nil {
-// 		return nil
-// 	}
-// 	defer push()
-//
-// 	act := &CheckAction{
-// 		Method:      "POST",
-// 		Path:        "/login",
-// 		CheckFunc:   checkRedirectStatusCode,
-// 		Description: "ログインできること",
-// 		PostData: map[string]string{
-// 			"name":     user.Name,
-// 			"password": user.Password,
-// 		},
-// 	}
-//
-// 	err := checker.Play(ctx, act)
-// 	if err != nil {
-// 		return err
-// 	}
-//
-// 	err = checker.Play(ctx, &CheckAction{
-// 		Method:             "GET",
-// 		Path:               fmt.Sprintf("/profile/%s", user.Name),
-// 		ExpectedStatusCode: 200,
-// 		Description:        "プロフィールが表示できること",
-// 	})
-// 	if err != nil {
-// 		return err
-// 	}
-//
-// 	// TODO 表示名の更新 アバター画像の更新 両方の更新
-//
-// 	act = &CheckAction{
-// 		Method:      "GET",
-// 		Path:        "/logout",
-// 		CheckFunc:   checkRedirectStatusCode,
-// 		Description: "ログアウトできること",
-// 	}
-//
-// 	err = checker.Play(ctx, act)
-// 	if err != nil {
-// 		return err
-// 	}
-//
-// 	return nil
-// }
-//
+
+func LoadSignIn(ctx context.Context, state *State) error {
+	user, checker, push := state.PopRandomUser()
+	if user == nil {
+		return nil
+	}
+	defer push()
+
+	act := &CheckAction{
+		Method:             "POST",
+		Path:               "/api/actions/login",
+		ExpectedStatusCode: 200,
+		Description:        "ログインできること",
+		PostData: map[string]string{
+			"login_name": user.LoginName,
+			"password":   user.Password,
+		},
+	}
+
+	err := checker.Play(ctx, act)
+	if err != nil {
+		return err
+	}
+
+	act = &CheckAction{
+		Method:             "POST",
+		Path:               "/api/actions/logout",
+		ExpectedStatusCode: 204,
+		Description:        "ログアウトできること",
+	}
+
+	err = checker.Play(ctx, act)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 // func LoadGetChannel(ctx context.Context, state *State) error {
 // 	chanID := state.GetRandomChannelID()
 // 	user, checker, push := state.PopRandomUser()

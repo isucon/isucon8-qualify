@@ -476,7 +476,7 @@ func main() {
 	}
 	log.Println("Remotes", remoteAddrs)
 
-	//addLoadFunc(1, bench.LoadProfile)
+	addLoadFunc(1, bench.LoadSignIn)
 	addLoadFunc(1, bench.LoadSignUp)
 	//addLoadFunc(1, bench.LoadGetChannel)
 	//addLoadFunc(1, bench.LoadGetHistory)
