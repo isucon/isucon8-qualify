@@ -87,9 +87,23 @@ type BenchDataSet struct {
 
 type AppUser struct {
 	sync.Mutex
+	Nickname  string
 	LoginName string
 	Password  string
-	Nickname  string
+}
+
+type Event struct {
+	ID       uint
+	Title    string
+	PublicFg bool
+	Price    uint
+}
+
+type Sheet struct {
+	ID    uint
+	Rank  string
+	Num   uint
+	Price utin
 }
 
 type Reservation struct {
@@ -97,6 +111,13 @@ type Reservation struct {
 	SheetID    uint
 	UserID     uint
 	ReservedAt uint
+}
+
+type Administrator struct {
+	ID        uint
+	Nickname  string
+	LoginName string
+	Password  string
 }
 
 type State struct {
