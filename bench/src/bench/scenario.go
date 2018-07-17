@@ -70,10 +70,6 @@ func goLoadAsset(ctx context.Context, checker *Checker) {
 	goLoadStaticFiles(ctx, checker, assetFiles...)
 }
 
-func goLoadAvatar(ctx context.Context, checker *Checker, paths ...string) {
-	goLoadStaticFiles(ctx, checker, paths...)
-}
-
 func LoadSignUp(ctx context.Context, state *State) error {
 	user, checker, push := state.PopNewUser()
 	if user == nil {
