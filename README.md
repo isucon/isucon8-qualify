@@ -35,7 +35,7 @@ cd bench
 
 ```sh
 cd bench
-zcat isucon8q-initial-dataset.sql.gz | sudo mysql isubata
+gzip -dc isucon8q-initial-dataset.sql.gz | mysql -uroot torb
 ```
 
 ### ベンチマーク実行
