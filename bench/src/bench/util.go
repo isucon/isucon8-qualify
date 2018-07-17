@@ -34,11 +34,6 @@ func RandomAlphabetString(n int) string {
 	return string(b)
 }
 
-// func RandomText() string {
-// 	n := len(DataSet.Texts)
-// 	return DataSet.Texts[rand.Intn(n)] + DataSet.Texts[rand.Intn(n)] + DataSet.Texts[rand.Intn(n)]
-// }
-
 var bytesBufferPool = sync.Pool{
 	New: func() interface{} {
 		return new(bytes.Buffer)

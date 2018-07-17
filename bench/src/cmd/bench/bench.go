@@ -77,47 +77,6 @@ func requestInitialize(targetHost string) error {
 func preTest(ctx context.Context, state *bench.State) error {
 	var err error
 
-	// maxChannelCount := 100
-	// var chanID int
-	// for state.TotalChannelCount() < maxChannelCount {
-	// 	chanID, err = bench.CheckPostAddChannel(ctx, state)
-	// 	if err != nil {
-	// 		return err
-	// 	}
-	// }
-
-	// state.DistributeTmpChannelIDs()
-
-	// err = bench.CheckGetAddChannel(ctx, state)
-	// if err != nil {
-	// 	return err
-	// }
-
-	// err = bench.CheckPostAddChannelFail(ctx, state)
-	// if err != nil {
-	// 	return err
-	// }
-
-	// err = bench.CheckGetProfileFail(ctx, state)
-	// if err != nil {
-	// 	return err
-	// }
-
-	// err = bench.CheckGetHistory(ctx, state, chanID, bench.FollowModeTail)
-	// if err != nil {
-	// 	return err
-	// }
-
-	// err = bench.CheckGetHistory(ctx, state, 1, bench.FollowModeTail)
-	// if err != nil {
-	// 	return err
-	// }
-
-	// err = bench.CheckNotLoggedInUser(ctx, state)
-	// if err != nil {
-	// 	return err
-	// }
-
 	err = bench.CheckStaticFiles(ctx, state)
 	if err != nil {
 		return err
@@ -127,31 +86,6 @@ func preTest(ctx context.Context, state *bench.State) error {
 	if err != nil {
 		return err
 	}
-
-	// err = bench.CheckRegisterProfile(ctx, state)
-	// if err != nil {
-	// 	return err
-	// }
-
-	// err = bench.CheckGetChannel(ctx, state)
-	// if err != nil {
-	// 	return err
-	// }
-
-	// err = bench.CheckFecthRegisterAndLogin(ctx, state)
-	// if err != nil {
-	// 	return err
-	// }
-
-	// err = bench.CheckFecthUnreadCount(ctx, state)
-	// if err != nil {
-	// 	return err
-	// }
-
-	// err = bench.CheckMessageScenario(ctx, state)
-	// if err != nil {
-	// 	return err
-	// }
 
 	return nil
 }
@@ -173,25 +107,6 @@ func validationMain(ctx context.Context, state *bench.State) error {
 		case 1:
 			err = bench.CheckLogin(ctx, state)
 			log.Println("CheckLogin", time.Since(t))
-			//case 2:
-			//	err = bench.CheckNotLoggedInUser(ctx, state)
-			//	log.Println("CheckNotLoggedInUser", time.Since(t))
-			//case 3:
-			//	err = bench.CheckRegisterProfile(ctx, state)
-			//	log.Println("CheckRegisterProfile", time.Since(t))
-			//case 4:
-			//	err = bench.CheckGetChannel(ctx, state)
-			//	log.Println("CheckGetChannel", time.Since(t))
-			//case 5:
-			//	chanID := state.GetActiveChannelID()
-			//	err = bench.CheckGetHistory(ctx, state, chanID, bench.FollowModeRandom)
-			//	log.Println("CheckGetHistory", time.Since(t))
-			//case 6:
-			//	err = bench.CheckFecthUnreadCount(ctx, state)
-			//	log.Println("CheckFecthUnreadCount", time.Since(t))
-			//case 7:
-			//	err = bench.CheckMessageScenario(ctx, state)
-			//	log.Println("CheckMessageScenario", time.Since(t))
 		}
 
 		isFatalError := false
@@ -267,7 +182,7 @@ func benchmarkMain(ctx context.Context, state *bench.State) {
 				loadLogs = append(loadLogs, fmt.Sprintf("%v 負荷レベルが上昇しました。", now))
 				counter.IncKey("load-level-up")
 				log.Println("Increase Load Level.")
-				// TODO(sonots): Add go channels
+				// TODO(sonots): Add go channels to increase Load
 				//addChannelUser(state.GetInactiveChannelID(), 5)
 				//addChannelUser(state.GetActiveChannelID(), 5)
 			}
