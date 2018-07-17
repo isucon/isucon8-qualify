@@ -2,3 +2,4 @@ bin
 pkg
 vendor
 .perl-version
+.DS_store
