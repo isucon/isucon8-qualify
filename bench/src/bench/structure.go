@@ -20,6 +20,8 @@ type BenchDataSet struct {
 	Users    []*AppUser
 	NewUsers []*AppUser
 
+	Administrators []*Administrator
+
 	Events    []*Event
 	NewEvents []*Event
 }
@@ -53,7 +55,6 @@ type Reservation struct {
 }
 
 type Administrator struct {
-	ID        uint
 	Nickname  string
 	LoginName string
 	Password  string

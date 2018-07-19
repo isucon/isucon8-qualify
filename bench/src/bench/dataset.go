@@ -54,6 +54,16 @@ func prepareUserDataSet() {
 	}
 }
 
+func prepareAdministratorDataSet() {
+	administrator := &Administrator{
+		LoginName: "admin",
+		Password:  "admin",
+		Nickname:  "admin",
+	}
+
+	DataSet.Administrators = append(DataSet.Administrators, administrator)
+}
+
 func prepareEventDataSet() {
 	file, err := os.Open(filepath.Join(DataPath, "event.tsv"))
 	must(err)
@@ -93,6 +103,7 @@ func prepareEventDataSet() {
 func PrepareDataSet() {
 	log.Println("datapath", DataPath)
 	prepareUserDataSet()
+	prepareAdministratorDataSet()
 	prepareEventDataSet()
 }
 
@@ -135,6 +146,14 @@ func GenerateInitialDataSetSQL(outputPath string) {
 		must(err)
 		fbadf(w, "INSERT INTO users (id, nickname, login_name, pass_hash) VALUES (%s, %s, %s, %s);",
 			i+1, user.Nickname, user.LoginName, passDigest)
+	}
+
+	// administrator
+	for i, administrator := range DataSet.Administrators {
+		passDigest := fmt.Sprintf("%x", sha256.Sum256([]byte(administrator.Password)))
+		must(err)
+		fbadf(w, "INSERT INTO administrators (id, nickname, login_name, pass_hash) VALUES (%s, %s, %s, %s);",
+			i+1, administrator.Nickname, administrator.LoginName, passDigest)
 	}
 
 	// event
