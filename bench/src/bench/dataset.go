@@ -103,38 +103,29 @@ func prepareEventDataSet() {
 }
 
 func prepareSheetDataSet() {
-	file, err := os.Open(filepath.Join(DataPath, "event.tsv"))
-	must(err)
-	defer file.Close()
-
-	s := bufio.NewScanner(file)
-	next_id := uint(1)
-	for i := 0; s.Scan(); i++ {
-		line := strings.Split(s.Text(), "\t")
-		title := line[0]
-		public_fg, _ := strconv.ParseBool(line[1])
-		price, _ := strconv.Atoi(line[2])
-
-		event := &Event{
-			ID:       next_id,
-			Title:    title,
-			PublicFg: public_fg,
-			Price:    uint(price),
-		}
-		next_id++
-
-		DataSet.Events = append(DataSet.Events, event)
+	SheetKinds := []struct {
+		Rank     string
+		TotalNum int
+		Price    uint
+	}{
+		{"S", 50, 5000},
+		{"A", 150, 3000},
+		{"B", 300, 1000},
+		{"c", 500, 0},
 	}
 
-	for i := 0; i < 10; i++ {
-		event := &Event{
-			ID:       next_id,
-			Title:    fmt.Sprintf("イベント%d", i+1),
-			PublicFg: true,
-			Price:    uint(i * 1000),
+	next_id := uint(1)
+	for _, sheet_kind := range SheetKinds {
+		for i := 0; i < sheet_kind.TotalNum; i++ {
+			sheet := &Sheet{
+				ID:    next_id,
+				Rank:  sheet_kind.Rank,
+				Num:   uint(i + 1),
+				Price: sheet_kind.Price,
+			}
+			next_id++
+			DataSet.Sheets = append(DataSet.Sheets, sheet)
 		}
-		next_id++
-		DataSet.NewEvents = append(DataSet.NewEvents, event)
 	}
 }
 
@@ -143,6 +134,7 @@ func PrepareDataSet() {
 	prepareUserDataSet()
 	prepareAdministratorDataSet()
 	prepareEventDataSet()
+	prepareSheetDataSet()
 }
 
 func fbadf(w io.Writer, f string, params ...interface{}) {
@@ -199,6 +191,13 @@ func GenerateInitialDataSetSQL(outputPath string) {
 		must(err)
 		fbadf(w, "INSERT INTO events (id, title, public_fg, price) VALUES (%s, %s, %s, %s);",
 			event.ID, event.Title, event.PublicFg, event.Price)
+	}
+
+	// sheet
+	for _, sheet := range DataSet.Sheets {
+		must(err)
+		fbadf(w, "INSERT INTO sheets (id, rank, num, price) VALUES (%s, %s, %s, %s);",
+			sheet.ID, sheet.Rank, sheet.Num, sheet.Price)
 	}
 
 	fbadf(w, "COMMIT;")

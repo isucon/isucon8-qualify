@@ -24,6 +24,8 @@ type BenchDataSet struct {
 
 	Events    []*Event
 	NewEvents []*Event
+
+	Sheets []*Sheet
 }
 
 type AppUser struct {
