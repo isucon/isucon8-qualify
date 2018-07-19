@@ -31,11 +31,20 @@ cd bench
 ./bin/gen-initial-dataset   # isucon8q-initial-dataset.sql.gz ができる
 ```
 
-初期データ投入
+### データベース初期化
+
+データベース初期化、アプリが動くのに最低限必要なデータ投入
 
 ```sh
-cd bench
-gzip -dc isucon8q-initial-dataset.sql.gz | mysql -uroot torb
+$ mysql -uroot
+mysql> CREATE USER isucon@'%' IDENTIFIED BY 'isucon';
+mysql> GRANT ALL on *.* TO isucon@'%';
+mysql> CREATE USER isucon@'localhost' IDENTIFIED BY 'isucon';
+mysql> GRANT ALL on *.* TO isucon@'localhost';
+```
+
+```
+./db/init.sh
 ```
 
 ### ベンチマーク実行

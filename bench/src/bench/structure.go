@@ -19,10 +19,18 @@ type JsonReserve struct {
 type BenchDataSet struct {
 	Users    []*AppUser
 	NewUsers []*AppUser
+
+	Administrators []*Administrator
+
+	Events    []*Event
+	NewEvents []*Event
+
+	Sheets []*Sheet
 }
 
 type AppUser struct {
 	sync.Mutex
+	ID        uint
 	Nickname  string
 	LoginName string
 	Password  string
