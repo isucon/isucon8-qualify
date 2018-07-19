@@ -6,6 +6,7 @@ import (
 	"context"
 	"crypto/md5"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -15,7 +16,7 @@ import (
 )
 
 var (
-	loginReg = regexp.MustCompile(`^/api/actions/login$`)
+	eventsReg = regexp.MustCompile(`Torb\.events = ([^;]+);`)
 )
 
 func checkHTML(f func(*http.Response, *goquery.Document) error) func(*http.Response, *bytes.Buffer) error {
@@ -145,6 +146,54 @@ func LoadSignIn(ctx context.Context, state *State) error {
 		return err
 	}
 
+	return nil
+}
+
+// イベントが公開されるのを待ってトップページをF5連打するユーザがいる
+// イベント一覧はログインしていてもしていなくても取れる
+func LoadTopPage(ctx context.Context, state *State) error {
+	user, checker, push := state.PopRandomUser()
+	if user == nil {
+		return nil
+	}
+	defer push()
+	// checker.ResetCookie()  // may already login, or not
+
+	events := []JsonEvent{}
+
+	err := checker.Play(ctx, &CheckAction{
+		Method:             "GET",
+		Path:               "/",
+		ExpectedStatusCode: 200,
+		Description:        "ページが表示されること",
+		CheckFunc: checkHTML(func(res *http.Response, doc *goquery.Document) error {
+			script := trim(doc.Find("body > div.container > script").Text())
+
+			// TODO(sonots): Avoid regexp for performance. Need to modify app
+			eventsRegMatched := eventsReg.FindStringSubmatch(script)
+			if len(eventsRegMatched) < 2 {
+				return fatalErrorf("イベント一覧が適切に表示されていません")
+			}
+
+			err := json.Unmarshal([]byte(eventsRegMatched[1]), &events)
+			if err != nil {
+				return fatalErrorf("イベント一覧のJsonデコードに失敗 %v", err)
+			}
+
+			// TODO(sonots): Validate number of remains, total of events?
+			// TODO(sonots): Validate number of remains, total of ranked sheets of events?
+
+			return nil
+		}),
+	})
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+// 席は(rank 内で)ランダムに割り当てられるため、良い席に当たるまで予約連打して、キャンセルするユーザがいる
+func LoadReserve(ctx context.Context, state *State) error {
 	return nil
 }
 

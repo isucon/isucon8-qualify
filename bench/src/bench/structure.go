@@ -5,10 +5,26 @@ import (
 	"sync"
 )
 
+// Torb.loginUser = {"nickname":"sonots","id":1001};
 type JsonUser struct {
-	ID        int    `json:"id"`
-	Nickname  string `json:"nickname"`
-	LoginName string `json:"login_name"`
+	ID       uint   `json:"id"`
+	Nickname string `json:"nickname"`
+}
+
+// Torb.events = [{"remains":999,"id":1,"title":"「風邪をひいたなう」しか","sheets":{"S":{"price":8000,"total":50,"remains":49},"A":{"total":150,"price":6000,"remains":150},"C":{"remains":0,"total":0},"c":{"remains":500,"price":3000,"total":500},"B":{"total":300,"price":4000,"remains":300}},"total":1000}];
+
+type JsonSheet struct {
+	Price   uint `json:"price"`
+	Total   uint `json:"total"`
+	Remains uint `json:"remains"`
+}
+
+type JsonEvent struct {
+	ID      uint                 `json:"id"`
+	Title   string               `json:"title"`
+	Total   uint                 `json:"total"`
+	Remains uint                 `json:"remains"`
+	Sheets  map[string]JsonSheet `json:"sheets"`
 }
 
 type JsonReserve struct {
