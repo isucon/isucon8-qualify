@@ -41,6 +41,7 @@ func prepareUserDataSet() {
 		loginName := strings.Split(addr, "@")[0]
 
 		user := &AppUser{
+			ID:        uint(i + 1),
 			LoginName: loginName,
 			Password:  loginName + reverse(loginName),
 			Nickname:  nickname,
@@ -56,6 +57,7 @@ func prepareUserDataSet() {
 
 func prepareAdministratorDataSet() {
 	administrator := &Administrator{
+		ID:        uint(1),
 		LoginName: "admin",
 		Password:  "admin",
 		Nickname:  "admin",
@@ -65,6 +67,42 @@ func prepareAdministratorDataSet() {
 }
 
 func prepareEventDataSet() {
+	file, err := os.Open(filepath.Join(DataPath, "event.tsv"))
+	must(err)
+	defer file.Close()
+
+	s := bufio.NewScanner(file)
+	next_id := uint(1)
+	for i := 0; s.Scan(); i++ {
+		line := strings.Split(s.Text(), "\t")
+		title := line[0]
+		public_fg, _ := strconv.ParseBool(line[1])
+		price, _ := strconv.Atoi(line[2])
+
+		event := &Event{
+			ID:       next_id,
+			Title:    title,
+			PublicFg: public_fg,
+			Price:    uint(price),
+		}
+		next_id++
+
+		DataSet.Events = append(DataSet.Events, event)
+	}
+
+	for i := 0; i < 10; i++ {
+		event := &Event{
+			ID:       next_id,
+			Title:    fmt.Sprintf("イベント%d", i+1),
+			PublicFg: true,
+			Price:    uint(i * 1000),
+		}
+		next_id++
+		DataSet.NewEvents = append(DataSet.NewEvents, event)
+	}
+}
+
+func prepareSheetDataSet() {
 	file, err := os.Open(filepath.Join(DataPath, "event.tsv"))
 	must(err)
 	defer file.Close()
@@ -141,19 +179,19 @@ func GenerateInitialDataSetSQL(outputPath string) {
 	fbadf(w, "BEGIN;")
 
 	// user
-	for i, user := range DataSet.Users {
+	for _, user := range DataSet.Users {
 		passDigest := fmt.Sprintf("%x", sha256.Sum256([]byte(user.Password)))
 		must(err)
 		fbadf(w, "INSERT INTO users (id, nickname, login_name, pass_hash) VALUES (%s, %s, %s, %s);",
-			i+1, user.Nickname, user.LoginName, passDigest)
+			user.ID, user.Nickname, user.LoginName, passDigest)
 	}
 
 	// administrator
-	for i, administrator := range DataSet.Administrators {
+	for _, administrator := range DataSet.Administrators {
 		passDigest := fmt.Sprintf("%x", sha256.Sum256([]byte(administrator.Password)))
 		must(err)
 		fbadf(w, "INSERT INTO administrators (id, nickname, login_name, pass_hash) VALUES (%s, %s, %s, %s);",
-			i+1, administrator.Nickname, administrator.LoginName, passDigest)
+			administrator.ID, administrator.Nickname, administrator.LoginName, passDigest)
 	}
 
 	// event

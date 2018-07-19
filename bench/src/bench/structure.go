@@ -28,6 +28,7 @@ type BenchDataSet struct {
 
 type AppUser struct {
 	sync.Mutex
+	ID        uint
 	Nickname  string
 	LoginName string
 	Password  string
@@ -55,6 +56,7 @@ type Reservation struct {
 }
 
 type Administrator struct {
+	ID        uint
 	Nickname  string
 	LoginName string
 	Password  string
