@@ -128,17 +128,13 @@ func validationMain(ctx context.Context, state *bench.State) error {
 }
 
 func benchmarkMain(ctx context.Context, state *bench.State) {
-	// addChannelUser := func(chanID, n int) {
-	// 	for i := 0; i < n; i++ {
-	// 		go bench.LoadReadWriteUser(ctx, state, chanID)
-	// 		go bench.LoadReadOnlyUser(ctx, state, chanID)
-	// 	}
-	// }
+	levelUpLoad := func(n int) {
+		for i := 0; i < n; i++ {
+			go bench.LoadTopPage(ctx, state)
+		}
+	}
+	levelUpLoad(5)
 
-	// addChannelUser(state.GetInactiveChannelID(), 10)
-	// addChannelUser(state.GetActiveChannelID(), 10)
-
-	// TODO(sonots): what is 10?
 	for i := 0; i < 10; i++ {
 		go func() {
 			for {
@@ -182,9 +178,7 @@ func benchmarkMain(ctx context.Context, state *bench.State) {
 				loadLogs = append(loadLogs, fmt.Sprintf("%v 負荷レベルが上昇しました。", now))
 				counter.IncKey("load-level-up")
 				log.Println("Increase Load Level.")
-				// TODO(sonots): Add go channels to increase Load
-				//addChannelUser(state.GetInactiveChannelID(), 5)
-				//addChannelUser(state.GetActiveChannelID(), 5)
+				levelUpLoad(5)
 			}
 		case <-ctx.Done():
 			// ベンチ終了、このタイミングでエラーの収集をやめる。
@@ -393,8 +387,6 @@ func main() {
 
 	addLoadFunc(1, bench.LoadSignIn)
 	addLoadFunc(1, bench.LoadSignUp)
-	//addLoadFunc(1, bench.LoadGetChannel)
-	//addLoadFunc(1, bench.LoadGetHistory)
 
 	bench.SetTargetHosts(remoteAddrs)
 
