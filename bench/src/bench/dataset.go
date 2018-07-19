@@ -29,7 +29,6 @@ func reverse(s string) string {
 }
 
 func prepareUserDataSet() {
-	log.Println("datapath", DataPath)
 	file, err := os.Open(filepath.Join(DataPath, "user.tsv"))
 	must(err)
 	defer file.Close()
@@ -55,8 +54,46 @@ func prepareUserDataSet() {
 	}
 }
 
+func prepareEventDataSet() {
+	file, err := os.Open(filepath.Join(DataPath, "event.tsv"))
+	must(err)
+	defer file.Close()
+
+	s := bufio.NewScanner(file)
+	next_id := uint(1)
+	for i := 0; s.Scan(); i++ {
+		line := strings.Split(s.Text(), "\t")
+		title := line[0]
+		public_fg, _ := strconv.ParseBool(line[1])
+		price, _ := strconv.Atoi(line[2])
+
+		event := &Event{
+			ID:       next_id,
+			Title:    title,
+			PublicFg: public_fg,
+			Price:    uint(price),
+		}
+		next_id++
+
+		DataSet.Events = append(DataSet.Events, event)
+	}
+
+	for i := 0; i < 10; i++ {
+		event := &Event{
+			ID:       next_id,
+			Title:    fmt.Sprintf("イベント%d", i+1),
+			PublicFg: true,
+			Price:    uint(i * 1000),
+		}
+		next_id++
+		DataSet.NewEvents = append(DataSet.NewEvents, event)
+	}
+}
+
 func PrepareDataSet() {
+	log.Println("datapath", DataPath)
 	prepareUserDataSet()
+	prepareEventDataSet()
 }
 
 func fbadf(w io.Writer, f string, params ...interface{}) {
@@ -68,6 +105,12 @@ func fbadf(w io.Writer, f string, params ...interface{}) {
 			params[i] = strconv.Quote(v.Format("2006-01-02 15:04:05"))
 		case time.Time:
 			params[i] = strconv.Quote(v.Format("2006-01-02 15:04:05"))
+		case bool:
+			if v {
+				params[i] = strconv.Quote("1")
+			} else {
+				params[i] = strconv.Quote("0")
+			}
 		default:
 			params[i] = strconv.Quote(fmt.Sprint(v))
 		}
@@ -92,6 +135,13 @@ func GenerateInitialDataSetSQL(outputPath string) {
 		must(err)
 		fbadf(w, "INSERT INTO users (id, nickname, login_name, pass_hash) VALUES (%s, %s, %s, %s);",
 			i+1, user.Nickname, user.LoginName, passDigest)
+	}
+
+	// event
+	for _, event := range DataSet.Events {
+		must(err)
+		fbadf(w, "INSERT INTO events (id, title, public_fg, price) VALUES (%s, %s, %s, %s);",
+			event.ID, event.Title, event.PublicFg, event.Price)
 	}
 
 	fbadf(w, "COMMIT;")

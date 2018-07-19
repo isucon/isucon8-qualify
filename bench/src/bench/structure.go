@@ -19,6 +19,9 @@ type JsonReserve struct {
 type BenchDataSet struct {
 	Users    []*AppUser
 	NewUsers []*AppUser
+
+	Events    []*Event
+	NewEvents []*Event
 }
 
 type AppUser struct {
