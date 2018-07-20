@@ -70,15 +70,13 @@ get '/' => [qw/fillin_user/] => sub {
     });
 };
 
-post '/_api/initialize' => sub {
+get '/initialize' => sub {
     my ($self, $c) = @_;
 
     my $txn = $self->dbh->txn_scope();
-    $self->dbh->query('DELETE FROM users');
+    $self->dbh->query('DELETE FROM users WHERE id > 1000');
     $self->dbh->query('DELETE FROM reservations');
     $self->dbh->query('DELETE FROM events WHERE id > 2');
-    $self->dbh->query('UPDATE events SET title = ?, public_fg = ?, price = ? WHERE id = 1', '「風邪をひいたなう」しか', 1, 3000);
-    $self->dbh->query('UPDATE events SET title = ?, public_fg = ?, price = ? WHERE id = 2', 'となりのトロロ芋', 0, 1000);
     $txn->commit();
 
     return $c->req->new_response(204, [], '');
