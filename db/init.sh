@@ -1,6 +1,6 @@
 #!/bin/bash
 
-ROOT_DIR=$(dirname $(dirname $(realpath $0)))
+ROOT_DIR=$(cd $(dirname $0)/..; pwd)
 DB_DIR="$ROOT_DIR/db"
 BENCH_DIR="$ROOT_DIR/bench"
 
