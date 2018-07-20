@@ -196,7 +196,7 @@ func GenerateInitialDataSetSQL(outputPath string) {
 	// sheet
 	for _, sheet := range DataSet.Sheets {
 		must(err)
-		fbadf(w, "INSERT INTO sheets (id, rank, num, price) VALUES (%s, %s, %s, %s);",
+		fbadf(w, "INSERT INTO sheets (id, `rank`, num, price) VALUES (%s, %s, %s, %s);",
 			sheet.ID, sheet.Rank, sheet.Num, sheet.Price)
 	}
 
