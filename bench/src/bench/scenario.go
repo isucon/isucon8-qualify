@@ -10,13 +10,8 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"regexp"
 
 	"github.com/PuerkitoBio/goquery"
-)
-
-var (
-	eventsReg = regexp.MustCompile(`Torb\.events = ([^;]+);`)
 )
 
 func checkHTML(f func(*http.Response, *goquery.Document) error) func(*http.Response, *bytes.Buffer) error {
@@ -167,23 +162,23 @@ func LoadTopPage(ctx context.Context, state *State) error {
 		ExpectedStatusCode: 200,
 		Description:        "ページが表示されること",
 		CheckFunc: checkHTML(func(res *http.Response, doc *goquery.Document) error {
-			script := trim(doc.Find("body > div.container > script").Text())
-
-			// TODO(sonots): Avoid regexp for performance. Need to modify app
-			eventsRegMatched := eventsReg.FindStringSubmatch(script)
-			if len(eventsRegMatched) < 2 {
-				return fatalErrorf("イベント一覧が適切に表示されていません")
+			selection := doc.Find("#app-wrapper")
+			if selection == nil || len(selection.Nodes) == 0 {
+				return fatalErrorf("app-wrapperが見つかりません")
 			}
 
-			err := json.Unmarshal([]byte(eventsRegMatched[1]), &events)
-			if err != nil {
-				return fatalErrorf("イベント一覧のJsonデコードに失敗 %v", err)
+			node := selection.Nodes[0]
+			for _, attr := range node.Attr {
+				if attr.Key == "data-events" {
+					err := json.Unmarshal([]byte(attr.Val), &events)
+					if err != nil {
+						return fatalErrorf("イベント一覧のJsonデコードに失敗 %v", err)
+					}
+					return nil
+				}
 			}
 
-			// TODO(sonots): Validate number of remains, total of events?
-			// TODO(sonots): Validate number of remains, total of ranked sheets of events?
-
-			return nil
+			return fatalErrorf("app-wrapperにdata-eventsがありません")
 		}),
 	})
 	if err != nil {
