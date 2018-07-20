@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"log"
 	"math/rand"
@@ -64,9 +65,13 @@ func requestInitialize(targetHost string) error {
 	}
 
 	defer res.Body.Close()
-	_, err = ioutil.ReadAll(res.Body)
+	_, err = io.Copy(ioutil.Discard, res.Body)
 	if err != nil {
 		return err
+	}
+
+	if !(200 <= res.StatusCode && res.StatusCode < 300) {
+		return fmt.Errorf("Unexpected status code: %d", res.StatusCode)
 	}
 
 	return nil
