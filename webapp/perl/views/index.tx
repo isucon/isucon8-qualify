@@ -1,10 +1,6 @@
 : cascade base
 : around content -> {
-<script>
-var Torb = {};
-Torb.loginUser = <: $stash.user ? mark_raw($encode_json($stash.user)) : 'null' :>;
-Torb.events = <: mark_raw($encode_json($events)) :>;
-</script>
+<div id="app-wrapper" data-login-user="<: $stash.user ? $encode_json($stash.user) : 'null' :>" data-events="<: $encode_json($events) :>">
 
 <div id="menu-bar" class="d-flex flex-column flex-md-row align-items-center p-3 px-md-4 mb-3 bg-white border-bottom box-shadow">
   <h1 class="my-0 mr-md-auto font-weight-normal h5">Torb</h1>
@@ -160,4 +156,6 @@ Torb.events = <: mark_raw($encode_json($events)) :>;
     </div>
   </div>
 </div>
+
+</div><!-- /app-wrapper -->
 : }

@@ -66,7 +66,7 @@ get '/' => [qw/fillin_user/] => sub {
     my @events = $self->get_events();
     return $c->render('index.tx', {
         events      => \@events,
-        encode_json => sub { JSON::XS->new->encode(@_) },
+        encode_json => sub { $c->escape_json(JSON::XS->new->encode(@_)) },
     });
 };
 
