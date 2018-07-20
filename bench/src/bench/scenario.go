@@ -171,6 +171,8 @@ func LoadTopPage(ctx context.Context, state *State) error {
 			for _, attr := range node.Attr {
 				if attr.Key == "data-events" {
 					err := json.Unmarshal([]byte(attr.Val), &events)
+					// TODO(sonots): Validate number of remains, total of events?
+					// TODO(sonots): Validate number of remains, total of ranked sheets of events?
 					if err != nil {
 						return fatalErrorf("イベント一覧のJsonデコードに失敗 %v", err)
 					}
