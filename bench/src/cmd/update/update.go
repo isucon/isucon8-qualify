@@ -13,6 +13,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"sort"
 	"strings"
 	"text/template"
 )
@@ -68,6 +69,9 @@ func prepareStaticFiles() []*StaticFile {
 		if info.IsDir() {
 			return nil
 		}
+		if strings.HasSuffix(path, ".map") {
+			return nil
+		}
 
 		subPath := path[len(staticDir):]
 
@@ -91,6 +95,10 @@ func prepareStaticFiles() []*StaticFile {
 	})
 	must(err)
 
+	// canonicalize
+	sort.Slice(ret, func(i, j int) bool {
+		return ret[i].Path < ret[j].Path
+	})
 	return ret
 }
 
