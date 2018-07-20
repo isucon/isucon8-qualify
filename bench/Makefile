@@ -11,3 +11,6 @@ build:
 .PHONY: race
 race:
 	GOPATH=`pwd`:`pwd`/vendor go install -race ./src/cmd/...
+
+claen:
+	rm -f isucon8q-initial-dataset.sql.gz
