@@ -111,7 +111,7 @@ func prepareSheetDataSet() {
 		{"S", 50, 5000},
 		{"A", 150, 3000},
 		{"B", 300, 1000},
-		{"c", 500, 0},
+		{"C", 500, 0},
 	}
 
 	next_id := uint(1)
@@ -119,7 +119,7 @@ func prepareSheetDataSet() {
 		for i := 0; i < sheet_kind.TotalNum; i++ {
 			sheet := &Sheet{
 				ID:    next_id,
-				Rank:  sheet_kind.Rank,
+				Rank:  strings.ToUpper(sheet_kind.Rank),
 				Num:   uint(i + 1),
 				Price: sheet_kind.Price,
 			}
@@ -196,7 +196,7 @@ func GenerateInitialDataSetSQL(outputPath string) {
 	// sheet
 	for _, sheet := range DataSet.Sheets {
 		must(err)
-		fbadf(w, "INSERT INTO sheets (id, rank, num, price) VALUES (%s, %s, %s, %s);",
+		fbadf(w, "INSERT INTO sheets (id, `rank`, num, price) VALUES (%s, %s, %s, %s);",
 			sheet.ID, sheet.Rank, sheet.Num, sheet.Price)
 	}
 

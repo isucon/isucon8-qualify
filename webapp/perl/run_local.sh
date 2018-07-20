@@ -7,4 +7,4 @@ export DB_PORT=3306
 export DB_USER=root
 export DB_PASS=
 
-exec plackup -R lib -R app.psgi -R views app.psgi
+exec plackup -R lib -R app.psgi -R views -p 8080 app.psgi
