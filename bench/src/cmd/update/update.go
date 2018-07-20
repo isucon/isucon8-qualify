@@ -13,17 +13,18 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"sort"
 	"strings"
 	"text/template"
 )
 
 var (
-	publicDir string
+	staticDir string
 	benchDir  string
 )
 
 func init() {
-	flag.StringVar(&publicDir, "publicdir", "../webapp/public", "path to webapp/public directory")
+	flag.StringVar(&staticDir, "staticdir", "../webapp/static", "path to webapp/static directory")
 	flag.StringVar(&benchDir, "benchdir", "./src/bench", "path to bench/src/bench directory")
 }
 
@@ -63,13 +64,16 @@ var (
 
 func prepareStaticFiles() []*StaticFile {
 	var ret []*StaticFile
-	err := filepath.Walk(publicDir, func(path string, info os.FileInfo, err error) error {
+	err := filepath.Walk(staticDir, func(path string, info os.FileInfo, err error) error {
 		must(err)
 		if info.IsDir() {
 			return nil
 		}
+		if strings.HasSuffix(path, ".map") {
+			return nil
+		}
 
-		subPath := path[len(publicDir):]
+		subPath := path[len(staticDir):]
 
 		f, err := os.Open(path)
 		must(err)
@@ -91,6 +95,10 @@ func prepareStaticFiles() []*StaticFile {
 	})
 	must(err)
 
+	// canonicalize
+	sort.Slice(ret, func(i, j int) bool {
+		return ret[i].Path < ret[j].Path
+	})
 	return ret
 }
 
@@ -118,11 +126,11 @@ func writeStaticFileGo() {
 
 func main() {
 	flag.Parse()
-	publicDir, err := filepath.Abs(publicDir)
+	staticDir, err := filepath.Abs(staticDir)
 	must(err)
 
-	if !strings.HasSuffix(publicDir, "/public") {
-		log.Fatalln("invalid publicdir path")
+	if !strings.HasSuffix(staticDir, "/static") {
+		log.Fatalln("invalid static dir path")
 	}
 
 	benchDir, err := filepath.Abs(benchDir)

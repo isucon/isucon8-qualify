@@ -1,8 +1,14 @@
 var DOM = {
+  appWrapper: $('#app-wrapper'),
   confirmModal: $('#confirm-modal'),
   registerModal: $('#register-modal'),
   loginModal: $('#login-modal'),
   eventModal: $('#event-modal'),
+};
+
+var Torb = {
+  loginUser: DOM.appWrapper.data('login-user'),
+  events: DOM.appWrapper.data('events'),
 };
 
 function showError(err) {
