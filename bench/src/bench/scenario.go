@@ -66,7 +66,7 @@ func goLoadAsset(ctx context.Context, checker *Checker) {
 	goLoadStaticFiles(ctx, checker, assetFiles...)
 }
 
-func LoadSignUp(ctx context.Context, state *State) error {
+func LoadCreateUser(ctx context.Context, state *State) error {
 	user, checker, push := state.PopNewUser()
 	if user == nil {
 		return nil
@@ -106,7 +106,7 @@ func LoadSignUp(ctx context.Context, state *State) error {
 	return nil
 }
 
-func LoadSignIn(ctx context.Context, state *State) error {
+func LoadLogin(ctx context.Context, state *State) error {
 	user, checker, push := state.PopRandomUser()
 	if user == nil {
 		return nil
@@ -190,7 +190,7 @@ func LoadTopPage(ctx context.Context, state *State) error {
 }
 
 // 席は(rank 内で)ランダムに割り当てられるため、良い席に当たるまで予約連打して、キャンセルするユーザがいる
-func LoadReserve(ctx context.Context, state *State) error {
+func LoadReserveTicket(ctx context.Context, state *State) error {
 	return nil
 }
 
@@ -231,6 +231,14 @@ func CheckStaticFiles(ctx context.Context, state *State) error {
 	return nil
 }
 
+func CheckCreateUser(ctx context.Context, state *State) error {
+	// ユーザを作成できること
+	// すでに作成済みの場合エラーになること
+	// 作成したユーザでログインできること
+	// ログアウトできること
+	return nil
+}
+
 func CheckLogin(ctx context.Context, state *State) error {
 	user, checker, push := state.PopRandomUser()
 	if user == nil {
@@ -262,6 +270,8 @@ func CheckLogin(ctx context.Context, state *State) error {
 		return err
 	}
 
+	// ログアウト済みの場合エラーになること
+
 	err = checker.Play(ctx, &CheckAction{
 		Method:             "POST",
 		Path:               "/api/actions/login",
@@ -276,5 +286,42 @@ func CheckLogin(ctx context.Context, state *State) error {
 		return err
 	}
 
+	return nil
+}
+
+func CheckTopPage(ctx context.Context, state *State) error {
+	// 1. ヘッダー部分の確認
+	//   ログイン済みの場合ユーザー名が表示されていること
+	//   ログインしていない場合ユーザー名が表示されていないこと
+	// 2. DOM 構造が変わっていないこと
+	// 3. イベント一覧が一定期間以内に更新されていること
+	//   何秒許容するかは要検討
+	// 4. イベント一覧の残席数が正しく更新されていること（要検討）
+	return nil
+}
+
+func CheckReserveTicket(ctx context.Context, state *State) error {
+	// 購入の成功
+	// チケットが売り切れの場合エラーになること
+	// ログインしていない場合にエラーになること
+
+	// キャンセルの成功
+	// すでにキャンセル済みの場合エラーになること
+	// 購入していないチケットをキャンセルしようとしたらエラーになること
+	// ログインしていない場合エラーになること
+	return nil
+}
+
+func CheckAdminLogin(ctx context.Context, state *State) error {
+	// 管理者でログインできること
+	// 管理者でログアウトできること
+	// 存在しないユーザでログインできないこと
+	return nil
+}
+
+func CheckAdminCreateEvent(ctx context.Context, state *State) error {
+	// イベントを作成できること
+	// イベントを取得できること
+	// イベントを編集できること
 	return nil
 }
