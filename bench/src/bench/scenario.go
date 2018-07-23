@@ -190,7 +190,7 @@ func LoadTopPage(ctx context.Context, state *State) error {
 }
 
 // 席は(rank 内で)ランダムに割り当てられるため、良い席に当たるまで予約連打して、キャンセルするユーザがいる
-func LoadReserveTicket(ctx context.Context, state *State) error {
+func LoadReserveSheet(ctx context.Context, state *State) error {
 	return nil
 }
 
@@ -300,9 +300,9 @@ func CheckTopPage(ctx context.Context, state *State) error {
 	return nil
 }
 
-func CheckReserveTicket(ctx context.Context, state *State) error {
+func CheckReserveSheet(ctx context.Context, state *State) error {
 	// 購入の成功
-	// チケットが売り切れの場合エラーになること
+	// 売り切れの場合エラーになること
 	// ログインしていない場合にエラーになること
 
 	// キャンセルの成功
