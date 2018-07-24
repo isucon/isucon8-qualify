@@ -89,6 +89,8 @@ type State struct {
 	admins          []*Administrator
 	adminMap        map[string]*Administrator
 	adminCheckerMap map[*Administrator]*Checker
+	events          []*Event
+	newEvents       []*Event
 }
 
 func (s *State) Init() {
@@ -232,4 +234,47 @@ func (s *State) getAdminCheckerLocked(u *Administrator) *Checker {
 	}
 
 	return checker
+}
+
+func (s *State) PopRandomEvent() (*Event, func()) {
+	s.mtx.Lock()
+	defer s.mtx.Unlock()
+
+	n := len(s.events)
+	if n == 0 {
+		return nil, nil
+	}
+
+	i := rand.Intn(n)
+	event := s.events[i]
+
+	s.events[i] = s.events[n-1]
+	s.events[n-1] = nil
+	s.events = s.events[:n-1]
+
+	return event, func() { s.PushEvent(event) }
+}
+
+func (s *State) PushEvent(event *Event) {
+	s.mtx.Lock()
+	defer s.mtx.Unlock()
+
+	s.events = append(s.events, event)
+}
+
+func (s *State) PopNewEvent() (*Event, func()) {
+	s.mtx.Lock()
+	defer s.mtx.Unlock()
+
+	n := len(s.newEvents)
+	if n == 0 {
+		return nil, nil
+	}
+
+	event := s.newEvents[n-1]
+	s.newEvents = s.newEvents[:n-1]
+
+	// NOTE: push() function pushes into s.events, does not push back to s.newEvents.
+	// You should call push() after you verify that a new event is successfully created.
+	return event, func() { s.PushEvent(event) }
 }
