@@ -71,6 +71,7 @@ func LoadCreateUser(ctx context.Context, state *State) error {
 	if user == nil {
 		return nil
 	}
+	checker.ResetCookie()
 
 	err := checker.Play(ctx, &CheckAction{
 		Method:             "POST",
@@ -82,6 +83,7 @@ func LoadCreateUser(ctx context.Context, state *State) error {
 			"password":   user.Password,
 		},
 		Description: "新規ユーザが作成できること",
+		CheckFunc:   checkJsonUserCreateResponse(user),
 	})
 	if err != nil {
 		return err
@@ -268,6 +270,7 @@ func CheckCreateUser(ctx context.Context, state *State) error {
 	if user == nil {
 		return nil
 	}
+	checker.ResetCookie()
 
 	err := checker.Play(ctx, &CheckAction{
 		Method:             "POST",
@@ -302,16 +305,6 @@ func CheckCreateUser(ctx context.Context, state *State) error {
 
 	err = checker.Play(ctx, &CheckAction{
 		Method:             "POST",
-		Path:               "/api/actions/logout",
-		ExpectedStatusCode: 204,
-		Description:        "ログアウトできること",
-	})
-	if err != nil {
-		return err
-	}
-
-	err = checker.Play(ctx, &CheckAction{
-		Method:             "POST",
 		Path:               "/api/users",
 		ExpectedStatusCode: 409,
 		PostData: map[string]string{
@@ -336,6 +329,7 @@ func CheckLogin(ctx context.Context, state *State) error {
 		return nil
 	}
 	defer push()
+	checker.ResetCookie()
 
 	err := checker.Play(ctx, &CheckAction{
 		Method:             "POST",
@@ -465,12 +459,14 @@ func CheckAdminLogin(ctx context.Context, state *State) error {
 		return nil
 	}
 	defer adminPush()
+	adminChecker.ResetCookie()
 
 	user, userChecker, userPush := state.PopRandomUser()
 	if user == nil {
 		return nil
 	}
 	defer userPush()
+	userChecker.ResetCookie()
 
 	err := userChecker.Play(ctx, &CheckAction{
 		Method:             "POST",
@@ -615,6 +611,8 @@ func eventPostData(event *Event) map[string]string {
 }
 
 func CheckAdminCreateEvent(ctx context.Context, state *State) error {
+	checker := NewChecker()
+
 	admin, adminChecker, adminPush := state.PopRandomAdministrator()
 	if admin == nil {
 		return nil
@@ -688,11 +686,21 @@ func CheckAdminCreateEvent(ctx context.Context, state *State) error {
 		return err
 	}
 
-	err = userChecker.Play(ctx, &CheckAction{
+	err = checker.Play(ctx, &CheckAction{
 		Method:             "GET",
 		Path:               fmt.Sprintf("/api/events/%d", event.ID),
 		ExpectedStatusCode: 404,
-		Description:        "一般ユーザが非公開イベントを取得できないこと",
+		Description:        "非公開イベントを取得できないこと",
+	})
+	if err != nil {
+		return err
+	}
+
+	err = userChecker.Play(ctx, &CheckAction{
+		Method:             "GET",
+		Path:               fmt.Sprintf("/admin/api/events/%d", event.ID),
+		ExpectedStatusCode: 401,
+		Description:        "一般ユーザが管理者APIでイベントを取得できないこと",
 	})
 	if err != nil {
 		return err
@@ -702,7 +710,7 @@ func CheckAdminCreateEvent(ctx context.Context, state *State) error {
 		Method:             "GET",
 		Path:               fmt.Sprintf("/admin/api/events/%d", event.ID),
 		ExpectedStatusCode: 200,
-		Description:        "管理者がイベントを取得できること",
+		Description:        "管理者が非公開イベントを取得できること",
 		CheckFunc:          checkJsonAdminEventResponse(event),
 	})
 	if err != nil {
@@ -736,11 +744,11 @@ func CheckAdminCreateEvent(ctx context.Context, state *State) error {
 		return err
 	}
 
-	err = userChecker.Play(ctx, &CheckAction{
+	err = checker.Play(ctx, &CheckAction{
 		Method:             "GET",
 		Path:               fmt.Sprintf("/api/events/%d", event.ID),
 		ExpectedStatusCode: 200,
-		Description:        "一般ユーザが公開イベントを取得できること",
+		Description:        "公開イベントを取得できること",
 		CheckFunc:          checkJsonEventResponse(event),
 	})
 	if err != nil {
@@ -749,7 +757,28 @@ func CheckAdminCreateEvent(ctx context.Context, state *State) error {
 
 	err = adminChecker.Play(ctx, &CheckAction{
 		Method:             "GET",
+		Path:               fmt.Sprintf("/admin/api/events/%d", event.ID),
+		ExpectedStatusCode: 200,
+		Description:        "管理者が公開イベントを取得できること",
+		CheckFunc:          checkJsonAdminEventResponse(event),
+	})
+	if err != nil {
+		return err
+	}
+
+	err = adminChecker.Play(ctx, &CheckAction{
+		Method:             "GET",
 		Path:               fmt.Sprintf("/admin/api/events/%d", event.ID+1),
+		ExpectedStatusCode: 404,
+		Description:        "イベントが存在しない場合取得に失敗すること",
+	})
+	if err != nil {
+		return err
+	}
+
+	err = adminChecker.Play(ctx, &CheckAction{
+		Method:             "GET",
+		Path:               fmt.Sprintf("/api/events/%d", event.ID+1),
 		ExpectedStatusCode: 404,
 		Description:        "イベントが存在しない場合取得に失敗すること",
 	})

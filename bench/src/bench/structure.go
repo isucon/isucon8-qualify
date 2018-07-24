@@ -163,7 +163,10 @@ func (s *State) popNewUserLocked() (*AppUser, *Checker, func()) {
 
 	// NOTE: push() function pushes into s.users, does not push back to s.newUsers.
 	// You should call push() after you verify that a new user is successfully created.
-	return u, s.getCheckerLocked(u), func() { s.PushUser(u) }
+	return u, s.getCheckerLocked(u), func() {
+		// fmt.Printf("newUserPush %d %s %s\n", u.ID, u.LoginName, u.Nickname)
+		s.PushUser(u)
+	}
 }
 
 func (s *State) PopNewUser() (*AppUser, *Checker, func()) {
@@ -287,7 +290,7 @@ func (s *State) PopNewEvent() (*Event, func()) {
 	// NOTE: push() function pushes into s.events, does not push back to s.newEvents.
 	// You should call push() after you verify that a new event is successfully created.
 	return event, func() {
-		// fmt.Printf("%d %s %d %t\n", event.ID, event.Title, event.Price, event.PublicFg)
+		// fmt.Printf("newEventPush %d %s %d %t\n", event.ID, event.Title, event.Price, event.PublicFg)
 		s.PushEvent(event)
 	}
 }
