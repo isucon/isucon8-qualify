@@ -139,6 +139,8 @@ func (s *State) popNewUserLocked() (*AppUser, *Checker, func()) {
 	u := s.newUsers[n-1]
 	s.newUsers = s.newUsers[:n-1]
 
+	// NOTE: push() function pushes into s.users, does not push back to s.newUsers.
+	// You should call push() after you verify that a new user is successfully created.
 	return u, s.getCheckerLocked(u), func() { s.PushUser(u) }
 }
 
