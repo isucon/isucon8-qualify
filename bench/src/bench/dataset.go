@@ -41,16 +41,21 @@ func prepareUserDataSet() {
 		addr := line[1]
 		loginName := strings.Split(addr, "@")[0]
 
-		user := &AppUser{
-			ID:        uint(i + 1),
-			LoginName: loginName,
-			Password:  loginName + reverse(loginName),
-			Nickname:  nickname,
-		}
-
 		if i < 1000 {
+			user := &AppUser{
+				ID:        uint(i + 1),
+				LoginName: loginName,
+				Password:  loginName + reverse(loginName),
+				Nickname:  nickname,
+			}
 			DataSet.Users = append(DataSet.Users, user)
 		} else {
+			user := &AppUser{
+				ID:        0, // auto increment
+				LoginName: loginName,
+				Password:  loginName + reverse(loginName),
+				Nickname:  nickname,
+			}
 			DataSet.NewUsers = append(DataSet.NewUsers, user)
 		}
 	}

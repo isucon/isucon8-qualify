@@ -231,8 +231,40 @@ func CheckStaticFiles(ctx context.Context, state *State) error {
 	return nil
 }
 
+func checkJsonUserCreateResponse(user *AppUser) func(res *http.Response, body *bytes.Buffer) error {
+	return func(res *http.Response, body *bytes.Buffer) error {
+		dec := json.NewDecoder(body)
+		jsonUser := JsonUser{}
+		err := dec.Decode(&jsonUser)
+		if err != nil {
+			return fatalErrorf("Jsonのデコードに失敗 %v", err)
+		}
+		if jsonUser.Nickname != user.Nickname {
+			return fatalErrorf("正しいユーザ情報を取得できません")
+		}
+		// Set auto incremented ID from response
+		user.ID = jsonUser.ID
+		return nil
+	}
+}
+
+func checkJsonUserResponse(user *AppUser) func(res *http.Response, body *bytes.Buffer) error {
+	return func(res *http.Response, body *bytes.Buffer) error {
+		dec := json.NewDecoder(body)
+		jsonUser := JsonUser{}
+		err := dec.Decode(&jsonUser)
+		if err != nil {
+			return fatalErrorf("Jsonのデコードに失敗 %v", err)
+		}
+		if jsonUser.ID != user.ID || jsonUser.Nickname != user.Nickname {
+			return fatalErrorf("正しいユーザ情報を取得できません")
+		}
+		return nil
+	}
+}
+
 func CheckCreateUser(ctx context.Context, state *State) error {
-	user, checker, push := state.PopNewUser()
+	user, checker, newUserPush := state.PopNewUser()
 	if user == nil {
 		return nil
 	}
@@ -247,6 +279,7 @@ func CheckCreateUser(ctx context.Context, state *State) error {
 			"password":   user.Password,
 		},
 		Description: "新規ユーザが作成できること",
+		CheckFunc:   checkJsonUserCreateResponse(user),
 	})
 	if err != nil {
 		return err
@@ -261,12 +294,11 @@ func CheckCreateUser(ctx context.Context, state *State) error {
 			"password":   user.Password,
 		},
 		Description: "作成したユーザでログインできること",
+		CheckFunc:   checkJsonUserResponse(user),
 	})
 	if err != nil {
 		return err
 	}
-
-	defer push()
 
 	err = checker.Play(ctx, &CheckAction{
 		Method:             "POST",
@@ -293,6 +325,8 @@ func CheckCreateUser(ctx context.Context, state *State) error {
 		return err
 	}
 
+	newUserPush()
+
 	return nil
 }
 
@@ -312,6 +346,7 @@ func CheckLogin(ctx context.Context, state *State) error {
 			"password":   user.Password,
 		},
 		Description: "ログインできること",
+		CheckFunc:   checkJsonUserResponse(user),
 	})
 	if err != nil {
 		return err
@@ -538,10 +573,11 @@ func CheckAdminCreateEvent(ctx context.Context, state *State) error {
 		if err != nil {
 			return fatalErrorf("Jsonのデコードに失敗 %v", err)
 		}
-		event.ID = jsonEvent.ID
 		if jsonEvent.Title != event.Title || jsonEvent.Price != event.Price || jsonEvent.Public != event.PublicFg {
 			return fatalErrorf("正しいイベントを取得できません")
 		}
+		// Set auto incremented ID from response
+		event.ID = jsonEvent.ID
 		return nil
 	}
 
