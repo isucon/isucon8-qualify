@@ -81,11 +81,14 @@ type Administrator struct {
 }
 
 type State struct {
-	mtx        sync.Mutex
-	users      []*AppUser
-	newUsers   []*AppUser
-	userMap    map[string]*AppUser
-	checkerMap map[*AppUser]*Checker
+	mtx             sync.Mutex
+	users           []*AppUser
+	newUsers        []*AppUser
+	userMap         map[string]*AppUser
+	checkerMap      map[*AppUser]*Checker
+	admins          []*Administrator
+	adminMap        map[string]*Administrator
+	adminCheckerMap map[*Administrator]*Checker
 }
 
 func (s *State) Init() {
@@ -100,9 +103,16 @@ func (s *State) Init() {
 	for _, u := range DataSet.Users {
 		s.userMap[u.LoginName] = u
 	}
+
+	s.admins = append(s.admins, DataSet.Administrators...)
+	s.adminMap = map[string]*Administrator{}
+	s.adminCheckerMap = map[*Administrator]*Checker{}
+
+	for _, u := range DataSet.Administrators {
+		s.adminMap[u.LoginName] = u
+	}
 }
 
-// TODO(sonots): Store session and pop user with the session?
 func (s *State) PopRandomUser() (*AppUser, *Checker, func()) {
 	s.mtx.Lock()
 	defer s.mtx.Unlock()
@@ -173,6 +183,52 @@ func (s *State) getCheckerLocked(u *AppUser) *Checker {
 		checker = NewChecker()
 		checker.debugHeaders["X-User-Login-Name"] = u.LoginName
 		s.checkerMap[u] = checker
+	}
+
+	return checker
+}
+
+func (s *State) PopRandomAdministrator() (*Administrator, *Checker, func()) {
+	s.mtx.Lock()
+	defer s.mtx.Unlock()
+
+	n := len(s.admins)
+	if n == 0 {
+		return nil, nil, nil
+	}
+
+	i := rand.Intn(n)
+	u := s.admins[i]
+
+	s.admins[i] = s.admins[n-1]
+	s.admins[n-1] = nil
+	s.admins = s.admins[:n-1]
+
+	return u, s.getAdminCheckerLocked(u), func() { s.PushAdministrator(u) }
+}
+
+func (s *State) PushAdministrator(u *Administrator) {
+	s.mtx.Lock()
+	defer s.mtx.Unlock()
+
+	s.adminMap[u.LoginName] = u
+	s.admins = append(s.admins, u)
+}
+
+func (s *State) GetAdminChecker(u *Administrator) *Checker {
+	s.mtx.Lock()
+	defer s.mtx.Unlock()
+
+	return s.getAdminCheckerLocked(u)
+}
+
+func (s *State) getAdminCheckerLocked(u *Administrator) *Checker {
+	checker, ok := s.adminCheckerMap[u]
+
+	if !ok {
+		checker = NewChecker()
+		checker.debugHeaders["X-Administrator-Login-Name"] = u.LoginName
+		s.adminCheckerMap[u] = checker
 	}
 
 	return checker
