@@ -359,7 +359,7 @@ func CheckLogin(ctx context.Context, state *State) error {
 			"login_name": user.LoginName,
 			"password":   RandomAlphabetString(32),
 		},
-		Description: "パスワードが間違っているる場合ログイン失敗すること",
+		Description: "パスワードが間違っている場合ログインできないこと",
 	})
 	if err != nil {
 		return err
@@ -392,9 +392,94 @@ func CheckReserveSheet(ctx context.Context, state *State) error {
 }
 
 func CheckAdminLogin(ctx context.Context, state *State) error {
-	// 管理者でログインできること
-	// 管理者でログアウトできること
-	// 存在しないユーザでログインできないこと
+	admin, checker, push := state.PopRandomAdministrator()
+	if admin == nil {
+		return nil
+	}
+	defer push()
+
+	user, userChecker, userPush := state.PopRandomUser()
+	if user == nil {
+		return nil
+	}
+	defer userPush()
+
+	err := userChecker.Play(ctx, &CheckAction{
+		Method:             "POST",
+		Path:               "/admin/api/actions/login",
+		ExpectedStatusCode: 401,
+		PostData: map[string]string{
+			"login_name": user.LoginName,
+			"password":   user.Password,
+		},
+		Description: "一般ユーザで管理者ログインできないこと",
+	})
+	if err != nil {
+		return err
+	}
+
+	err = checker.Play(ctx, &CheckAction{
+		Method:             "POST",
+		Path:               "/admin/api/actions/login",
+		ExpectedStatusCode: 204,
+		PostData: map[string]string{
+			"login_name": admin.LoginName,
+			"password":   admin.Password,
+		},
+		Description: "管理者でログインできること",
+	})
+	if err != nil {
+		return err
+	}
+
+	err = checker.Play(ctx, &CheckAction{
+		Method:             "POST",
+		Path:               "/admin/api/actions/logout",
+		ExpectedStatusCode: 204,
+		Description:        "管理者でログアウトできること",
+	})
+	if err != nil {
+		return err
+	}
+
+	err = checker.Play(ctx, &CheckAction{
+		Method:             "POST",
+		Path:               "/admin/api/actions/logout",
+		ExpectedStatusCode: 401,
+		Description:        "ログアウト済みの場合エラーになること",
+	})
+	if err != nil {
+		return err
+	}
+
+	err = checker.Play(ctx, &CheckAction{
+		Method:             "POST",
+		Path:               "/admin/api/actions/login",
+		ExpectedStatusCode: 401,
+		PostData: map[string]string{
+			"login_name": RandomAlphabetString(32),
+			"password":   admin.Password,
+		},
+		Description: "存在しないユーザで管理者ログインできないこと",
+	})
+	if err != nil {
+		return err
+	}
+
+	err = checker.Play(ctx, &CheckAction{
+		Method:             "POST",
+		Path:               "/admin/api/actions/login",
+		ExpectedStatusCode: 401,
+		PostData: map[string]string{
+			"login_name": admin.LoginName,
+			"password":   RandomAlphabetString(32),
+		},
+		Description: "パスワードが間違っている場合管理者ログインできないこと",
+	})
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 
