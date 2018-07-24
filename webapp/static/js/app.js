@@ -188,8 +188,20 @@ function updateEventModal(eventId, callback) {
 }
 
 function openEventModal(eventId) {
+  var id = setInterval(() => {
+    updateEventModal(eventId, function (event) {
+      EventList.$data.events.forEach(function (e, i, events) {
+        if (e.id !== event.id) return;
+        events[i] = event;
+      });
+      EventList.$forceUpdate();
+    });
+  }, 10000);
   updateEventModal(eventId, function () {
     DOM.eventModal.modal('show');
+    DOM.eventModal.once('hide.bs.modal', function (e) {
+      clearInterval(id);
+    });
   });
 }
 
