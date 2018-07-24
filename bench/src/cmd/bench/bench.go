@@ -97,11 +97,16 @@ func preTest(ctx context.Context, state *bench.State) error {
 		return err
 	}
 
+	err = bench.CheckAdminLogin(ctx, state)
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 
 func validationMain(ctx context.Context, state *bench.State) error {
-	for r := range rand.Perm(3) {
+	for r := range rand.Perm(4) {
 		if ctx.Err() != nil {
 			return nil
 		}
@@ -119,6 +124,9 @@ func validationMain(ctx context.Context, state *bench.State) error {
 		case 2:
 			err = bench.CheckLogin(ctx, state)
 			log.Println("CheckLogin", time.Since(t))
+		case 3:
+			err = bench.CheckAdminLogin(ctx, state)
+			log.Println("CheckAdminLogin", time.Since(t))
 		}
 
 		isFatalError := false
