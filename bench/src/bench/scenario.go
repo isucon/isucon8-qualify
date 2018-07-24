@@ -270,7 +270,15 @@ func CheckLogin(ctx context.Context, state *State) error {
 		return err
 	}
 
-	// ログアウト済みの場合エラーになること
+	err = checker.Play(ctx, &CheckAction{
+		Method:             "POST",
+		Path:               "/api/actions/logout",
+		ExpectedStatusCode: 401,
+		Description:        "ログアウト済みの場合エラーになること",
+	})
+	if err != nil {
+		return err
+	}
 
 	err = checker.Play(ctx, &CheckAction{
 		Method:             "POST",
@@ -278,9 +286,23 @@ func CheckLogin(ctx context.Context, state *State) error {
 		ExpectedStatusCode: 401,
 		PostData: map[string]string{
 			"login_name": RandomAlphabetString(32),
-			"password":   RandomAlphabetString(32),
+			"password":   user.Password,
 		},
 		Description: "存在しないユーザでログインできないこと",
+	})
+	if err != nil {
+		return err
+	}
+
+	err = checker.Play(ctx, &CheckAction{
+		Method:             "POST",
+		Path:               "/api/actions/login",
+		ExpectedStatusCode: 401,
+		PostData: map[string]string{
+			"login_name": user.LoginName,
+			"password":   RandomAlphabetString(32),
+		},
+		Description: "パスワードが間違っているる場合ログイン失敗すること",
 	})
 	if err != nil {
 		return err
