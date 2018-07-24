@@ -231,8 +231,40 @@ func CheckStaticFiles(ctx context.Context, state *State) error {
 	return nil
 }
 
+func checkJsonUserCreateResponse(user *AppUser) func(res *http.Response, body *bytes.Buffer) error {
+	return func(res *http.Response, body *bytes.Buffer) error {
+		dec := json.NewDecoder(body)
+		jsonUser := JsonUser{}
+		err := dec.Decode(&jsonUser)
+		if err != nil {
+			return fatalErrorf("Jsonのデコードに失敗 %v", err)
+		}
+		if jsonUser.Nickname != user.Nickname {
+			return fatalErrorf("正しいユーザ情報を取得できません")
+		}
+		// Set auto incremented ID from response
+		user.ID = jsonUser.ID
+		return nil
+	}
+}
+
+func checkJsonUserResponse(user *AppUser) func(res *http.Response, body *bytes.Buffer) error {
+	return func(res *http.Response, body *bytes.Buffer) error {
+		dec := json.NewDecoder(body)
+		jsonUser := JsonUser{}
+		err := dec.Decode(&jsonUser)
+		if err != nil {
+			return fatalErrorf("Jsonのデコードに失敗 %v", err)
+		}
+		if jsonUser.ID != user.ID || jsonUser.Nickname != user.Nickname {
+			return fatalErrorf("正しいユーザ情報を取得できません")
+		}
+		return nil
+	}
+}
+
 func CheckCreateUser(ctx context.Context, state *State) error {
-	user, checker, push := state.PopNewUser()
+	user, checker, newUserPush := state.PopNewUser()
 	if user == nil {
 		return nil
 	}
@@ -247,6 +279,7 @@ func CheckCreateUser(ctx context.Context, state *State) error {
 			"password":   user.Password,
 		},
 		Description: "新規ユーザが作成できること",
+		CheckFunc:   checkJsonUserCreateResponse(user),
 	})
 	if err != nil {
 		return err
@@ -261,12 +294,11 @@ func CheckCreateUser(ctx context.Context, state *State) error {
 			"password":   user.Password,
 		},
 		Description: "作成したユーザでログインできること",
+		CheckFunc:   checkJsonUserResponse(user),
 	})
 	if err != nil {
 		return err
 	}
-
-	defer push()
 
 	err = checker.Play(ctx, &CheckAction{
 		Method:             "POST",
@@ -293,6 +325,8 @@ func CheckCreateUser(ctx context.Context, state *State) error {
 		return err
 	}
 
+	newUserPush()
+
 	return nil
 }
 
@@ -312,6 +346,7 @@ func CheckLogin(ctx context.Context, state *State) error {
 			"password":   user.Password,
 		},
 		Description: "ログインできること",
+		CheckFunc:   checkJsonUserResponse(user),
 	})
 	if err != nil {
 		return err
@@ -483,6 +518,69 @@ func CheckAdminLogin(ctx context.Context, state *State) error {
 	return nil
 }
 
+func checkJsonAdminEventCreateResponse(event *Event) func(res *http.Response, body *bytes.Buffer) error {
+	return func(res *http.Response, body *bytes.Buffer) error {
+		dec := json.NewDecoder(body)
+		jsonEvent := JsonAdminEvent{}
+		err := dec.Decode(&jsonEvent)
+		if err != nil {
+			return fatalErrorf("Jsonのデコードに失敗 %v", err)
+		}
+		if jsonEvent.Title != event.Title || jsonEvent.Price != event.Price || jsonEvent.Public != event.PublicFg {
+			return fatalErrorf("正しいイベントを取得できません")
+		}
+		// Set auto incremented ID from response
+		event.ID = jsonEvent.ID
+		return nil
+	}
+}
+
+func checkJsonAdminEventResponse(event *Event) func(res *http.Response, body *bytes.Buffer) error {
+	return func(res *http.Response, body *bytes.Buffer) error {
+		dec := json.NewDecoder(body)
+		jsonEvent := JsonAdminEvent{}
+		err := dec.Decode(&jsonEvent)
+		if err != nil {
+			return fatalErrorf("Jsonのデコードに失敗 %v", err)
+		}
+		if jsonEvent.ID != event.ID || jsonEvent.Title != event.Title || jsonEvent.Price != event.Price || jsonEvent.Public != event.PublicFg {
+			return fatalErrorf("正しいイベントを取得できません")
+		}
+		return nil
+	}
+}
+
+func checkJsonEventResponse(event *Event) func(res *http.Response, body *bytes.Buffer) error {
+	return func(res *http.Response, body *bytes.Buffer) error {
+		dec := json.NewDecoder(body)
+		jsonEvent := JsonEvent{}
+		err := dec.Decode(&jsonEvent)
+		if err != nil {
+			return fatalErrorf("Jsonのデコードに失敗 %v", err)
+		}
+		if jsonEvent.ID != event.ID || jsonEvent.Title != event.Title {
+			return fatalErrorf("正しいイベントを取得できません")
+		}
+		return nil
+	}
+}
+
+func eventPostData(event *Event) map[string]string {
+	if event.PublicFg {
+		return map[string]string{
+			"title":  event.Title,
+			"public": "true",
+			"price":  fmt.Sprint(event.Price),
+		}
+	} else {
+		return map[string]string{
+			"title":  event.Title,
+			"public": "", // false
+			"price":  fmt.Sprint(event.Price),
+		}
+	}
+}
+
 func CheckAdminCreateEvent(ctx context.Context, state *State) error {
 	admin, checker, push := state.PopRandomAdministrator()
 	if admin == nil {
@@ -531,73 +629,27 @@ func CheckAdminCreateEvent(ctx context.Context, state *State) error {
 		return nil
 	}
 
-	checkJsonAdminEventCreateResponse := func(res *http.Response, body *bytes.Buffer) error {
-		dec := json.NewDecoder(body)
-		jsonEvent := JsonAdminEvent{}
-		err := dec.Decode(&jsonEvent)
-		if err != nil {
-			return fatalErrorf("Jsonのデコードに失敗 %v", err)
-		}
-		event.ID = jsonEvent.ID
-		if jsonEvent.Title != event.Title || jsonEvent.Price != event.Price || jsonEvent.Public != event.PublicFg {
-			return fatalErrorf("正しいイベントを取得できません")
-		}
-		return nil
-	}
-
-	checkJsonAdminEventResponse := func(res *http.Response, body *bytes.Buffer) error {
-		dec := json.NewDecoder(body)
-		jsonEvent := JsonAdminEvent{}
-		err := dec.Decode(&jsonEvent)
-		if err != nil {
-			return fatalErrorf("Jsonのデコードに失敗 %v", err)
-		}
-		if jsonEvent.ID != event.ID || jsonEvent.Title != event.Title || jsonEvent.Price != event.Price || jsonEvent.Public != event.PublicFg {
-			return fatalErrorf("正しいイベントを取得できません")
-		}
-		return nil
-	}
-
-	checkJsonEventResponse := func(res *http.Response, body *bytes.Buffer) error {
-		dec := json.NewDecoder(body)
-		jsonEvent := JsonEvent{}
-		err := dec.Decode(&jsonEvent)
-		if err != nil {
-			return fatalErrorf("Jsonのデコードに失敗 %v", err)
-		}
-		if jsonEvent.ID != event.ID || jsonEvent.Title != event.Title {
-			return fatalErrorf("正しいイベントを取得できません")
-		}
-		return nil
-	}
-
-	event.PublicFg = false
 	err = userChecker.Play(ctx, &CheckAction{
 		Method:             "POST",
 		Path:               "/admin/api/events",
 		ExpectedStatusCode: 401,
-		PostData: map[string]string{
-			"title":     event.Title,
-			"public_fg": "", // false
-			"price":     fmt.Sprint(event.Price),
-		},
-		Description: "一般ユーザがイベントを作成できないこと",
+		Description:        "一般ユーザがイベントを作成できないこと",
+		PostData:           eventPostData(event),
 	})
 	if err != nil {
 		return err
 	}
 
+	// Create as a privat event
+	event.PublicFg = false
+
 	err = checker.Play(ctx, &CheckAction{
 		Method:             "POST",
 		Path:               "/admin/api/events",
 		ExpectedStatusCode: 200,
-		PostData: map[string]string{
-			"title":     event.Title,
-			"public_fg": "", // false
-			"price":     fmt.Sprint(event.Price),
-		},
-		Description: "管理者がイベントを作成できること",
-		CheckFunc:   checkJsonAdminEventCreateResponse,
+		Description:        "管理者がイベントを作成できること",
+		PostData:           eventPostData(event),
+		CheckFunc:          checkJsonAdminEventCreateResponse(event),
 	})
 	if err != nil {
 		return err
@@ -618,7 +670,7 @@ func CheckAdminCreateEvent(ctx context.Context, state *State) error {
 		Path:               fmt.Sprintf("/admin/api/events/%d", event.ID),
 		ExpectedStatusCode: 200,
 		Description:        "管理者がイベントを取得できること",
-		CheckFunc:          checkJsonAdminEventResponse,
+		CheckFunc:          checkJsonAdminEventResponse(event),
 	})
 	if err != nil {
 		return err
@@ -629,29 +681,23 @@ func CheckAdminCreateEvent(ctx context.Context, state *State) error {
 		Path:               fmt.Sprintf("/admin/api/events/%d/actions/edit", event.ID),
 		ExpectedStatusCode: 401,
 		Description:        "一般ユーザがイベントを編集できないこと",
-		PostData: map[string]string{
-			"title":  event.Title,
-			"public": "true",
-			"price":  fmt.Sprint(event.Price),
-		},
+		PostData:           eventPostData(event),
 	})
 	if err != nil {
 		return err
 	}
 
+	// Publish an event
 	event.Title = RandomAlphabetString(32)
 	event.PublicFg = true
+
 	err = checker.Play(ctx, &CheckAction{
 		Method:             "POST",
 		Path:               fmt.Sprintf("/admin/api/events/%d/actions/edit", event.ID),
 		ExpectedStatusCode: 200,
 		Description:        "管理者がイベントを編集できること",
-		PostData: map[string]string{
-			"title":  event.Title,
-			"public": "true",
-			"price":  fmt.Sprint(event.Price),
-		},
-		CheckFunc: checkJsonAdminEventResponse,
+		PostData:           eventPostData(event),
+		CheckFunc:          checkJsonAdminEventResponse(event),
 	})
 	if err != nil {
 		return err
@@ -662,7 +708,7 @@ func CheckAdminCreateEvent(ctx context.Context, state *State) error {
 		Path:               fmt.Sprintf("/api/events/%d", event.ID),
 		ExpectedStatusCode: 200,
 		Description:        "一般ユーザが公開イベントを取得できること",
-		CheckFunc:          checkJsonEventResponse,
+		CheckFunc:          checkJsonEventResponse(event),
 	})
 	if err != nil {
 		return err
@@ -683,11 +729,7 @@ func CheckAdminCreateEvent(ctx context.Context, state *State) error {
 		Path:               fmt.Sprintf("/admin/api/events/%d/actions/edit", event.ID+1),
 		ExpectedStatusCode: 404,
 		Description:        "イベントが存在しない場合編集に失敗すること",
-		PostData: map[string]string{
-			"title":  event.Title,
-			"public": "true",
-			"price":  fmt.Sprint(event.Price),
-		},
+		PostData:           eventPostData(event),
 	})
 	if err != nil {
 		return err
