@@ -640,7 +640,7 @@ func CheckAdminCreateEvent(ctx context.Context, state *State) error {
 		return err
 	}
 
-	// Create as a privat event
+	// Create as a private event
 	event.PublicFg = false
 
 	err = adminChecker.Play(ctx, &CheckAction{
