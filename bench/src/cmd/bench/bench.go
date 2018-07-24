@@ -101,7 +101,7 @@ func preTest(ctx context.Context, state *bench.State) error {
 	return nil
 }
 
-func validationMain(ctx context.Context, state *bench.State) error {
+func checkMain(ctx context.Context, state *bench.State) error {
 	for r := range rand.Perm(len(checkFuncs)) {
 		if ctx.Err() != nil {
 			return nil
@@ -131,7 +131,7 @@ func validationMain(ctx context.Context, state *bench.State) error {
 	return nil
 }
 
-func load(ctx context.Context, state *bench.State, n int) {
+func goLoadFuncs(ctx context.Context, state *bench.State, n int) {
 	for i := 0; i < n; i++ {
 		go func() {
 			for {
@@ -149,7 +149,7 @@ func load(ctx context.Context, state *bench.State, n int) {
 	}
 }
 
-func levelUpLoad(ctx context.Context, state *bench.State, n int) {
+func goLoadLevelUpFuncs(ctx context.Context, state *bench.State, n int) {
 	for i := 0; i < n; i++ {
 		for _, loadFunc := range loadLevelUpFuncs {
 			go loadFunc.Func(ctx, state)
@@ -157,9 +157,9 @@ func levelUpLoad(ctx context.Context, state *bench.State, n int) {
 	}
 }
 
-func benchmarkMain(ctx context.Context, state *bench.State) {
-	load(ctx, state, 10)
-	levelUpLoad(ctx, state, 1)
+func loadMain(ctx context.Context, state *bench.State) {
+	goLoadFuncs(ctx, state, 10)
+	goLoadLevelUpFuncs(ctx, state, 1)
 
 	beat := time.NewTicker(time.Second)
 	defer beat.Stop()
@@ -189,7 +189,7 @@ func benchmarkMain(ctx context.Context, state *bench.State) {
 				loadLogs = append(loadLogs, fmt.Sprintf("%v 負荷レベルが上昇しました。", now))
 				counter.IncKey("load-level-up")
 				log.Println("Increase Load Level.")
-				levelUpLoad(ctx, state, 5)
+				goLoadLevelUpFuncs(ctx, state, 5)
 			}
 		case <-ctx.Done():
 			// ベンチ終了、このタイミングでエラーの収集をやめる。
@@ -312,10 +312,10 @@ func startBenchmark(remoteAddrs []string) *BenchResult {
 		return result
 	}
 
-	log.Println("validationMain()")
-	go benchmarkMain(ctx, state)
+	log.Println("checkMain()")
+	go loadMain(ctx, state)
 	for {
-		err = validationMain(ctx, state)
+		err = checkMain(ctx, state)
 		if ctx.Err() != nil {
 			break
 		}
@@ -326,7 +326,7 @@ func startBenchmark(remoteAddrs []string) *BenchResult {
 			return result
 		}
 	}
-	log.Println("validationMain() Done")
+	log.Println("checkMain() Done")
 
 	printCounterSummary()
 
