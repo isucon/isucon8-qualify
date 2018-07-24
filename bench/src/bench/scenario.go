@@ -531,9 +531,36 @@ func CheckAdminCreateEvent(ctx context.Context, state *State) error {
 		return nil
 	}
 
-	jsonEvent := JsonEvent{}
+	checkJsonAdminEventCreateResponse := func(res *http.Response, body *bytes.Buffer) error {
+		dec := json.NewDecoder(body)
+		jsonEvent := JsonAdminEvent{}
+		err := dec.Decode(&jsonEvent)
+		if err != nil {
+			return fatalErrorf("Jsonのデコードに失敗 %v", err)
+		}
+		event.ID = jsonEvent.ID
+		if jsonEvent.Title != event.Title || jsonEvent.Price != event.Price || jsonEvent.Public != event.PublicFg {
+			return fatalErrorf("正しいイベントを取得できません")
+		}
+		return nil
+	}
+
+	checkJsonAdminEventResponse := func(res *http.Response, body *bytes.Buffer) error {
+		dec := json.NewDecoder(body)
+		jsonEvent := JsonAdminEvent{}
+		err := dec.Decode(&jsonEvent)
+		if err != nil {
+			return fatalErrorf("Jsonのデコードに失敗 %v", err)
+		}
+		if jsonEvent.ID != event.ID || jsonEvent.Title != event.Title || jsonEvent.Price != event.Price || jsonEvent.Public != event.PublicFg {
+			return fatalErrorf("正しいイベントを取得できません")
+		}
+		return nil
+	}
+
 	checkJsonEventResponse := func(res *http.Response, body *bytes.Buffer) error {
 		dec := json.NewDecoder(body)
+		jsonEvent := JsonEvent{}
 		err := dec.Decode(&jsonEvent)
 		if err != nil {
 			return fatalErrorf("Jsonのデコードに失敗 %v", err)
@@ -544,10 +571,11 @@ func CheckAdminCreateEvent(ctx context.Context, state *State) error {
 		return nil
 	}
 
+	event.PublicFg = false
 	err = userChecker.Play(ctx, &CheckAction{
 		Method:             "POST",
 		Path:               "/admin/api/events",
-		ExpectedStatusCode: 403,
+		ExpectedStatusCode: 401,
 		PostData: map[string]string{
 			"title":     event.Title,
 			"public_fg": "", // false
@@ -569,7 +597,7 @@ func CheckAdminCreateEvent(ctx context.Context, state *State) error {
 			"price":     fmt.Sprint(event.Price),
 		},
 		Description: "管理者がイベントを作成できること",
-		CheckFunc:   checkJsonEventResponse,
+		CheckFunc:   checkJsonAdminEventCreateResponse,
 	})
 	if err != nil {
 		return err
@@ -590,7 +618,7 @@ func CheckAdminCreateEvent(ctx context.Context, state *State) error {
 		Path:               fmt.Sprintf("/admin/api/events/%d", event.ID),
 		ExpectedStatusCode: 200,
 		Description:        "管理者がイベントを取得できること",
-		CheckFunc:          checkJsonEventResponse,
+		CheckFunc:          checkJsonAdminEventResponse,
 	})
 	if err != nil {
 		return err
@@ -599,7 +627,7 @@ func CheckAdminCreateEvent(ctx context.Context, state *State) error {
 	err = userChecker.Play(ctx, &CheckAction{
 		Method:             "POST",
 		Path:               fmt.Sprintf("/admin/api/events/%d/actions/edit", event.ID),
-		ExpectedStatusCode: 403,
+		ExpectedStatusCode: 401,
 		Description:        "一般ユーザがイベントを編集できないこと",
 		PostData: map[string]string{
 			"title":  event.Title,
@@ -623,7 +651,7 @@ func CheckAdminCreateEvent(ctx context.Context, state *State) error {
 			"public": "true",
 			"price":  fmt.Sprint(event.Price),
 		},
-		CheckFunc: checkJsonEventResponse,
+		CheckFunc: checkJsonAdminEventResponse,
 	})
 	if err != nil {
 		return err
@@ -632,8 +660,9 @@ func CheckAdminCreateEvent(ctx context.Context, state *State) error {
 	err = userChecker.Play(ctx, &CheckAction{
 		Method:             "GET",
 		Path:               fmt.Sprintf("/api/events/%d", event.ID),
-		ExpectedStatusCode: 404,
+		ExpectedStatusCode: 200,
 		Description:        "一般ユーザが公開イベントを取得できること",
+		CheckFunc:          checkJsonEventResponse,
 	})
 	if err != nil {
 		return err

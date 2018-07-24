@@ -5,13 +5,13 @@ import (
 	"sync"
 )
 
-// Torb.loginUser = {"nickname":"sonots","id":1001};
+// {"nickname":"sonots","id":1001};
 type JsonUser struct {
 	ID       uint   `json:"id"`
 	Nickname string `json:"nickname"`
 }
 
-// Torb.events = [{"remains":999,"id":1,"title":"「風邪をひいたなう」しか","sheets":{"S":{"price":8000,"total":50,"remains":49},"A":{"total":150,"price":6000,"remains":150},"C":{"remains":0,"total":0},"c":{"remains":500,"price":3000,"total":500},"B":{"total":300,"price":4000,"remains":300}},"total":1000}];
+// [{"remains":999,"id":1,"title":"「風邪をひいたなう」しか","sheets":{"S":{"price":8000,"total":50,"remains":49},"A":{"total":150,"price":6000,"remains":150},"C":{"remains":0,"total":0},"c":{"remains":500,"price":3000,"total":500},"B":{"total":300,"price":4000,"remains":300}},"total":1000}];
 
 type JsonSheet struct {
 	Price   uint `json:"price"`
@@ -23,6 +23,15 @@ type JsonEvent struct {
 	ID      uint                 `json:"id"`
 	Title   string               `json:"title"`
 	Total   uint                 `json:"total"`
+	Remains uint                 `json:"remains"`
+	Sheets  map[string]JsonSheet `json:"sheets"`
+}
+
+type JsonAdminEvent struct {
+	ID      uint                 `json:"id"`
+	Title   string               `json:"title"`
+	Public  bool                 `json:"public"`
+	Price   uint                 `json:"price"`
 	Remains uint                 `json:"remains"`
 	Sheets  map[string]JsonSheet `json:"sheets"`
 }
@@ -101,7 +110,6 @@ func (s *State) Init() {
 	s.newUsers = append(s.newUsers, DataSet.NewUsers...)
 	s.userMap = map[string]*AppUser{}
 	s.checkerMap = map[*AppUser]*Checker{}
-
 	for _, u := range DataSet.Users {
 		s.userMap[u.LoginName] = u
 	}
@@ -109,10 +117,12 @@ func (s *State) Init() {
 	s.admins = append(s.admins, DataSet.Administrators...)
 	s.adminMap = map[string]*Administrator{}
 	s.adminCheckerMap = map[*Administrator]*Checker{}
-
 	for _, u := range DataSet.Administrators {
 		s.adminMap[u.LoginName] = u
 	}
+
+	s.events = append(s.events, DataSet.Events...)
+	s.newEvents = append(s.newEvents, DataSet.NewEvents...)
 }
 
 func (s *State) PopRandomUser() (*AppUser, *Checker, func()) {
@@ -276,5 +286,8 @@ func (s *State) PopNewEvent() (*Event, func()) {
 
 	// NOTE: push() function pushes into s.events, does not push back to s.newEvents.
 	// You should call push() after you verify that a new event is successfully created.
-	return event, func() { s.PushEvent(event) }
+	return event, func() {
+		// fmt.Printf("%d %s %d %t\n", event.ID, event.Title, event.Price, event.PublicFg)
+		s.PushEvent(event)
+	}
 }

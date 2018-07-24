@@ -73,7 +73,6 @@ func prepareEventDataSet() {
 	defer file.Close()
 
 	s := bufio.NewScanner(file)
-	next_id := uint(1)
 	for i := 0; s.Scan(); i++ {
 		line := strings.Split(s.Text(), "\t")
 		title := line[0]
@@ -81,24 +80,22 @@ func prepareEventDataSet() {
 		price, _ := strconv.Atoi(line[2])
 
 		event := &Event{
-			ID:       next_id,
+			ID:       uint(i + 1),
 			Title:    title,
 			PublicFg: public_fg,
 			Price:    uint(price),
 		}
-		next_id++
 
 		DataSet.Events = append(DataSet.Events, event)
 	}
 
 	for i := 0; i < 100; i++ {
 		event := &Event{
-			ID:       next_id,
+			ID:       0, // auto increment
 			Title:    RandomAlphabetString(32),
 			PublicFg: true,
 			Price:    uint(rand.Intn(10) * 1000),
 		}
-		next_id++
 		DataSet.NewEvents = append(DataSet.NewEvents, event)
 	}
 }
