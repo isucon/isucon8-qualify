@@ -155,6 +155,8 @@ const EventModal = new Vue({
         const sheet = this.event.sheets[sheetRank].detail[result.sheet_num-1];
         sheet.reserved = true;
         sheet.mine = true;
+        this.event.sheets[sheetRank].remains--;
+        this.event.remains--;
         this.$forceUpdate();
       }).catch(err => {
         showError(err);
@@ -170,6 +172,8 @@ const EventModal = new Vue({
       }).then(() => {
         sheet.reserved = false;
         sheet.mine = false;
+        this.event.sheets[sheetRank].remains++;
+        this.event.remains++;
         this.$forceUpdate();
       }).catch(err => {
         showError(err);
