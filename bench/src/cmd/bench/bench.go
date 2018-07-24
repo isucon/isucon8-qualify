@@ -21,25 +21,36 @@ import (
 )
 
 var (
-	benchDuration time.Duration = time.Minute
-	preTestOnly   bool
-	noLevelup     bool
-	loadFuncs     []loadFunc
-	loadLogs      []string
+	benchDuration    time.Duration = time.Minute
+	preTestOnly      bool
+	noLevelup        bool
+	checkFuncs       []benchFunc
+	loadFuncs        []benchFunc
+	loadLevelUpFuncs []benchFunc
+	loadLogs         []string
 
 	pprofPort int = 16060
 )
 
-type loadFunc func(ctx context.Context, state *bench.State) error
+type benchFunc struct {
+	Name string
+	Func func(ctx context.Context, state *bench.State) error
+}
 
-func addLoadFunc(weight int, f loadFunc) {
+func addCheckFunc(f benchFunc) {
+	checkFuncs = append(checkFuncs, f)
+}
+
+func addLoadFunc(weight int, f benchFunc) {
 	for i := 0; i < weight; i++ {
 		loadFuncs = append(loadFuncs, f)
 	}
 }
 
-func choiceLoadFunc() loadFunc {
-	return loadFuncs[rand.Intn(len(loadFuncs))]
+func addLoadLevelUpFunc(weight int, f benchFunc) {
+	for i := 0; i < weight; i++ {
+		loadLevelUpFuncs = append(loadLevelUpFuncs, f)
+	}
 }
 
 func requestInitialize(targetHost string) error {
@@ -80,62 +91,27 @@ func requestInitialize(targetHost string) error {
 // 負荷を掛ける前にアプリが最低限動作しているかをチェックする
 // エラーが発生したら負荷をかけずに終了する
 func preTest(ctx context.Context, state *bench.State) error {
-	var err error
-
-	err = bench.CheckStaticFiles(ctx, state)
-	if err != nil {
-		return err
-	}
-
-	err = bench.CheckCreateUser(ctx, state)
-	if err != nil {
-		return err
-	}
-
-	err = bench.CheckLogin(ctx, state)
-	if err != nil {
-		return err
-	}
-
-	err = bench.CheckAdminLogin(ctx, state)
-	if err != nil {
-		return err
-	}
-
-	err = bench.CheckAdminCreateEvent(ctx, state)
-	if err != nil {
-		return err
+	for _, checkFunc := range checkFuncs {
+		err := checkFunc.Func(ctx, state)
+		if err != nil {
+			return err
+		}
 	}
 
 	return nil
 }
 
 func validationMain(ctx context.Context, state *bench.State) error {
-	for r := range rand.Perm(5) {
+	for r := range rand.Perm(len(checkFuncs)) {
 		if ctx.Err() != nil {
 			return nil
 		}
 
-		var err error
 		t := time.Now()
 
-		switch r {
-		case 0:
-			err = bench.CheckStaticFiles(ctx, state)
-			log.Println("CheckStaticFiles", time.Since(t))
-		case 1:
-			err = bench.CheckCreateUser(ctx, state)
-			log.Println("CheckCreateUser", time.Since(t))
-		case 2:
-			err = bench.CheckLogin(ctx, state)
-			log.Println("CheckLogin", time.Since(t))
-		case 3:
-			err = bench.CheckAdminLogin(ctx, state)
-			log.Println("CheckAdminLogin", time.Since(t))
-		case 4:
-			err = bench.CheckAdminCreateEvent(ctx, state)
-			log.Println("CheckAdminCreateEvent", time.Since(t))
-		}
+		checkFunc := checkFuncs[r]
+		err := checkFunc.Func(ctx, state)
+		log.Println(checkFunc.Name, time.Since(t))
 
 		isFatalError := false
 		if cerr, ok := err.(*bench.CheckerError); ok {
@@ -155,28 +131,35 @@ func validationMain(ctx context.Context, state *bench.State) error {
 	return nil
 }
 
-func benchmarkMain(ctx context.Context, state *bench.State) {
-	levelUpLoad := func(n int) {
-		for i := 0; i < n; i++ {
-			go bench.LoadTopPage(ctx, state)
-		}
-	}
-	levelUpLoad(5)
-
-	for i := 0; i < 10; i++ {
+func load(ctx context.Context, state *bench.State, n int) {
+	for i := 0; i < n; i++ {
 		go func() {
 			for {
 				if ctx.Err() != nil {
 					return
 				}
 
-				err := choiceLoadFunc()(ctx, state)
+				loadFunc := loadFuncs[rand.Intn(len(loadFuncs))]
+				err := loadFunc.Func(ctx, state)
 				if err != nil {
 					return
 				}
 			}
 		}()
 	}
+}
+
+func levelUpLoad(ctx context.Context, state *bench.State, n int) {
+	for i := 0; i < n; i++ {
+		for _, loadFunc := range loadLevelUpFuncs {
+			go loadFunc.Func(ctx, state)
+		}
+	}
+}
+
+func benchmarkMain(ctx context.Context, state *bench.State) {
+	load(ctx, state, 10)
+	levelUpLoad(ctx, state, 1)
 
 	beat := time.NewTicker(time.Second)
 	defer beat.Stop()
@@ -206,7 +189,7 @@ func benchmarkMain(ctx context.Context, state *bench.State) {
 				loadLogs = append(loadLogs, fmt.Sprintf("%v 負荷レベルが上昇しました。", now))
 				counter.IncKey("load-level-up")
 				log.Println("Increase Load Level.")
-				levelUpLoad(5)
+				levelUpLoad(ctx, state, 5)
 			}
 		case <-ctx.Done():
 			// ベンチ終了、このタイミングでエラーの収集をやめる。
@@ -268,6 +251,17 @@ func printCounterSummary() {
 }
 
 func startBenchmark(remoteAddrs []string) *BenchResult {
+	addLoadFunc(1, benchFunc{"LoadCreateUser", bench.LoadCreateUser})
+	addLoadFunc(1, benchFunc{"loadLogin", bench.LoadLogin})
+
+	addLoadLevelUpFunc(1, benchFunc{"loadTopPage", bench.LoadTopPage})
+
+	addCheckFunc(benchFunc{"CheckStaticFiles", bench.CheckStaticFiles})
+	addCheckFunc(benchFunc{"CheckCreateUser", bench.CheckCreateUser})
+	addCheckFunc(benchFunc{"CheckLogin", bench.CheckLogin})
+	addCheckFunc(benchFunc{"CheckAdminLogin", bench.CheckAdminLogin})
+	addCheckFunc(benchFunc{"CheckAdminCreateEvent", bench.CheckAdminCreateEvent})
+
 	result := new(BenchResult)
 	result.StartTime = time.Now()
 	defer func() {
@@ -412,9 +406,6 @@ func main() {
 		log.Fatalln("invalid remotes")
 	}
 	log.Println("Remotes", remoteAddrs)
-
-	addLoadFunc(1, bench.LoadCreateUser)
-	addLoadFunc(1, bench.LoadLogin)
 
 	bench.SetTargetHosts(remoteAddrs)
 
