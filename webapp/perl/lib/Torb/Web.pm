@@ -364,11 +364,10 @@ filter admin_login_required => sub {
         my ($self, $c) = @_;
         my $session = Plack::Session->new($c->env);
 
-        my $administrator_id = $session->get('administrator_id');
-        my $administrator = $self->get_administrator($administrator_id);
+        my $administrator = $self->get_login_administrator($c);
         unless ($administrator) {
             my $res = $c->render_json({
-                error => 'login_required',
+                error => 'admin_login_required',
             });
             $res->status(401);
             return $res;
@@ -438,6 +437,7 @@ sub get_login_administrator {
 
     my $session = Plack::Session->new($c->env);
     my $administrator_id = $session->get('administrator_id');
+    return unless $administrator_id;
     return $self->get_administrator($administrator_id);
 }
 
