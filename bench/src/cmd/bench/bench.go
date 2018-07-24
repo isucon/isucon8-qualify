@@ -87,6 +87,11 @@ func preTest(ctx context.Context, state *bench.State) error {
 		return err
 	}
 
+	err = bench.CheckCreateUser(ctx, state)
+	if err != nil {
+		return err
+	}
+
 	err = bench.CheckLogin(ctx, state)
 	if err != nil {
 		return err
@@ -96,8 +101,7 @@ func preTest(ctx context.Context, state *bench.State) error {
 }
 
 func validationMain(ctx context.Context, state *bench.State) error {
-	//for r := range rand.Perm(8) {
-	for r := range rand.Perm(2) {
+	for r := range rand.Perm(3) {
 		if ctx.Err() != nil {
 			return nil
 		}
@@ -110,6 +114,9 @@ func validationMain(ctx context.Context, state *bench.State) error {
 			err = bench.CheckStaticFiles(ctx, state)
 			log.Println("CheckStaticFiles", time.Since(t))
 		case 1:
+			err = bench.CheckCreateUser(ctx, state)
+			log.Println("CheckCreateUser", time.Since(t))
+		case 2:
 			err = bench.CheckLogin(ctx, state)
 			log.Println("CheckLogin", time.Since(t))
 		}

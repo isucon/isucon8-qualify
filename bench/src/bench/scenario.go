@@ -232,10 +232,67 @@ func CheckStaticFiles(ctx context.Context, state *State) error {
 }
 
 func CheckCreateUser(ctx context.Context, state *State) error {
-	// ユーザを作成できること
-	// すでに作成済みの場合エラーになること
-	// 作成したユーザでログインできること
-	// ログアウトできること
+	user, checker, push := state.PopNewUser()
+	if user == nil {
+		return nil
+	}
+
+	err := checker.Play(ctx, &CheckAction{
+		Method:             "POST",
+		Path:               "/api/users",
+		ExpectedStatusCode: 201,
+		PostData: map[string]string{
+			"nickname":   user.Nickname,
+			"login_name": user.LoginName,
+			"password":   user.Password,
+		},
+		Description: "新規ユーザが作成できること",
+	})
+	if err != nil {
+		return err
+	}
+
+	err = checker.Play(ctx, &CheckAction{
+		Method:             "POST",
+		Path:               "/api/actions/login",
+		ExpectedStatusCode: 200,
+		PostData: map[string]string{
+			"login_name": user.LoginName,
+			"password":   user.Password,
+		},
+		Description: "作成したユーザでログインできること",
+	})
+	if err != nil {
+		return err
+	}
+
+	defer push()
+
+	err = checker.Play(ctx, &CheckAction{
+		Method:             "POST",
+		Path:               "/api/actions/logout",
+		ExpectedStatusCode: 204,
+		Description:        "ログアウトできること",
+	})
+	if err != nil {
+		return err
+	}
+
+	err = checker.Play(ctx, &CheckAction{
+		Method:             "POST",
+		Path:               "/api/users",
+		ExpectedStatusCode: 409,
+		PostData: map[string]string{
+			"nickname":   user.Nickname,
+			"login_name": user.LoginName,
+			"password":   user.Password,
+		},
+		Description: "すでに作成済みの場合エラーになること",
+	})
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 
