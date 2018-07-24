@@ -146,20 +146,14 @@ var EventModal = new Vue({
       return this.event.sheets[sheetRank].remains === 0;
     },
     reserveSheet: function (sheetRank) {
-      var eventId = this.event.id;
+      var event = this.event;
       var message = sheetRank+': '+this.event.sheets[sheetRank].price+'円';
       confirm('Sheet Reservation', message, function () {
-        API.Event.reserveSheet(eventId, sheetRank).then(function (result) {
-          console.log(result);
-          updateEventModal(eventId, function (event) {
-            var events = EventList.$data.events;
-            for (var i = 0, l = events.length; i < l; i++) {
-              if (events[i].id !== event.id) continue;
-              events[i] = event;
-              break;
-            }
-            EventList.$forceUpdate();
-          });
+        API.Event.reserveSheet(event.id, sheetRank).then(function (result) {
+          var sheet = event.sheets[sheetRank].detail[result.sheet_num-1];
+          sheet.reserved = true;
+          sheet.mine = true;
+          EventList.$forceUpdate();
         }).catch(function (err) {
           showError(err);
         });
@@ -169,19 +163,13 @@ var EventModal = new Vue({
       var sheet = this.event.sheets[sheetRank].detail[sheetNum-1];
       if (!sheet.mine) return;
 
-      var eventId = this.event.id;
+      var event = this.event;
       var message = 'Do you cancel the sheet reservation?: '+sheetRank+'-'+sheet.num;
       confirm('Cancel Sheet Reservation', message, function () {
-        API.Event.freeSheet(eventId, sheetRank, sheetNum).then(function () {
-          updateEventModal(eventId, function (event) {
-            var events = EventList.$data.events;
-            for (var i = 0, l = events.length; i < l; i++) {
-              if (events[i].id !== event.id) continue;
-              events[i] = event;
-              break;
-            }
-            EventList.$forceUpdate();
-          });
+        API.Event.freeSheet(event.id, sheetRank, sheetNum).then(function () {
+          sheet.reserved = false;
+          sheet.mine = false;
+          EventList.$forceUpdate();
         }).catch(function (err) {
           showError(err);
         });
