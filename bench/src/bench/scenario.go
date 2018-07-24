@@ -427,11 +427,11 @@ func CheckReserveSheet(ctx context.Context, state *State) error {
 }
 
 func CheckAdminLogin(ctx context.Context, state *State) error {
-	admin, checker, push := state.PopRandomAdministrator()
+	admin, adminChecker, adminPush := state.PopRandomAdministrator()
 	if admin == nil {
 		return nil
 	}
-	defer push()
+	defer adminPush()
 
 	user, userChecker, userPush := state.PopRandomUser()
 	if user == nil {
@@ -453,7 +453,7 @@ func CheckAdminLogin(ctx context.Context, state *State) error {
 		return err
 	}
 
-	err = checker.Play(ctx, &CheckAction{
+	err = adminChecker.Play(ctx, &CheckAction{
 		Method:             "POST",
 		Path:               "/admin/api/actions/login",
 		ExpectedStatusCode: 204,
@@ -467,7 +467,7 @@ func CheckAdminLogin(ctx context.Context, state *State) error {
 		return err
 	}
 
-	err = checker.Play(ctx, &CheckAction{
+	err = adminChecker.Play(ctx, &CheckAction{
 		Method:             "POST",
 		Path:               "/admin/api/actions/logout",
 		ExpectedStatusCode: 204,
@@ -477,7 +477,7 @@ func CheckAdminLogin(ctx context.Context, state *State) error {
 		return err
 	}
 
-	err = checker.Play(ctx, &CheckAction{
+	err = adminChecker.Play(ctx, &CheckAction{
 		Method:             "POST",
 		Path:               "/admin/api/actions/logout",
 		ExpectedStatusCode: 401,
@@ -487,7 +487,7 @@ func CheckAdminLogin(ctx context.Context, state *State) error {
 		return err
 	}
 
-	err = checker.Play(ctx, &CheckAction{
+	err = adminChecker.Play(ctx, &CheckAction{
 		Method:             "POST",
 		Path:               "/admin/api/actions/login",
 		ExpectedStatusCode: 401,
@@ -501,7 +501,7 @@ func CheckAdminLogin(ctx context.Context, state *State) error {
 		return err
 	}
 
-	err = checker.Play(ctx, &CheckAction{
+	err = adminChecker.Play(ctx, &CheckAction{
 		Method:             "POST",
 		Path:               "/admin/api/actions/login",
 		ExpectedStatusCode: 401,
@@ -582,11 +582,11 @@ func eventPostData(event *Event) map[string]string {
 }
 
 func CheckAdminCreateEvent(ctx context.Context, state *State) error {
-	admin, checker, push := state.PopRandomAdministrator()
+	admin, adminChecker, adminPush := state.PopRandomAdministrator()
 	if admin == nil {
 		return nil
 	}
-	defer push()
+	defer adminPush()
 
 	user, userChecker, userPush := state.PopRandomUser()
 	if user == nil {
@@ -595,7 +595,7 @@ func CheckAdminCreateEvent(ctx context.Context, state *State) error {
 	defer userPush()
 
 	// TODO(sonots): Skip login if already logged in?
-	err := checker.Play(ctx, &CheckAction{
+	err := adminChecker.Play(ctx, &CheckAction{
 		Method:             "POST",
 		Path:               "/admin/api/actions/login",
 		ExpectedStatusCode: 204,
@@ -643,7 +643,7 @@ func CheckAdminCreateEvent(ctx context.Context, state *State) error {
 	// Create as a privat event
 	event.PublicFg = false
 
-	err = checker.Play(ctx, &CheckAction{
+	err = adminChecker.Play(ctx, &CheckAction{
 		Method:             "POST",
 		Path:               "/admin/api/events",
 		ExpectedStatusCode: 200,
@@ -665,7 +665,7 @@ func CheckAdminCreateEvent(ctx context.Context, state *State) error {
 		return err
 	}
 
-	err = checker.Play(ctx, &CheckAction{
+	err = adminChecker.Play(ctx, &CheckAction{
 		Method:             "GET",
 		Path:               fmt.Sprintf("/admin/api/events/%d", event.ID),
 		ExpectedStatusCode: 200,
@@ -691,7 +691,7 @@ func CheckAdminCreateEvent(ctx context.Context, state *State) error {
 	event.Title = RandomAlphabetString(32)
 	event.PublicFg = true
 
-	err = checker.Play(ctx, &CheckAction{
+	err = adminChecker.Play(ctx, &CheckAction{
 		Method:             "POST",
 		Path:               fmt.Sprintf("/admin/api/events/%d/actions/edit", event.ID),
 		ExpectedStatusCode: 200,
@@ -714,7 +714,7 @@ func CheckAdminCreateEvent(ctx context.Context, state *State) error {
 		return err
 	}
 
-	err = checker.Play(ctx, &CheckAction{
+	err = adminChecker.Play(ctx, &CheckAction{
 		Method:             "GET",
 		Path:               fmt.Sprintf("/admin/api/events/%d", event.ID+1),
 		ExpectedStatusCode: 404,
@@ -724,7 +724,7 @@ func CheckAdminCreateEvent(ctx context.Context, state *State) error {
 		return err
 	}
 
-	err = checker.Play(ctx, &CheckAction{
+	err = adminChecker.Play(ctx, &CheckAction{
 		Method:             "POST",
 		Path:               fmt.Sprintf("/admin/api/events/%d/actions/edit", event.ID+1),
 		ExpectedStatusCode: 404,
