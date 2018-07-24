@@ -8,12 +8,25 @@
 
 #confirm-modal {
   z-index: 9999 !important;
-  margin-top: 3rem;
+  padding-top: 3rem;
+  background-color: rgba(0,0,0,0.6);
+}
+
+.event-modal-content .rank {
+  width: 2%;
+  font-size: .75rem;
+}
+
+.event-modal-content .remaining-sheets-bar {
+  width: 98%;
+}
+
+.event-modal-content .sheets-tables {
+  max-height: 24rem;
+  overflow: scroll;
 }
 
 .event-modal-content table {
-  max-height: 24rem;
-  overflow: scroll;
   font-size: 10px;
 }
 

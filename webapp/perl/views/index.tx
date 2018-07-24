@@ -122,12 +122,12 @@
             <small class="text-muted">Total: {{ event.remains }} / {{ event.total }}</small>
           </div>
           <div class="d-flex w-100" v-for="rank in ranks">
-            <span style="width:2%; font-size: .75rem">{{ rank }}</span>
-            <div class="progress" style="width:98%">
+            <span class="rank">{{ rank }}</span>
+            <div class="progress remaining-sheets-bar">
               <div class="progress-bar" role="progressbar" v-bind:aria-valuenow="event.sheets[rank].remains" aria-valuemin="0" v-bind:aria-valuemax="event.sheets[rank].total" v-bind:style="{ width: 100 * (event.sheets[rank].remains/event.sheets[rank].total) + '%' }">{{ event.sheets[rank].remains }}</div>
             </div>
           </div>
-          <div style="max-height: 24rem; overflow: scroll; font-size: 6px">
+          <div class="sheets-tables">
             <table class="table" v-for="rank in ranks">
               <thead>
                 <tr>
