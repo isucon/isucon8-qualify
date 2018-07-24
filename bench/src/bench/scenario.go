@@ -409,40 +409,7 @@ func CheckTopPage(ctx context.Context, state *State) error {
 }
 
 func CheckReserveSheet(ctx context.Context, state *State) error {
-	user, checker, push := state.PopRandomUser()
-	if user == nil {
-		return nil
-	}
-	defer push()
-
-	// TODO(sonots): Skip login if already logged in?
-	err := checker.Play(ct, &CheckAction{
-		Method:             "POST",
-		Path:               "/api/actions/login",
-		ExpectedStatusCode: 200,
-		Description:        "ログインできること",
-		PostData: map[string]string{
-			"login_name": user.LoginName,
-			"password":   user.Password,
-		},
-	})
-	if err != nil {
-		return err
-	}
-
-	err := checker.Play(ct, &CheckAction{
-		Method:             "POST",
-		Path:               fmt.Sprint("/api/events/%d/actions/reserve", event.ID),
-		ExpectedStatusCode: 200,
-		Description:        "席の予約ができること",
-		PostData: map[string]string{
-			"sheet_rank": sheet.Rank,
-		},
-	})
-	if err != nil {
-		return err
-	}
-
+	// 購入の成功
 	// 売り切れの場合エラーになること
 	// ログインしていない場合にエラーになること
 
