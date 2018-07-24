@@ -1,4 +1,8 @@
-var DOM = {
+"use strict";
+
+// Note: ES2015 Supported Browsers: https://kangax.github.io/compat-table/es6/
+
+const DOM = {
   appWrapper: $('#app-wrapper'),
   confirmModal: $('#confirm-modal'),
   registerModal: $('#register-modal'),
@@ -6,92 +10,83 @@ var DOM = {
   eventModal: $('#event-modal'),
 };
 
-var Torb = {
-  loginUser: DOM.appWrapper.data('login-user'),
-  events: DOM.appWrapper.data('events'),
-};
-
 function showError(err) {
-  setTimeout(function () {
+  setTimeout(() => {
     alert(err);
   }, 100);
 }
 
-var API = (function () {
-  var handleJSON = function (res) {
+const API = (() => {
+  const handleJSON = res => {
     return res.json();
   };
 
-  var handleJSONError = function (res) {
+  const handleJSONError = res => {
     if ('error' in res) {
       return Promise.reject(res.error);
     }
     return Promise.resolve(res);
   };
 
-  var User = {
-    register: function (nickname, loginName, password) {
-      return fetch('/api/users', {
-        method: 'POST',
-        headers: new Headers({ 'Content-Type': 'application/json' }),
-        body: JSON.stringify({ nickname: nickname, login_name: loginName, password: password }),
-        credentials: 'same-origin',
-      }).then(handleJSON).then(handleJSONError);
-    },
-    login: function (loginName, password) {
-      return fetch('/api/actions/login', {
-        method: 'POST',
-        headers: new Headers({ 'Content-Type': 'application/json' }),
-        body: JSON.stringify({ login_name: loginName, password: password }),
-        credentials: 'same-origin',
-      }).then(handleJSON).then(handleJSONError);
-    },
-    logout: function () {
-      return fetch('/api/actions/logout', {
-        method: 'POST',
-        headers: new Headers({ 'Content-Type': 'application/json' }),
-        body: '{}',
-        credentials: 'same-origin',
-      });
-    },
-  };
-
-  var Event = {
-    getAll: function () {
-      return fetch('/api/events', {
-        method: 'GET',
-        credentials: 'same-origin',
-      }).then(handleJSON).then(handleJSONError);
-    },
-    getDetails: function (eventId) {
-      return fetch('/api/events/'+eventId, {
-        method: 'GET',
-        credentials: 'same-origin',
-      }).then(handleJSON).then(handleJSONError);
-    },
-    reserveSheet: function (eventId, sheetRank) {
-      return fetch('/api/events/'+eventId+'/actions/reserve', {
-        method: 'POST',
-        headers: new Headers({ 'Content-Type': 'application/json' }),
-        body: JSON.stringify({ sheet_rank: sheetRank }),
-        credentials: 'same-origin',
-      }).then(handleJSON).then(handleJSONError);
-    },
-    freeSheet: function (eventId, sheetRank, sheetNum) {
-      return fetch('/api/events/'+eventId+'/sheets/'+sheetRank+'/'+sheetNum+'/reservation', {
-        method: 'DELETE',
-        credentials: 'same-origin',
-      });
-    },
-  };
-
   return {
-    User: User,
-    Event: Event,
+    User: {
+      register (nickname, loginName, password) {
+        return fetch('/api/users', {
+          method: 'POST',
+          headers: new Headers({ 'Content-Type': 'application/json' }),
+          body: JSON.stringify({ nickname: nickname, login_name: loginName, password: password }),
+          credentials: 'same-origin',
+        }).then(handleJSON).then(handleJSONError);
+      },
+      login (loginName, password) {
+        return fetch('/api/actions/login', {
+          method: 'POST',
+          headers: new Headers({ 'Content-Type': 'application/json' }),
+          body: JSON.stringify({ login_name: loginName, password: password }),
+          credentials: 'same-origin',
+        }).then(handleJSON).then(handleJSONError);
+      },
+      logout () {
+        return fetch('/api/actions/logout', {
+          method: 'POST',
+          headers: new Headers({ 'Content-Type': 'application/json' }),
+          body: '{}',
+          credentials: 'same-origin',
+        });
+      },
+    },
+    Event: {
+      getAll () {
+        return fetch('/api/events', {
+          method: 'GET',
+          credentials: 'same-origin',
+        }).then(handleJSON).then(handleJSONError);
+      },
+      getDetails (eventId) {
+        return fetch('/api/events/'+eventId, {
+          method: 'GET',
+          credentials: 'same-origin',
+        }).then(handleJSON).then(handleJSONError);
+      },
+      reserveSheet (eventId, sheetRank) {
+        return fetch('/api/events/'+eventId+'/actions/reserve', {
+          method: 'POST',
+          headers: new Headers({ 'Content-Type': 'application/json' }),
+          body: JSON.stringify({ sheet_rank: sheetRank }),
+          credentials: 'same-origin',
+        }).then(handleJSON).then(handleJSONError);
+      },
+      freeSheet (eventId, sheetRank, sheetNum) {
+        return fetch('/api/events/'+eventId+'/sheets/'+sheetRank+'/'+sheetNum+'/reservation', {
+          method: 'DELETE',
+          credentials: 'same-origin',
+        });
+      },
+    },
   };
 })();
 
-var ConfirmModal = new Vue({
+const ConfirmModal = new Vue({
   el: '#confirm-modal .modal-dialog',
   data: {
     title: '',
@@ -99,7 +94,7 @@ var ConfirmModal = new Vue({
     callback: null,
   },
   methods: {
-    ok: function () {
+    ok () {
       if (this.callback === null) return;
 
       this.callback();
@@ -109,114 +104,155 @@ var ConfirmModal = new Vue({
   },
 });
 
-function confirm(title, message, callback) {
-   ConfirmModal.$data.title = title;
-   ConfirmModal.$data.message = message;
-   ConfirmModal.$data.callback = callback;
-   DOM.confirmModal.modal('show');
+function confirm(title, message) {
+  return new Promise((resolve, reject) => {
+    ConfirmModal.$data.title = title;
+    ConfirmModal.$data.message = message;
+    ConfirmModal.$data.callback = resolve;
+    DOM.confirmModal.modal('show');
+  });
 }
 
-var EventList = new Vue({
+const EventList = new Vue({
   el: '.events',
-  data: {
-    events: Torb.events,
-    ranks: ['S', 'A', 'B', 'C'],
+  data () {
+    const events = DOM.appWrapper.data('events');
+    return {
+      events: events,
+      ranks: ['S', 'A', 'B', 'C'],
+    };
   },
   methods: {
-    open: function (eventId) { openEventModal(eventId) },
+    open (eventId) { openEventModal(eventId) },
   },
 });
 
-var EventModal = new Vue({
+const EventModal = new Vue({
   el: '#event-modal .modal-dialog',
-  data: {
-    event: { sheets: { S:{}, A:{}, B:{}, C:{} } },
-    ranks: ['S', 'A', 'B', 'C'],
+  data () {
+    return {
+      event: { sheets: { S:{}, A:{}, B:{}, C:{} } },
+      ranks: ['S', 'A', 'B', 'C'],
+    };
   },
   methods: {
-    divRange: function (n ,d) {
-      var max = Math.floor(n / d);
-      var range = [];
-      for (var i = 1; i <= max; i++) {
+    divRange (n ,d) {
+      const max = Math.floor(n / d);
+      const range = [];
+      for (let i = 1; i <= max; i++) {
         range.push(i);
       }
       return range;
     },
-    isSoldOut: function (sheetRank) {
+    isSoldOut (sheetRank) {
       return this.event.sheets[sheetRank].remains === 0;
     },
-    reserveSheet: function (sheetRank) {
-      var eventId = this.event.id;
-      var message = sheetRank+': '+this.event.sheets[sheetRank].price+'円';
-      confirm('Sheet Reservation', message, function () {
-        API.Event.reserveSheet(eventId, sheetRank).then(function (result) {
-          console.log(result);
-          updateEventModal(eventId, function (event) {
-            var events = EventList.$data.events;
-            for (var i = 0, l = events.length; i < l; i++) {
-              if (events[i].id !== event.id) continue;
-              events[i] = event;
-              break;
-            }
-            EventList.$forceUpdate();
-          });
-        }).catch(function (err) {
-          showError(err);
-        });
+    reserveSheet (sheetRank) {
+      const message = sheetRank+': '+this.event.sheets[sheetRank].price+'円';
+      confirm('Sheet Reservation', message).then(() => {
+        return API.Event.reserveSheet(this.event.id, sheetRank);
+      }).then(result => {
+        const sheet = this.event.sheets[sheetRank].detail[result.sheet_num-1];
+        sheet.reserved = true;
+        sheet.mine = true;
+        this.event.sheets[sheetRank].remains--;
+        this.event.remains--;
+        this.$forceUpdate();
+      }).catch(err => {
+        showError(err);
       });
     },
-    freeSheet: function (sheetRank, sheetNum) {
-      var sheet = this.event.sheets[sheetRank].detail[sheetNum-1];
+    freeSheet (sheetRank, sheetNum) {
+      const sheet = this.event.sheets[sheetRank].detail[sheetNum-1];
       if (!sheet.mine) return;
 
-      var eventId = this.event.id;
-      var message = 'Do you cancel the sheet reservation?: '+sheetRank+'-'+sheet.num;
-      confirm('Cancel Sheet Reservation', message, function () {
-        API.Event.freeSheet(eventId, sheetRank, sheetNum).then(function () {
-          updateEventModal(eventId, function (event) {
-            var events = EventList.$data.events;
-            for (var i = 0, l = events.length; i < l; i++) {
-              if (events[i].id !== event.id) continue;
-              events[i] = event;
-              break;
-            }
-            EventList.$forceUpdate();
-          });
-        }).catch(function (err) {
-          showError(err);
-        });
+      const message = 'Do you cancel the sheet reservation?: '+sheetRank+'-'+sheet.num;
+      confirm('Cancel Sheet Reservation', message).then(() => {
+        return API.Event.freeSheet(this.event.id, sheetRank, sheetNum);
+      }).then(() => {
+        sheet.reserved = false;
+        sheet.mine = false;
+        this.event.sheets[sheetRank].remains++;
+        this.event.remains++;
+        this.$forceUpdate();
+      }).catch(err => {
+        showError(err);
       });
     },
   },
 });
 
-function updateEventModal(eventId, callback) {
-  API.Event.getDetails(eventId).then(function (event) {
-    EventModal.$data.event = event;
-    callback(event);
-  }).catch(function (err) {
-    showError(err);
+function updateEventModal(eventId) {
+  return new Promise((resolve, reject) => {
+    API.Event.getDetails(eventId).then(event => {
+      EventModal.$data.event = event;
+      resolve(event);
+    }).catch(err => {
+      showError(err);
+      reject(err);
+    });
   });
 }
 
 function openEventModal(eventId) {
-  updateEventModal(eventId, function () {
+  const id = setInterval(() => {
+    updateEventModal(eventId).then(event => {
+      EventList.$data.events.forEach((e, i, events) => {
+        if (e.id !== event.id) return;
+        events[i] = event;
+      });
+      EventList.$forceUpdate();
+    });
+  }, 10000);
+  updateEventModal(eventId).then(() => {
     DOM.eventModal.modal('show');
+    DOM.eventModal.once('hide.bs.modal', e => {
+      clearInterval(id);
+    });
+  }).catch(err => {
+    clearInterval(id);
   });
 }
 
-new Vue({
-  el: '#login-modal .modal-dialog',
-  data: {
-    loginName: '',
-    password: '',
+const MenuBar = new Vue({
+  el: '#menu-bar',
+  data () {
+    const currentUser = DOM.appWrapper.data('login-user');
+    return {
+      currentUser: currentUser,
+    };
   },
   methods: {
-    submit: function () {
-      API.User.login(this.loginName, this.password).then(function (user) {
-        Torb.currentUser = user;
+    signUp () {
+      DOM.registerModal.modal('show');
+    },
+    signIn () {
+      DOM.loginModal.modal('show');
+    },
+    signOut () {
+      confirm('Sign Out?', 'Do you really sign out?').then(() => {
+        return API.User.logout();
+      }).then(() => {
+        this.currentUser = null;
+      });
+    },
+  },
+});
+
+new Vue({
+  el: '#login-modal .modal-dialog',
+  data () {
+    return {
+      loginName: '',
+      password: '',
+    };
+  },
+  methods: {
+    submit () {
+      API.User.login(this.loginName, this.password).then(user => {
+        MenuBar.$data.currentUser = user;
         DOM.loginModal.modal('hide');
-      }).catch(function (err) {
+      }).catch(err => {
         showError(err);
       });;
     },
@@ -225,55 +261,29 @@ new Vue({
 
 new Vue({
   el: '#register-modal .modal-dialog',
-  data: {
-    nickname: '',
-    loginName: '',
-    password: '',
+  data () {
+    return {
+      nickname: '',
+      loginName: '',
+      password: '',
+    };
   },
   methods: {
-    submit: function () {
-      var loginName = this.loginName;
-      var password = this.password;
-      API.User.register(this.nickname, loginName, password).then(function () {
+    submit () {
+      const loginName = this.loginName;
+      const password = this.password;
+      API.User.register(this.nickname, loginName, password).then(() => {
         return API.User.login(loginName, password);
-      }).then(function (user) {
-        Torb.currentUser = user;
+      }).then(user => {
+        MenuBar.$data.currentUser = user;
         DOM.registerModal.modal('hide');
-      }).catch(function (err) {
+      }).catch(err => {
         showError(err);
       });
     },
   },
 });
 
-var MenuBar = new Vue({
-  el: '#menu-bar',
-  data: {
-    currentUser: Torb.loginUser,
-  },
-  methods: {
-    signUp: function () {
-      DOM.registerModal.modal('show');
-    },
-    signIn: function () {
-      DOM.loginModal.modal('show');
-    },
-    signOut: function () {
-      confirm('Sign Out?', 'Do you really sign out?', function () {
-        API.User.logout().then(function () {
-          Torb.currentUser = null;
-        });
-      });
-    },
-  },
-});
-
-// XXX
-Object.defineProperty(Torb, 'currentUser', {
-  get: function() { return this.loginUser },
-  set: function(user) { this.loginUser = user; MenuBar.$data.currentUser = user },
-});
-
-$('body').on('shown.bs.modal', '.modal', function (e) {
+$('body').on('shown.bs.modal', '.modal', e => {
   $('input', e.target).first().focus();
 });
