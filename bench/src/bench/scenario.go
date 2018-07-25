@@ -452,7 +452,7 @@ func CheckAdminLogin(ctx context.Context, state *State) error {
 	err = adminChecker.Play(ctx, &CheckAction{
 		Method:             "POST",
 		Path:               "/admin/api/actions/login",
-		ExpectedStatusCode: 204,
+		ExpectedStatusCode: 200,
 		PostData: map[string]string{
 			"login_name": admin.LoginName,
 			"password":   admin.Password,
@@ -577,6 +577,18 @@ func eventPostData(event *Event) map[string]string {
 	}
 }
 
+func eventEditData(event *Event) map[string]string {
+	if event.PublicFg {
+		return map[string]string{
+			"public": "true",
+		}
+	} else {
+		return map[string]string{
+			"public": "", // false
+		}
+	}
+}
+
 func CheckAdminCreateEvent(ctx context.Context, state *State) error {
 	checker := NewChecker()
 
@@ -596,7 +608,7 @@ func CheckAdminCreateEvent(ctx context.Context, state *State) error {
 	err := adminChecker.Play(ctx, &CheckAction{
 		Method:             "POST",
 		Path:               "/admin/api/actions/login",
-		ExpectedStatusCode: 204,
+		ExpectedStatusCode: 200,
 		PostData: map[string]string{
 			"login_name": admin.LoginName,
 			"password":   admin.Password,
@@ -696,7 +708,6 @@ func CheckAdminCreateEvent(ctx context.Context, state *State) error {
 	}
 
 	// Publish an event
-	event.Title = RandomAlphabetString(32)
 	event.PublicFg = true
 
 	err = adminChecker.Play(ctx, &CheckAction{
@@ -704,7 +715,7 @@ func CheckAdminCreateEvent(ctx context.Context, state *State) error {
 		Path:               fmt.Sprintf("/admin/api/events/%d/actions/edit", event.ID),
 		ExpectedStatusCode: 200,
 		Description:        "管理者がイベントを編集できること",
-		PostData:           eventPostData(event),
+		PostData:           eventEditData(event),
 		CheckFunc:          checkJsonAdminEventResponse(event),
 	})
 	if err != nil {
