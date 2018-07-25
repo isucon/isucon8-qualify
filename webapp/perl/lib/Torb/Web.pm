@@ -63,7 +63,7 @@ sub dbh {
 get '/' => [qw/fillin_user/] => sub {
     my ($self, $c) = @_;
 
-    my @events = $self->get_events();
+    my @events = map { $self->sanitize_event($_) } $self->get_events();
     return $c->render('index.tx', {
         events      => \@events,
         encode_json => sub { $c->escape_json(JSON::XS->new->encode(@_)) },
@@ -77,6 +77,7 @@ get '/initialize' => sub {
     $self->dbh->query('DELETE FROM users WHERE id > 1000');
     $self->dbh->query('DELETE FROM reservations');
     $self->dbh->query('DELETE FROM events WHERE id > 2');
+    $self->dbh->query('UPDATE events SET public_fg = 0 WHERE id = 2');
     $txn->commit();
 
     return $c->req->new_response(204, [], '');
@@ -175,7 +176,7 @@ post '/api/actions/logout' => [qw/login_required/] => sub {
 
 get '/api/events' => sub {
     my ($self, $c) = @_;
-    my @events = $self->get_events();
+    my @events = map { $self->sanitize_event($_) } $self->get_events();
     return $c->render_json(\@events);
 };
 
@@ -207,7 +208,7 @@ sub get_events {
         next unless $event->{public_fg};
 
         delete $event->{sheets}->{$_}->{detail} for keys %{ $event->{sheets} };
-        push @events => $self->sanitize_event($event);
+        push @events => $event;
     }
 
     return @events;
@@ -394,7 +395,22 @@ filter fillin_administrator => sub {
 
 get '/admin/' => [qw/fillin_administrator/] => sub {
     my ($self, $c) = @_;
-    return $c->render('admin.tx');
+
+    my @events;
+    if ($c->stash->{administrator}) {
+        my @event_ids = map { $_->{id} } @{ $self->dbh->select_all('SELECT id FROM events') };
+        for my $event_id (@event_ids) {
+            my $event = $self->get_event($event_id);
+            delete $event->{sheets}->{$_}->{detail} for keys %{ $event->{sheets} };
+            $event->{public} = delete $event->{public_fg} ? JSON::XS::true : JSON::XS::false;
+            push @events => $event;
+        }
+    }
+
+    return $c->render('admin.tx', {
+        events      => \@events,
+        encode_json => sub { $c->escape_json(JSON::XS->new->encode(@_)) },
+    });
 };
 
 post '/admin/api/actions/login' => [qw/allow_json_request/] => sub {
@@ -414,7 +430,9 @@ post '/admin/api/actions/login' => [qw/allow_json_request/] => sub {
 
     my $session = Plack::Session->new($c->env);
     $session->set('administrator_id' => $administrator->{id});
-    return $c->req->new_response(204, [], '');
+
+    $administrator = $self->get_login_administrator($c);
+    return $c->render_json($administrator);
 };
 
 post '/admin/api/actions/logout' => [qw/admin_login_required/] => sub {
@@ -498,9 +516,7 @@ get '/admin/api/events/{id}' => [qw/admin_login_required/] => sub {
 post '/admin/api/events/{id}/actions/edit' => [qw/allow_json_request admin_login_required/] => sub {
     my ($self, $c) = @_;
     my $event_id = $c->args->{id};
-    my $title  = $c->req->body_parameters->get('title');
     my $public = $c->req->body_parameters->get('public') ? 1 : 0;
-    my $price  = $c->req->body_parameters->get('price');
 
     my $event = $self->get_event($event_id);
     unless ($event) {
@@ -513,7 +529,7 @@ post '/admin/api/events/{id}/actions/edit' => [qw/allow_json_request admin_login
 
     my $txn = $self->dbh->txn_scope();
     eval {
-        $self->dbh->query('UPDATE events SET title = ?, public_fg = ?, price = ? WHERE id = ?', $title, $public, $price, $event->{id});
+        $self->dbh->query('UPDATE events SET public_fg = ? WHERE id = ?', $public, $event->{id});
         $txn->commit();
     };
     if ($@) {
@@ -533,12 +549,16 @@ get '/admin/api/reports/events/{id}/sales' => [qw/admin_login_required/] => sub 
     my @reports;
 
     for my $rank (keys %{ $event->{sheets} }) {
-        for my $sheet (@{ $event->{sheets}->{$rank}->{detail} }) {
+        for my $i (keys @{ $event->{sheets}->{$rank}->{detail} }) {
+            my $sheet = $event->{sheets}->{$rank}->{detail}->[$i];
             next unless $sheet->{reserved};
 
+            my $user_id = $self->dbh->select_one('SELECT r.user_id FROM reservations r INNER JOIN sheets s ON s.id = r.sheet_id WHERE r.event_id = ? AND s.rank = ? AND s.num = ?', $event->{id}, $rank, $i+1);
             my $report = {
                 event_id => $event->{id},
-                sold_at  => Time::Moment->from_epoch($sheet->{reserved_at}, 0)->as_string,
+                rank     => $rank,
+                user_id  => $user_id,
+                sold_at  => Time::Moment->from_epoch($sheet->{reserved_at}, 0)->to_string,
                 price    => $event->{sheets}->{$rank}->{price},
             };
             push @reports => $report;
@@ -559,12 +579,16 @@ get '/admin/api/reports/sales' => [qw/admin_login_required/] => sub {
     for my $event_id (@event_ids) {
         my $event = $self->get_event($event_id);
         for my $rank (keys %{ $event->{sheets} }) {
-            for my $sheet (@{ $event->{sheets}->{$rank}->{detail} }) {
+            for my $i (keys @{ $event->{sheets}->{$rank}->{detail} }) {
+                my $sheet = $event->{sheets}->{$rank}->{detail}->[$i];
                 next unless $sheet->{reserved};
 
+                my $user_id = $self->dbh->select_one('SELECT r.user_id FROM reservations r INNER JOIN sheets s ON s.id = r.sheet_id WHERE r.event_id = ? AND s.rank = ? AND s.num = ?', $event->{id}, $rank, $i+1);
                 my $report = {
                     event_id => $event->{id},
-                    sold_at  => Time::Moment->from_epoch($sheet->{reserved_at}, 0)->as_string,
+                    rank     => $rank,
+                    user_id  => $user_id,
+                    sold_at  => Time::Moment->from_epoch($sheet->{reserved_at}, 0)->to_string,
                     price    => $event->{sheets}->{$rank}->{price},
                 };
                 push @reports => $report;
@@ -577,11 +601,14 @@ get '/admin/api/reports/sales' => [qw/admin_login_required/] => sub {
 
 sub render_report_csv {
     my ($self, $c, $reports) = @_;
-    my @reports = sort { $a->{sold_at} <=> $b->{sold_at} } @$reports;
+    my @reports = sort { $a->{sold_at} cmp $b->{sold_at} } @$reports;
 
-    my $body = "event_id,sold_at,price\n";
+    my @keys = qw/event_id rank price user_id sold_at/;
+    my $body = join ',', @keys;
+    $body .= "\n";
     for my $report (@reports) {
-        $body .= qq!$report->{event_id},"$report->{sold_at}",$report->{price}\n!;
+        $body .= join ',', @{$report}{@keys};
+        $body .= "\n";
     }
 
     my $res = $c->req->new_response(200, [
