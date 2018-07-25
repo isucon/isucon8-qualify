@@ -1,0 +1,47 @@
+.events {
+  padding: 1rem 2.5rem 0 1.5rem;
+}
+
+.events span.badge {
+  margin: .1rem;
+}
+
+.events > .events-actions {
+  margin-top: 1rem;
+}
+
+#confirm-modal {
+  z-index: 9999 !important;
+  padding-top: 3rem;
+  background-color: rgba(0,0,0,0.6);
+}
+
+.event-modal-content .rank {
+  width: 2%;
+  font-size: .75rem;
+}
+
+.event-modal-content .remaining-sheets-bar {
+  width: 98%;
+}
+
+.event-modal-content .sheets-tables {
+  max-height: 24rem;
+  overflow: scroll;
+}
+
+.event-modal-content table {
+  font-size: 10px;
+}
+
+.event-modal-content table td {
+  padding: .5em;
+}
+
+.event-modal-content table tbody td {
+  text-align: center;
+}
+
+.event-modal-content table tbody td .mine {
+  color: #11FF33;
+}
