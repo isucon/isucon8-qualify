@@ -77,7 +77,7 @@ func LoadCreateUser(ctx context.Context, state *State) error {
 		Method:             "POST",
 		Path:               "/api/users",
 		ExpectedStatusCode: 201,
-		PostData: map[string]string{
+		PostJSON: map[string]interface{}{
 			"nickname":   user.Nickname,
 			"login_name": user.LoginName,
 			"password":   user.Password,
@@ -93,7 +93,7 @@ func LoadCreateUser(ctx context.Context, state *State) error {
 		Method:             "POST",
 		Path:               "/api/actions/login",
 		ExpectedStatusCode: 200,
-		PostData: map[string]string{
+		PostJSON: map[string]interface{}{
 			"login_name": user.LoginName,
 			"password":   user.Password,
 		},
@@ -120,7 +120,7 @@ func LoadLogin(ctx context.Context, state *State) error {
 		Path:               "/api/actions/login",
 		ExpectedStatusCode: 200,
 		Description:        "ログインできること",
-		PostData: map[string]string{
+		PostJSON: map[string]interface{}{
 			"login_name": user.LoginName,
 			"password":   user.Password,
 		},
@@ -276,7 +276,7 @@ func CheckCreateUser(ctx context.Context, state *State) error {
 		Method:             "POST",
 		Path:               "/api/users",
 		ExpectedStatusCode: 201,
-		PostData: map[string]string{
+		PostJSON: map[string]interface{}{
 			"nickname":   user.Nickname,
 			"login_name": user.LoginName,
 			"password":   user.Password,
@@ -292,7 +292,7 @@ func CheckCreateUser(ctx context.Context, state *State) error {
 		Method:             "POST",
 		Path:               "/api/actions/login",
 		ExpectedStatusCode: 200,
-		PostData: map[string]string{
+		PostJSON: map[string]interface{}{
 			"login_name": user.LoginName,
 			"password":   user.Password,
 		},
@@ -307,7 +307,7 @@ func CheckCreateUser(ctx context.Context, state *State) error {
 		Method:             "POST",
 		Path:               "/api/users",
 		ExpectedStatusCode: 409,
-		PostData: map[string]string{
+		PostJSON: map[string]interface{}{
 			"nickname":   user.Nickname,
 			"login_name": user.LoginName,
 			"password":   user.Password,
@@ -335,7 +335,7 @@ func CheckLogin(ctx context.Context, state *State) error {
 		Method:             "POST",
 		Path:               "/api/actions/login",
 		ExpectedStatusCode: 200,
-		PostData: map[string]string{
+		PostJSON: map[string]interface{}{
 			"login_name": user.LoginName,
 			"password":   user.Password,
 		},
@@ -370,7 +370,7 @@ func CheckLogin(ctx context.Context, state *State) error {
 		Method:             "POST",
 		Path:               "/api/actions/login",
 		ExpectedStatusCode: 401,
-		PostData: map[string]string{
+		PostJSON: map[string]interface{}{
 			"login_name": RandomAlphabetString(32),
 			"password":   user.Password,
 		},
@@ -384,7 +384,7 @@ func CheckLogin(ctx context.Context, state *State) error {
 		Method:             "POST",
 		Path:               "/api/actions/login",
 		ExpectedStatusCode: 401,
-		PostData: map[string]string{
+		PostJSON: map[string]interface{}{
 			"login_name": user.LoginName,
 			"password":   RandomAlphabetString(32),
 		},
@@ -439,7 +439,7 @@ func CheckAdminLogin(ctx context.Context, state *State) error {
 		Method:             "POST",
 		Path:               "/admin/api/actions/login",
 		ExpectedStatusCode: 401,
-		PostData: map[string]string{
+		PostJSON: map[string]interface{}{
 			"login_name": user.LoginName,
 			"password":   user.Password,
 		},
@@ -453,7 +453,7 @@ func CheckAdminLogin(ctx context.Context, state *State) error {
 		Method:             "POST",
 		Path:               "/admin/api/actions/login",
 		ExpectedStatusCode: 200,
-		PostData: map[string]string{
+		PostJSON: map[string]interface{}{
 			"login_name": admin.LoginName,
 			"password":   admin.Password,
 		},
@@ -487,7 +487,7 @@ func CheckAdminLogin(ctx context.Context, state *State) error {
 		Method:             "POST",
 		Path:               "/admin/api/actions/login",
 		ExpectedStatusCode: 401,
-		PostData: map[string]string{
+		PostJSON: map[string]interface{}{
 			"login_name": RandomAlphabetString(32),
 			"password":   admin.Password,
 		},
@@ -501,7 +501,7 @@ func CheckAdminLogin(ctx context.Context, state *State) error {
 		Method:             "POST",
 		Path:               "/admin/api/actions/login",
 		ExpectedStatusCode: 401,
-		PostData: map[string]string{
+		PostJSON: map[string]interface{}{
 			"login_name": admin.LoginName,
 			"password":   RandomAlphabetString(32),
 		},
@@ -561,31 +561,17 @@ func checkJsonEventResponse(event *Event) func(res *http.Response, body *bytes.B
 	}
 }
 
-func eventPostData(event *Event) map[string]string {
-	if event.PublicFg {
-		return map[string]string{
-			"title":  event.Title,
-			"public": "true",
-			"price":  fmt.Sprint(event.Price),
-		}
-	} else {
-		return map[string]string{
-			"title":  event.Title,
-			"public": "", // false
-			"price":  fmt.Sprint(event.Price),
-		}
+func eventPostJSON(event *Event) map[string]interface{} {
+	return map[string]interface{}{
+		"title":  event.Title,
+		"public": event.PublicFg,
+		"price":  event.Price,
 	}
 }
 
-func eventEditData(event *Event) map[string]string {
-	if event.PublicFg {
-		return map[string]string{
-			"public": "true",
-		}
-	} else {
-		return map[string]string{
-			"public": "", // false
-		}
+func eventEditJSON(event *Event) map[string]bool {
+	return map[string]bool{
+		"public": event.PublicFg,
 	}
 }
 
@@ -609,7 +595,7 @@ func CheckAdminCreateEvent(ctx context.Context, state *State) error {
 		Method:             "POST",
 		Path:               "/admin/api/actions/login",
 		ExpectedStatusCode: 200,
-		PostData: map[string]string{
+		PostJSON: map[string]interface{}{
 			"login_name": admin.LoginName,
 			"password":   admin.Password,
 		},
@@ -624,7 +610,7 @@ func CheckAdminCreateEvent(ctx context.Context, state *State) error {
 		Method:             "POST",
 		Path:               "/api/actions/login",
 		ExpectedStatusCode: 200,
-		PostData: map[string]string{
+		PostJSON: map[string]interface{}{
 			"login_name": user.LoginName,
 			"password":   user.Password,
 		},
@@ -644,7 +630,7 @@ func CheckAdminCreateEvent(ctx context.Context, state *State) error {
 		Path:               "/admin/api/events",
 		ExpectedStatusCode: 401,
 		Description:        "一般ユーザがイベントを作成できないこと",
-		PostData:           eventPostData(event),
+		PostJSON:           eventPostJSON(event),
 	})
 	if err != nil {
 		return err
@@ -658,7 +644,7 @@ func CheckAdminCreateEvent(ctx context.Context, state *State) error {
 		Path:               "/admin/api/events",
 		ExpectedStatusCode: 200,
 		Description:        "管理者がイベントを作成できること",
-		PostData:           eventPostData(event),
+		PostJSON:           eventPostJSON(event),
 		CheckFunc:          checkJsonAdminEventCreateResponse(event),
 	})
 	if err != nil {
@@ -701,7 +687,7 @@ func CheckAdminCreateEvent(ctx context.Context, state *State) error {
 		Path:               fmt.Sprintf("/admin/api/events/%d/actions/edit", event.ID),
 		ExpectedStatusCode: 401,
 		Description:        "一般ユーザがイベントを編集できないこと",
-		PostData:           eventPostData(event),
+		PostJSON:           eventPostJSON(event),
 	})
 	if err != nil {
 		return err
@@ -715,7 +701,7 @@ func CheckAdminCreateEvent(ctx context.Context, state *State) error {
 		Path:               fmt.Sprintf("/admin/api/events/%d/actions/edit", event.ID),
 		ExpectedStatusCode: 200,
 		Description:        "管理者がイベントを編集できること",
-		PostData:           eventEditData(event),
+		PostJSON:           eventEditJSON(event),
 		CheckFunc:          checkJsonAdminEventResponse(event),
 	})
 	if err != nil {
@@ -769,7 +755,7 @@ func CheckAdminCreateEvent(ctx context.Context, state *State) error {
 		Path:               fmt.Sprintf("/admin/api/events/%d/actions/edit", event.ID+1),
 		ExpectedStatusCode: 404,
 		Description:        "イベントが存在しない場合編集に失敗すること",
-		PostData:           eventPostData(event),
+		PostJSON:           eventPostJSON(event),
 	})
 	if err != nil {
 		return err

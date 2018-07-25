@@ -3,8 +3,10 @@ package bench
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"log"
 	"math/rand"
 	"net"
@@ -222,8 +224,9 @@ type CheckAction struct {
 	Path   string
 
 	ContentType string
-	PostBody    io.Reader         // for "multipart/form-data"
 	PostData    map[string]string // for "application/x-www-form-urlencoded"
+	PostJSON    interface{}       // for "application/json"
+	PostBody    io.Reader         // for others
 	Headers     map[string]string
 
 	ExpectedStatusCode int
@@ -333,7 +336,7 @@ func (c *Checker) Play(ctx context.Context, a *CheckAction) error {
 			if req != nil {
 				req.Header.Set("Content-Type", a.ContentType)
 			}
-		} else {
+		} else if a.PostData != nil {
 			formData := url.Values{}
 			for key, val := range a.PostData {
 				formData.Set(key, val)
@@ -342,6 +345,16 @@ func (c *Checker) Play(ctx context.Context, a *CheckAction) error {
 			req, err = c.NewRequest(a.Method, a.Path, buf)
 			if req != nil {
 				req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+			}
+		} else {
+			var rawJSON []byte
+			rawJSON, err = json.Marshal(a.PostJSON)
+			if rawJSON != nil {
+				body := bytes.NewReader(rawJSON)
+				req, err = c.NewRequest(a.Method, a.Path, body)
+			}
+			if req != nil {
+				req.Header.Set("Content-Type", "application/json")
 			}
 		}
 	} else {
@@ -426,7 +439,20 @@ func (c *Checker) Play(ctx context.Context, a *CheckAction) error {
 	}
 
 	if a.ExpectedStatusCode != 0 && res.StatusCode != a.ExpectedStatusCode {
-		return c.OnError(a, res.Request, fmt.Errorf("Response code should be %d, got %d, data: %s", a.ExpectedStatusCode, res.StatusCode, a.PostData))
+		var body interface{}
+		if a.PostData != nil {
+			body = a.PostData
+		} else if a.PostJSON != nil {
+			body = a.PostJSON
+		} else {
+			if seeker, ok := a.PostBody.(io.Seeker); ok {
+				seeker.Seek(0, 0)
+				body, _ = ioutil.ReadAll(a.PostBody)
+			} else {
+				body = a.PostBody
+			}
+		}
+		return c.OnError(a, res.Request, fmt.Errorf("Response code should be %d, got %d, data: %+v", a.ExpectedStatusCode, res.StatusCode, body))
 	}
 
 	if a.ExpectedLocation != nil {
