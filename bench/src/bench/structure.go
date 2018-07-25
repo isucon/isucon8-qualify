@@ -11,6 +11,11 @@ type JsonUser struct {
 	Nickname string `json:"nickname"`
 }
 
+type JsonAdministrator struct {
+	ID       uint   `json:"id"`
+	Nickname string `json:"nickname"`
+}
+
 // [{"remains":999,"id":1,"title":"「風邪をひいたなう」しか","sheets":{"S":{"price":8000,"total":50,"remains":49},"A":{"total":150,"price":6000,"remains":150},"C":{"remains":0,"total":0},"c":{"remains":500,"price":3000,"total":500},"B":{"total":300,"price":4000,"remains":300}},"total":1000}];
 
 type JsonSheet struct {

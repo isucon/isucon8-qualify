@@ -420,6 +420,21 @@ func CheckReserveSheet(ctx context.Context, state *State) error {
 	return nil
 }
 
+func checkJsonAdministratorResponse(admin *Administrator) func(res *http.Response, body *bytes.Buffer) error {
+	return func(res *http.Response, body *bytes.Buffer) error {
+		dec := json.NewDecoder(body)
+		jsonAdmin := JsonAdministrator{}
+		err := dec.Decode(&jsonAdmin)
+		if err != nil {
+			return fatalErrorf("Jsonのデコードに失敗 %v", err)
+		}
+		if jsonAdmin.ID != admin.ID || jsonAdmin.Nickname != admin.Nickname {
+			return fatalErrorf("正しい管理者情報を取得できません")
+		}
+		return nil
+	}
+}
+
 func CheckAdminLogin(ctx context.Context, state *State) error {
 	admin, adminChecker, adminPush := state.PopRandomAdministrator()
 	if admin == nil {
@@ -458,6 +473,7 @@ func CheckAdminLogin(ctx context.Context, state *State) error {
 			"password":   admin.Password,
 		},
 		Description: "管理者でログインできること",
+		CheckFunc:   checkJsonAdministratorResponse(admin),
 	})
 	if err != nil {
 		return err
