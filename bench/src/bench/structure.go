@@ -106,7 +106,6 @@ type BenchDataSet struct {
 
 // Represents a state of a sheet rank winthin an event
 type SheetRankState struct {
-	sync.Mutex
 	EventID  uint
 	Rank     string
 	Total    uint
