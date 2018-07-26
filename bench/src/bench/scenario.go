@@ -432,19 +432,19 @@ func CheckTopPage(ctx context.Context, state *State) error {
 	return nil
 }
 
-func checkJsonReserveResponse(reserve *JsonReserve) func(res *http.Response, body *bytes.Buffer) error {
+func checkJsonReservedResponse(reserved *JsonReserved) func(res *http.Response, body *bytes.Buffer) error {
 	return func(res *http.Response, body *bytes.Buffer) error {
 		dec := json.NewDecoder(body)
-		resReserve := JsonReserve{}
-		err := dec.Decode(&resReserve)
+		resReserved := JsonReserved{}
+		err := dec.Decode(&resReserved)
 		if err != nil {
 			return fatalErrorf("Jsonのデコードに失敗 %v", err)
 		}
-		if resReserve.SheetRank != reserve.SheetRank {
+		if resReserved.SheetRank != reserved.SheetRank {
 			return fatalErrorf("正しい予約情報を取得できません")
 		}
 		// Set reserved number from response
-		reserve.SheetNum = resReserve.SheetNum
+		reserved.SheetNum = resReserved.SheetNum
 		return nil
 	}
 }
@@ -495,7 +495,7 @@ func CheckReserveCancelSheet(ctx context.Context, state *State) error {
 		}
 
 	} else {
-		reserve := &JsonReserve{rank, 0}
+		reserved := &JsonReserved{rank, 0}
 		err = userChecker.Play(ctx, &CheckAction{
 			Method:             "POST",
 			Path:               fmt.Sprintf("/api/events/%d/actions/reserve", eventID),
@@ -504,17 +504,17 @@ func CheckReserveCancelSheet(ctx context.Context, state *State) error {
 			PostJSON: map[string]interface{}{
 				"sheet_rank": rank,
 			},
-			CheckFunc: checkJsonReserveResponse(reserve),
+			CheckFunc: checkJsonReservedResponse(reserved),
 		})
 		if err != nil {
 			return err
 		}
 		sheetRankState.Remains -= 1
-		sheetRankState.Reserved[reserve.SheetNum] = true
+		sheetRankState.Reserved[reserved.SheetNum] = true
 
 		err = userChecker.Play(ctx, &CheckAction{
 			Method:             "DELETE",
-			Path:               fmt.Sprintf("/api/events/%d/sheets/%s/%d/reservation", eventID, reserve.SheetRank, reserve.SheetNum),
+			Path:               fmt.Sprintf("/api/events/%d/sheets/%s/%d/reservation", eventID, reserved.SheetRank, reserved.SheetNum),
 			ExpectedStatusCode: 204,
 			Description:        "キャンセルができること",
 		})
@@ -522,11 +522,11 @@ func CheckReserveCancelSheet(ctx context.Context, state *State) error {
 			return err
 		}
 		sheetRankState.Remains += 1
-		sheetRankState.Reserved[reserve.SheetNum] = false
+		sheetRankState.Reserved[reserved.SheetNum] = false
 
 		err = userChecker.Play(ctx, &CheckAction{
 			Method:             "DELETE",
-			Path:               fmt.Sprintf("/api/events/%d/sheets/%s/%d/reservation", eventID, reserve.SheetRank, reserve.SheetNum),
+			Path:               fmt.Sprintf("/api/events/%d/sheets/%s/%d/reservation", eventID, reserved.SheetRank, reserved.SheetNum),
 			ExpectedStatusCode: 400,
 			Description:        "すでにキャンセル済みの場合エラーになること",
 			CheckFunc:          checkJsonErrorResponse("not_reserved"),
@@ -538,7 +538,7 @@ func CheckReserveCancelSheet(ctx context.Context, state *State) error {
 		// 誰かが購入済みで
 		// err := userChecker.Play(ctx, &CheckAction{
 		// 	Method:      "DELETE",
-		// 	Path:        fmt.Sprintf("/api/events/%d/sheets/%s/%d/reservation", eventID, reserve.SheetRank, reserve.SheetNum),
+		// 	Path:        fmt.Sprintf("/api/events/%d/sheets/%s/%d/reservation", eventID, reserved.SheetRank, reserved.SheetNum),
 		// 	ExpectedStatusCode: 403,
 		// 	Description: "購入していないチケットをキャンセルしようとするとエラーになること",
 		//	CheckFunc:          checkJsonErrorResponse("not_permitted"),

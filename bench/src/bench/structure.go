@@ -41,7 +41,7 @@ type JsonAdminEvent struct {
 	Sheets  map[string]JsonSheet `json:"sheets"`
 }
 
-type JsonReserve struct {
+type JsonReserved struct {
 	SheetRank string `json:"sheet_rank"`
 	SheetNum  uint   `json:"sheet_num"`
 }
