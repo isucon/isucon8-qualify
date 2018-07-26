@@ -471,7 +471,6 @@ func CheckReserveCancelSheet(ctx context.Context, state *State) error {
 		return err
 	}
 
-	// TODO(sonots): Fix not to pop sheet ranks of unpublished events
 	sheetRankState, sheetRankStatePush := state.PopRandomSheetRankState()
 	if sheetRankState == nil {
 		return nil

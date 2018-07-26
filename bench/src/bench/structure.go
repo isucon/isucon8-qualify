@@ -104,6 +104,7 @@ type BenchDataSet struct {
 	Sheets     []*Sheet
 }
 
+// Represents a state of a sheet rank winthin an event
 type SheetRankState struct {
 	sync.Mutex
 	EventID  uint
@@ -124,7 +125,9 @@ type State struct {
 	adminCheckerMap map[*Administrator]*Checker
 	events          []*Event
 	newEvents       []*Event
-	sheetRankStates []*SheetRankState
+
+	sheetRankStates        []*SheetRankState
+	privateSheetRankStates []*SheetRankState
 }
 
 func (s *State) Init() {
@@ -157,7 +160,11 @@ func (s *State) Init() {
 			sheetRankState.Total = sheetKind.Total
 			sheetRankState.Remains = sheetKind.Total
 			sheetRankState.Reserved = map[uint]bool{}
-			s.sheetRankStates = append(s.sheetRankStates, sheetRankState)
+			if event.PublicFg {
+				s.sheetRankStates = append(s.sheetRankStates, sheetRankState)
+			} else {
+				s.privateSheetRankStates = append(s.privateSheetRankStates, sheetRankState)
+			}
 		}
 	}
 }
