@@ -434,7 +434,7 @@ post '/admin/api/actions/login' => [qw/allow_json_request/] => sub {
 
     my $administrator = $self->dbh->select_row('SELECT * FROM administrators WHERE login_name = ?', $login_name);
     my $pass_hash     = $self->dbh->select_one('SELECT SHA2(?, 256)', $password);
-    if ($pass_hash ne ($administrator->{pass_hash}||'')) {
+    if (!$administrator || $pass_hash ne $administrator->{pass_hash}) {
         my $res = $c->render_json({
             error => 'authentication_failed',
         });
