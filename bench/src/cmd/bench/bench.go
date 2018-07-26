@@ -260,9 +260,9 @@ func startBenchmark(remoteAddrs []string) *BenchResult {
 	addCheckFunc(benchFunc{"CheckStaticFiles", bench.CheckStaticFiles})
 	addCheckFunc(benchFunc{"CheckCreateUser", bench.CheckCreateUser})
 	addCheckFunc(benchFunc{"CheckLogin", bench.CheckLogin})
-	addCheckFunc(benchFunc{"CheckReserveCancelSheet", bench.CheckReserveCancelSheet})
+	addCheckFunc(benchFunc{"CheckReserveSheet", bench.CheckReserveSheet})
 	addCheckFunc(benchFunc{"CheckAdminLogin", bench.CheckAdminLogin})
-	addCheckFunc(benchFunc{"CheckAdminCreateEvent", bench.CheckAdminCreateEvent})
+	addCheckFunc(benchFunc{"CheckCreateEvent", bench.CheckCreateEvent})
 
 	result := new(BenchResult)
 	result.StartTime = time.Now()

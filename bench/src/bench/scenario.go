@@ -511,7 +511,7 @@ func checkJsonReservedResponse(reserved *JsonReserved) func(res *http.Response, 
 	}
 }
 
-func CheckReserveCancelSheet(ctx context.Context, state *State) error {
+func CheckReserveSheet(ctx context.Context, state *State) error {
 	user, userChecker, userPush := state.PopRandomUser()
 	if user == nil {
 		return nil
@@ -871,7 +871,7 @@ func eventEditJSON(event *Event) map[string]bool {
 	}
 }
 
-func CheckAdminCreateEvent(ctx context.Context, state *State) error {
+func CheckCreateEvent(ctx context.Context, state *State) error {
 	checker := NewChecker()
 
 	admin, adminChecker, adminPush := state.PopRandomAdministrator()
