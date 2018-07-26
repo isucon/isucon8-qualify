@@ -208,6 +208,17 @@ func LoadTopPage(ctx context.Context, state *State) error {
 
 // 席は(rank 内で)ランダムに割り当てられるため、良い席に当たるまで予約連打して、キャンセルする悪質ユーザがいる
 func LoadReserveCancelSheet(ctx context.Context, state *State) error {
+	eventSheetRank, eventSheetRankPush := state.PopRandomEventSheetRank()
+	if eventSheetRank == nil {
+		return nil
+	}
+	defer eventSheetRankPush()
+	if eventSheetRank.Remains <= 0 {
+		return nil
+	}
+	eventID := eventSheetRank.EventID
+	rank := eventSheetRank.Rank
+
 	user, userChecker, userPush := state.PopRandomUser()
 	if user == nil {
 		return nil
@@ -228,18 +239,6 @@ func LoadReserveCancelSheet(ctx context.Context, state *State) error {
 	if err != nil {
 		return err
 	}
-
-	eventSheetRank, eventSheetRankPush := state.PopRandomEventSheetRank()
-	if eventSheetRank == nil {
-		return nil
-	}
-	defer eventSheetRankPush()
-	if eventSheetRank.Remains <= 0 {
-		return nil
-	}
-
-	eventID := eventSheetRank.EventID
-	rank := eventSheetRank.Rank
 
 	reserved := &JsonReserved{rank, 0}
 	err = userChecker.Play(ctx, &CheckAction{
@@ -273,8 +272,59 @@ func LoadReserveCancelSheet(ctx context.Context, state *State) error {
 	return nil
 }
 
-// NOTE: 予約し続けると席がなくなり benchmarker を回せなくなるので、たまに動かす程度にすること
+// 空きがなくなるとベンチを回し続けられなくなるので、残り20%より先は予約しない
+var remainsRatioThreshold = 0.2
+
 func LoadReserveSheet(ctx context.Context, state *State) error {
+	eventSheetRank, eventSheetRankPush := state.PopRandomEventSheetRank()
+	if eventSheetRank == nil {
+		return nil
+	}
+	defer eventSheetRankPush()
+	if float64(eventSheetRank.Remains)/float64(eventSheetRank.Total) <= remainsRatioThreshold {
+		return nil
+	}
+	eventID := eventSheetRank.EventID
+	rank := eventSheetRank.Rank
+
+	user, userChecker, userPush := state.PopRandomUser()
+	if user == nil {
+		return nil
+	}
+	defer userPush()
+
+	// TODO(sonots): Skip login if already logged in?
+	err := userChecker.Play(ctx, &CheckAction{
+		Method:             "POST",
+		Path:               "/api/actions/login",
+		ExpectedStatusCode: 200,
+		Description:        "ログインできること",
+		PostJSON: map[string]interface{}{
+			"login_name": user.LoginName,
+			"password":   user.Password,
+		},
+	})
+	if err != nil {
+		return err
+	}
+
+	reserved := &JsonReserved{rank, 0}
+	err = userChecker.Play(ctx, &CheckAction{
+		Method:             "POST",
+		Path:               fmt.Sprintf("/api/events/%d/actions/reserve", eventID),
+		ExpectedStatusCode: 202,
+		Description:        "席の予約ができること",
+		PostJSON: map[string]interface{}{
+			"sheet_rank": rank,
+		},
+		CheckFunc: checkJsonReservedResponse(reserved),
+	})
+	if err != nil {
+		return err
+	}
+	eventSheetRank.Remains -= 1
+	eventSheetRank.Reserved[reserved.SheetNum] = true
+
 	return nil
 }
 
