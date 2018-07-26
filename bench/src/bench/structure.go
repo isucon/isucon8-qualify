@@ -285,7 +285,7 @@ func (s *State) getAdminCheckerLocked(u *Administrator) *Checker {
 
 	if !ok {
 		checker = NewChecker()
-		checker.debugHeaders["X-Administrator-Login-Name"] = u.LoginName
+		checker.debugHeaders["X-Admin-Login-Name"] = u.LoginName
 		s.adminCheckerMap[u] = checker
 	}
 
