@@ -106,11 +106,7 @@ func prepareEventDataSet() {
 }
 
 func prepareSheetDataSet() {
-	SheetKinds := []struct {
-		Rank     string
-		TotalNum int
-		Price    uint
-	}{
+	DataSet.SheetKinds = []*SheetKind{
 		{"S", 50, 5000},
 		{"A", 150, 3000},
 		{"B", 300, 1000},
@@ -118,8 +114,8 @@ func prepareSheetDataSet() {
 	}
 
 	nextID := uint(1)
-	for _, sheetKind := range SheetKinds {
-		for i := 0; i < sheetKind.TotalNum; i++ {
+	for _, sheetKind := range DataSet.SheetKinds {
+		for i := uint(0); i < sheetKind.Total; i++ {
 			sheet := &Sheet{
 				ID:    nextID,
 				Rank:  strings.ToUpper(sheetKind.Rank),

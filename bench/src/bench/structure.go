@@ -41,28 +41,23 @@ type JsonAdminEvent struct {
 	Sheets  map[string]JsonSheet `json:"sheets"`
 }
 
-type JsonReserve struct {
+type JsonReserved struct {
 	SheetRank string `json:"sheet_rank"`
-	SheetNum  int    `json:"sheet_num`
+	SheetNum  uint   `json:"sheet_num"`
 }
 
 type JsonError struct {
 	Error string `json:"error"`
 }
 
-type BenchDataSet struct {
-	Users    []*AppUser
-	NewUsers []*AppUser
-
-	Administrators []*Administrator
-
-	Events    []*Event
-	NewEvents []*Event
-
-	Sheets []*Sheet
+type AppUser struct {
+	ID        uint
+	Nickname  string
+	LoginName string
+	Password  string
 }
 
-type AppUser struct {
+type Administrator struct {
 	ID        uint
 	Nickname  string
 	LoginName string
@@ -76,10 +71,16 @@ type Event struct {
 	Price    uint
 }
 
+type SheetKind struct {
+	Rank  string
+	Total uint
+	Price uint
+}
+
 type Sheet struct {
 	ID    uint
 	Rank  string
-	Num   uint
+	Num   uint // ID within a rank
 	Price uint
 }
 
@@ -90,11 +91,26 @@ type Reservation struct {
 	ReservedAt uint
 }
 
-type Administrator struct {
-	ID        uint
-	Nickname  string
-	LoginName string
-	Password  string
+type BenchDataSet struct {
+	Users    []*AppUser
+	NewUsers []*AppUser
+
+	Administrators []*Administrator
+
+	Events    []*Event
+	NewEvents []*Event
+
+	SheetKinds []*SheetKind
+	Sheets     []*Sheet
+}
+
+// Represents a state of a sheet rank winthin an event
+type SheetRankState struct {
+	EventID  uint
+	Rank     string
+	Total    uint
+	Remains  uint
+	Reserved map[uint]bool // key: Sheet.Num
 }
 
 type State struct {
@@ -108,6 +124,9 @@ type State struct {
 	adminCheckerMap map[*Administrator]*Checker
 	events          []*Event
 	newEvents       []*Event
+
+	sheetRankStates        []*SheetRankState
+	privateSheetRankStates []*SheetRankState
 }
 
 func (s *State) Init() {
@@ -131,6 +150,22 @@ func (s *State) Init() {
 
 	s.events = append(s.events, DataSet.Events...)
 	s.newEvents = append(s.newEvents, DataSet.NewEvents...)
+
+	for _, event := range s.events {
+		for _, sheetKind := range DataSet.SheetKinds {
+			sheetRankState := &SheetRankState{}
+			sheetRankState.EventID = event.ID
+			sheetRankState.Rank = sheetKind.Rank
+			sheetRankState.Total = sheetKind.Total
+			sheetRankState.Remains = sheetKind.Total
+			sheetRankState.Reserved = map[uint]bool{}
+			if event.PublicFg {
+				s.sheetRankStates = append(s.sheetRankStates, sheetRankState)
+			} else {
+				s.privateSheetRankStates = append(s.privateSheetRankStates, sheetRankState)
+			}
+		}
+	}
 }
 
 func (s *State) PopRandomUser() (*AppUser, *Checker, func()) {
@@ -301,4 +336,44 @@ func (s *State) PopNewEvent() (*Event, func()) {
 		// fmt.Printf("newEventPush %d %s %d %t\n", event.ID, event.Title, event.Price, event.PublicFg)
 		s.PushEvent(event)
 	}
+}
+
+func (s *State) PopRandomSheetRankState() (*SheetRankState, func()) {
+	s.mtx.Lock()
+	defer s.mtx.Unlock()
+
+	n := len(s.sheetRankStates)
+	if n == 0 {
+		return nil, nil
+	}
+
+	i := rand.Intn(n)
+	rs := s.sheetRankStates[i]
+
+	s.sheetRankStates[i] = s.sheetRankStates[n-1]
+	s.sheetRankStates[n-1] = nil
+	s.sheetRankStates = s.sheetRankStates[:n-1]
+
+	return rs, func() { s.PushSheetRankState(rs) }
+}
+
+func (s *State) PushSheetRankState(sheetRankState *SheetRankState) {
+	s.mtx.Lock()
+	defer s.mtx.Unlock()
+
+	s.sheetRankStates = append(s.sheetRankStates, sheetRankState)
+}
+
+func GetRandomSheetRank() string {
+	return DataSet.SheetKinds[rand.Intn(len(DataSet.SheetKinds))].Rank
+}
+
+func GetRandomSheetNum(sheetRank string) uint {
+	total := uint(0)
+	for _, sheetKind := range DataSet.SheetKinds {
+		if sheetKind.Rank == sheetRank {
+			total = sheetKind.Total
+		}
+	}
+	return uint(rand.Intn(int(total)))
 }
