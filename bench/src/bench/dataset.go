@@ -81,13 +81,13 @@ func prepareEventDataSet() {
 	for i := 0; s.Scan(); i++ {
 		line := strings.Split(s.Text(), "\t")
 		title := line[0]
-		public_fg, _ := strconv.ParseBool(line[1])
+		publicFg, _ := strconv.ParseBool(line[1])
 		price, _ := strconv.Atoi(line[2])
 
 		event := &Event{
 			ID:       uint(i + 1),
 			Title:    title,
-			PublicFg: public_fg,
+			PublicFg: publicFg,
 			Price:    uint(price),
 		}
 
