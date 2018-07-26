@@ -535,7 +535,7 @@ func CheckReserveCancelSheet(ctx context.Context, state *State) error {
 			return err
 		}
 
-		// 誰かが購入済みで
+		// TODO(sonots): Need to find a sheet which somebody else reserved.
 		// err := userChecker.Play(ctx, &CheckAction{
 		// 	Method:      "DELETE",
 		// 	Path:        fmt.Sprintf("/api/events/%d/sheets/%s/%d/reservation", eventID, reserved.SheetRank, reserved.SheetNum),
@@ -548,9 +548,11 @@ func CheckReserveCancelSheet(ctx context.Context, state *State) error {
 		// }
 	}
 
+	// TODO(sonots): Randomize, but find ID which does not exist.
+	unknownEventID := 0
 	err = userChecker.Play(ctx, &CheckAction{
 		Method:             "POST",
-		Path:               fmt.Sprintf("/api/events/%d/actions/reserve", 0),
+		Path:               fmt.Sprintf("/api/events/%d/actions/reserve", unknownEventID),
 		ExpectedStatusCode: 404,
 		Description:        "存在しないイベントのシートを予約しようとするとエラーになること",
 		CheckFunc:          checkJsonErrorResponse("invalid_event"),
@@ -580,7 +582,7 @@ func CheckReserveCancelSheet(ctx context.Context, state *State) error {
 	randomNum := GetRandomSheetNum(rank)
 	err = userChecker.Play(ctx, &CheckAction{
 		Method:             "DELETE",
-		Path:               fmt.Sprintf("/api/events/%d/sheets/%s/%d/reservation", 0, rank, randomNum),
+		Path:               fmt.Sprintf("/api/events/%d/sheets/%s/%d/reservation", unknownEventID, rank, randomNum),
 		ExpectedStatusCode: 404,
 		Description:        "存在しないイベントのシートをキャンセルしようとするとエラーになること",
 		CheckFunc:          checkJsonErrorResponse("invalid_event"),
@@ -589,6 +591,7 @@ func CheckReserveCancelSheet(ctx context.Context, state *State) error {
 		return err
 	}
 
+	// TODO(sonots): Randomize, but find ID which does not exist.
 	unknownNum := 0
 	err = userChecker.Play(ctx, &CheckAction{
 		Method:             "DELETE",
