@@ -117,16 +117,16 @@ func prepareSheetDataSet() {
 		{"C", 500, 0},
 	}
 
-	next_id := uint(1)
-	for _, sheet_kind := range SheetKinds {
-		for i := 0; i < sheet_kind.TotalNum; i++ {
+	nextID := uint(1)
+	for _, sheetKind := range SheetKinds {
+		for i := 0; i < sheetKind.TotalNum; i++ {
 			sheet := &Sheet{
-				ID:    next_id,
-				Rank:  strings.ToUpper(sheet_kind.Rank),
+				ID:    nextID,
+				Rank:  strings.ToUpper(sheetKind.Rank),
 				Num:   uint(i + 1),
-				Price: sheet_kind.Price,
+				Price: sheetKind.Price,
 			}
-			next_id++
+			nextID++
 			DataSet.Sheets = append(DataSet.Sheets, sheet)
 		}
 	}
