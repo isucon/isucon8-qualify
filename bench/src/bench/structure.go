@@ -187,14 +187,6 @@ func (s *State) PopRandomUser() (*AppUser, *Checker, func()) {
 	return u, s.getCheckerLocked(u), func() { s.PushUser(u) }
 }
 
-func (s *State) FindUserByName(login_name string) (*AppUser, bool) {
-	s.mtx.Lock()
-	defer s.mtx.Unlock()
-
-	u, ok := s.userMap[login_name]
-	return u, ok
-}
-
 func (s *State) popNewUserLocked() (*AppUser, *Checker, func()) {
 	n := len(s.newUsers)
 	if n == 0 {
