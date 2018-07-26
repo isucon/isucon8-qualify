@@ -270,6 +270,13 @@ post '/api/events/{id}/actions/reserve' => [qw/allow_json_request login_required
 
     my $user  = $self->get_login_user($c);
     my $event = $self->get_event($event_id, $user->{id});
+    unless ($event && $event->{public_fg}) {
+        my $res = $c->render_json({
+            error => 'invalid_event',
+        });
+        $res->status(404);
+        return $res;
+    }
 
     my $sheet;
     while (1) {
@@ -312,6 +319,13 @@ router ['DELETE'] => '/api/events/{id}/sheets/{rank}/{num}/reservation' => [qw/l
 
     my $user  = $self->get_login_user($c);
     my $event = $self->get_event($event_id, $user->{id});
+    unless ($event && $event->{public_fg}) {
+        my $res = $c->render_json({
+            error => 'invalid_event',
+        });
+        $res->status(404);
+        return $res;
+    }
 
     my $error;
 
@@ -420,7 +434,7 @@ post '/admin/api/actions/login' => [qw/allow_json_request/] => sub {
 
     my $administrator = $self->dbh->select_row('SELECT * FROM administrators WHERE login_name = ?', $login_name);
     my $pass_hash     = $self->dbh->select_one('SELECT SHA2(?, 256)', $password);
-    if ($pass_hash ne ($administrator->{pass_hash}||'')) {
+    if (!$administrator || $pass_hash ne $administrator->{pass_hash}) {
         my $res = $c->render_json({
             error => 'authentication_failed',
         });
