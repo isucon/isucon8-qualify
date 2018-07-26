@@ -254,7 +254,7 @@ func LoadReserveCancelSheet(ctx context.Context, state *State) error {
 	if err != nil {
 		return err
 	}
-	eventSheetRank.Remains -= 1
+	eventSheetRank.Remains--
 	eventSheetRank.Reserved[reserved.SheetNum] = true
 
 	err = userChecker.Play(ctx, &CheckAction{
@@ -266,7 +266,7 @@ func LoadReserveCancelSheet(ctx context.Context, state *State) error {
 	if err != nil {
 		return err
 	}
-	eventSheetRank.Remains += 1
+	eventSheetRank.Remains++
 	eventSheetRank.Reserved[reserved.SheetNum] = false
 
 	return nil
@@ -322,7 +322,7 @@ func LoadReserveSheet(ctx context.Context, state *State) error {
 	if err != nil {
 		return err
 	}
-	eventSheetRank.Remains -= 1
+	eventSheetRank.Remains--
 	eventSheetRank.Reserved[reserved.SheetNum] = true
 
 	return nil
@@ -621,7 +621,7 @@ func CheckReserveSheet(ctx context.Context, state *State) error {
 		if err != nil {
 			return err
 		}
-		eventSheetRank.Remains -= 1
+		eventSheetRank.Remains--
 		eventSheetRank.Reserved[reserved.SheetNum] = true
 
 		err = userChecker.Play(ctx, &CheckAction{
@@ -633,7 +633,7 @@ func CheckReserveSheet(ctx context.Context, state *State) error {
 		if err != nil {
 			return err
 		}
-		eventSheetRank.Remains += 1
+		eventSheetRank.Remains++
 		eventSheetRank.Reserved[reserved.SheetNum] = false
 
 		err = userChecker.Play(ctx, &CheckAction{
