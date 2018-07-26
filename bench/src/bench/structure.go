@@ -80,7 +80,7 @@ type SheetKind struct {
 type Sheet struct {
 	ID    uint
 	Rank  string
-	Num   uint // id in a rank
+	Num   uint // ID within a rank
 	Price uint
 }
 
@@ -106,32 +106,11 @@ type BenchDataSet struct {
 
 type SheetRankState struct {
 	sync.Mutex
-	Total   uint
-	Remains uint
-}
-
-type EventState struct {
-	sync.Mutex
-	sheetRankStates map[string]*SheetRankState // Sheet.Rank => remains
-	sheetReserved   map[uint]bool              // Sheet.ID => reserved or not
-}
-
-func (es *EventState) Init() {
-	es.Lock()
-	defer es.Unlock()
-
-	es.sheetRankStates = map[string]*SheetRankState{}
-	for _, sheetKind := range DataSet.SheetKinds {
-		srs := &SheetRankState{}
-		srs.Total = sheetKind.Total
-		srs.Remains = sheetKind.Total
-		es.sheetRankStates[sheetKind.Rank] = srs
-	}
-
-	es.sheetReserved = map[uint]bool{}
-	for _, sheet := range DataSet.Sheets {
-		es.sheetReserved[sheet.ID] = false
-	}
+	EventID  uint
+	Rank     string
+	Total    uint
+	Remains  uint
+	Reserved map[uint]bool // key: Sheet.Num
 }
 
 type State struct {
@@ -145,7 +124,7 @@ type State struct {
 	adminCheckerMap map[*Administrator]*Checker
 	events          []*Event
 	newEvents       []*Event
-	eventStates     map[uint]*EventState // Event.ID => EventState
+	sheetRankStates []*SheetRankState
 }
 
 func (s *State) Init() {
@@ -170,11 +149,16 @@ func (s *State) Init() {
 	s.events = append(s.events, DataSet.Events...)
 	s.newEvents = append(s.newEvents, DataSet.NewEvents...)
 
-	s.eventStates = map[uint]*EventState{}
 	for _, event := range s.events {
-		es := &EventState{}
-		es.Init()
-		s.eventStates[event.ID] = es
+		for _, sheetKind := range DataSet.SheetKinds {
+			sheetRankState := &SheetRankState{}
+			sheetRankState.EventID = event.ID
+			sheetRankState.Rank = sheetKind.Rank
+			sheetRankState.Total = sheetKind.Total
+			sheetRankState.Remains = sheetKind.Total
+			sheetRankState.Reserved = map[uint]bool{}
+			s.sheetRankStates = append(s.sheetRankStates, sheetRankState)
+		}
 	}
 }
 
@@ -348,6 +332,32 @@ func (s *State) PopNewEvent() (*Event, func()) {
 	}
 }
 
+func (s *State) PopRandomSheetRankState() (*SheetRankState, func()) {
+	s.mtx.Lock()
+	defer s.mtx.Unlock()
+
+	n := len(s.sheetRankStates)
+	if n == 0 {
+		return nil, nil
+	}
+
+	i := rand.Intn(n)
+	rs := s.sheetRankStates[i]
+
+	s.sheetRankStates[i] = s.sheetRankStates[n-1]
+	s.sheetRankStates[n-1] = nil
+	s.sheetRankStates = s.sheetRankStates[:n-1]
+
+	return rs, func() { s.PushSheetRankState(rs) }
+}
+
+func (s *State) PushSheetRankState(sheetRankState *SheetRankState) {
+	s.mtx.Lock()
+	defer s.mtx.Unlock()
+
+	s.sheetRankStates = append(s.sheetRankStates, sheetRankState)
+}
+
 func GetRandomSheetRank() string {
 	return DataSet.SheetKinds[rand.Intn(len(DataSet.SheetKinds))].Rank
 }
@@ -360,19 +370,4 @@ func GetRandomSheetNum(sheetRank string) uint {
 		}
 	}
 	return uint(rand.Intn(int(total)))
-}
-
-// TODO(sonots): Pop sheet state
-func (s *State) GetEventState(eventID uint) *EventState {
-	es, ok := s.eventStates[eventID]
-	if !ok {
-		es = &EventState{}
-		es.Init()
-		s.eventStates[eventID] = es
-	}
-	return es
-}
-
-func (es *EventState) GetSheetRankState(sheetRank string) *SheetRankState {
-	return es.sheetRankStates[sheetRank]
 }

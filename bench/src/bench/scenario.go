@@ -471,22 +471,20 @@ func CheckReserveCancelSheet(ctx context.Context, state *State) error {
 		return err
 	}
 
-	// TODO(sonots): Do not lock for each event
-	event, eventPush := state.PopRandomEvent()
-	if event == nil {
+	// TODO(sonots): Fix not to pop sheet ranks of unpublished events
+	sheetRankState, sheetRankStatePush := state.PopRandomSheetRankState()
+	if sheetRankState == nil {
 		return nil
 	}
-	defer eventPush()
+	defer sheetRankStatePush()
+	eventID := sheetRankState.EventID
+	rank := sheetRankState.Rank
+	remains := sheetRankState.Remains
 
-	// 同じイベント、同じシートランクについて lock
-	eventState := state.GetEventState(event.ID)
-	rank := GetRandomSheetRank()
-	sheetRankState := eventState.GetSheetRankState(rank)
-
-	if sheetRankState.Remains <= 0 {
+	if remains <= 0 {
 		err = userChecker.Play(ctx, &CheckAction{
 			Method:             "POST",
-			Path:               fmt.Sprintf("/api/events/%d/actions/reserve", event.ID),
+			Path:               fmt.Sprintf("/api/events/%d/actions/reserve", eventID),
 			ExpectedStatusCode: 409,
 			Description:        "売り切れの場合エラーになること",
 			CheckFunc:          checkJsonErrorResponse("sold_out"),
@@ -502,7 +500,7 @@ func CheckReserveCancelSheet(ctx context.Context, state *State) error {
 		reserve := &JsonReserve{rank, 0}
 		err = userChecker.Play(ctx, &CheckAction{
 			Method:             "POST",
-			Path:               fmt.Sprintf("/api/events/%d/actions/reserve", event.ID),
+			Path:               fmt.Sprintf("/api/events/%d/actions/reserve", eventID),
 			ExpectedStatusCode: 202,
 			Description:        "席の予約ができること",
 			PostJSON: map[string]interface{}{
@@ -516,7 +514,7 @@ func CheckReserveCancelSheet(ctx context.Context, state *State) error {
 
 		err = userChecker.Play(ctx, &CheckAction{
 			Method:             "DELETE",
-			Path:               fmt.Sprintf("/api/events/%d/sheets/%s/%d/reservation", event.ID, reserve.SheetRank, reserve.SheetNum),
+			Path:               fmt.Sprintf("/api/events/%d/sheets/%s/%d/reservation", eventID, reserve.SheetRank, reserve.SheetNum),
 			ExpectedStatusCode: 204,
 			Description:        "キャンセルができること",
 		})
@@ -526,7 +524,7 @@ func CheckReserveCancelSheet(ctx context.Context, state *State) error {
 
 		err = userChecker.Play(ctx, &CheckAction{
 			Method:             "DELETE",
-			Path:               fmt.Sprintf("/api/events/%d/sheets/%s/%d/reservation", event.ID, reserve.SheetRank, reserve.SheetNum),
+			Path:               fmt.Sprintf("/api/events/%d/sheets/%s/%d/reservation", eventID, reserve.SheetRank, reserve.SheetNum),
 			ExpectedStatusCode: 400,
 			Description:        "すでにキャンセル済みの場合エラーになること",
 			CheckFunc:          checkJsonErrorResponse("not_reserved"),
@@ -538,7 +536,7 @@ func CheckReserveCancelSheet(ctx context.Context, state *State) error {
 		// 誰かが購入済みで
 		// err := userChecker.Play(ctx, &CheckAction{
 		// 	Method:      "DELETE",
-		// 	Path:        fmt.Sprintf("/api/events/%d/sheets/%s/%d/reservation", event.ID, reserve.SheetRank, reserve.SheetNum),
+		// 	Path:        fmt.Sprintf("/api/events/%d/sheets/%s/%d/reservation", eventID, reserve.SheetRank, reserve.SheetNum),
 		// 	ExpectedStatusCode: 403,
 		// 	Description: "購入していないチケットをキャンセルしようとするとエラーになること",
 		//	CheckFunc:          checkJsonErrorResponse("not_permitted"),
@@ -565,7 +563,7 @@ func CheckReserveCancelSheet(ctx context.Context, state *State) error {
 	unknownRank := "N"
 	err = userChecker.Play(ctx, &CheckAction{
 		Method:             "POST",
-		Path:               fmt.Sprintf("/api/events/%d/actions/reserve", event.ID),
+		Path:               fmt.Sprintf("/api/events/%d/actions/reserve", eventID),
 		ExpectedStatusCode: 409,
 		Description:        "存在しないランクのシートを予約しようとするとエラーになること",
 		CheckFunc:          checkJsonErrorResponse("sold_out"), // TOOD(sonots): FIX ME
@@ -592,7 +590,7 @@ func CheckReserveCancelSheet(ctx context.Context, state *State) error {
 	unknownNum := 0
 	err = userChecker.Play(ctx, &CheckAction{
 		Method:             "DELETE",
-		Path:               fmt.Sprintf("/api/events/%d/sheets/%s/%d/reservation", event.ID, unknownRank, unknownNum),
+		Path:               fmt.Sprintf("/api/events/%d/sheets/%s/%d/reservation", eventID, unknownRank, unknownNum),
 		ExpectedStatusCode: 404,
 		Description:        "存在しないシートをキャンセルしようとするとエラーになること",
 		CheckFunc:          checkJsonErrorResponse("invalid_sheet"),
@@ -605,7 +603,7 @@ func CheckReserveCancelSheet(ctx context.Context, state *State) error {
 
 	err = checker.Play(ctx, &CheckAction{
 		Method:             "POST",
-		Path:               fmt.Sprintf("/api/events/%d/actions/reserve", event.ID),
+		Path:               fmt.Sprintf("/api/events/%d/actions/reserve", eventID),
 		ExpectedStatusCode: 401,
 		Description:        "ログインしていない場合予約ができないこと",
 		CheckFunc:          checkJsonErrorResponse("login_required"),
@@ -619,7 +617,7 @@ func CheckReserveCancelSheet(ctx context.Context, state *State) error {
 
 	err = checker.Play(ctx, &CheckAction{
 		Method:             "DELETE",
-		Path:               fmt.Sprintf("/api/events/%d/sheets/%s/%d/reservation", event.ID, rank, randomNum),
+		Path:               fmt.Sprintf("/api/events/%d/sheets/%s/%d/reservation", eventID, rank, randomNum),
 		ExpectedStatusCode: 401,
 		Description:        "ログインしていない場合キャンセルができないこと",
 		CheckFunc:          checkJsonErrorResponse("login_required"),
