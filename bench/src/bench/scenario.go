@@ -471,15 +471,15 @@ func CheckReserveCancelSheet(ctx context.Context, state *State) error {
 		return err
 	}
 
-	sheetRankState, sheetRankStatePush := state.PopRandomSheetRankState()
-	if sheetRankState == nil {
+	eventSheetRank, eventSheetRankPush := state.PopRandomEventSheetRank()
+	if eventSheetRank == nil {
 		return nil
 	}
-	defer sheetRankStatePush()
-	eventID := sheetRankState.EventID
-	rank := sheetRankState.Rank
+	defer eventSheetRankPush()
+	eventID := eventSheetRank.EventID
+	rank := eventSheetRank.Rank
 
-	if sheetRankState.Remains <= 0 {
+	if eventSheetRank.Remains <= 0 {
 		err = userChecker.Play(ctx, &CheckAction{
 			Method:             "POST",
 			Path:               fmt.Sprintf("/api/events/%d/actions/reserve", eventID),
@@ -509,8 +509,8 @@ func CheckReserveCancelSheet(ctx context.Context, state *State) error {
 		if err != nil {
 			return err
 		}
-		sheetRankState.Remains -= 1
-		sheetRankState.Reserved[reserved.SheetNum] = true
+		eventSheetRank.Remains -= 1
+		eventSheetRank.Reserved[reserved.SheetNum] = true
 
 		err = userChecker.Play(ctx, &CheckAction{
 			Method:             "DELETE",
@@ -521,8 +521,8 @@ func CheckReserveCancelSheet(ctx context.Context, state *State) error {
 		if err != nil {
 			return err
 		}
-		sheetRankState.Remains += 1
-		sheetRankState.Reserved[reserved.SheetNum] = false
+		eventSheetRank.Remains += 1
+		eventSheetRank.Reserved[reserved.SheetNum] = false
 
 		err = userChecker.Play(ctx, &CheckAction{
 			Method:             "DELETE",

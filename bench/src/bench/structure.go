@@ -105,7 +105,7 @@ type BenchDataSet struct {
 }
 
 // Represents a state of a sheet rank winthin an event
-type SheetRankState struct {
+type EventSheetRank struct {
 	EventID  uint
 	Rank     string
 	Total    uint
@@ -125,8 +125,8 @@ type State struct {
 	events          []*Event
 	newEvents       []*Event
 
-	sheetRankStates        []*SheetRankState
-	privateSheetRankStates []*SheetRankState
+	eventSheetRanks        []*EventSheetRank
+	privateEventSheetRanks []*EventSheetRank
 }
 
 func (s *State) Init() {
@@ -153,16 +153,16 @@ func (s *State) Init() {
 
 	for _, event := range s.events {
 		for _, sheetKind := range DataSet.SheetKinds {
-			sheetRankState := &SheetRankState{}
-			sheetRankState.EventID = event.ID
-			sheetRankState.Rank = sheetKind.Rank
-			sheetRankState.Total = sheetKind.Total
-			sheetRankState.Remains = sheetKind.Total
-			sheetRankState.Reserved = map[uint]bool{}
+			eventSheetRank := &EventSheetRank{}
+			eventSheetRank.EventID = event.ID
+			eventSheetRank.Rank = sheetKind.Rank
+			eventSheetRank.Total = sheetKind.Total
+			eventSheetRank.Remains = sheetKind.Total
+			eventSheetRank.Reserved = map[uint]bool{}
 			if event.PublicFg {
-				s.sheetRankStates = append(s.sheetRankStates, sheetRankState)
+				s.eventSheetRanks = append(s.eventSheetRanks, eventSheetRank)
 			} else {
-				s.privateSheetRankStates = append(s.privateSheetRankStates, sheetRankState)
+				s.privateEventSheetRanks = append(s.privateEventSheetRanks, eventSheetRank)
 			}
 		}
 	}
@@ -338,30 +338,30 @@ func (s *State) PopNewEvent() (*Event, func()) {
 	}
 }
 
-func (s *State) PopRandomSheetRankState() (*SheetRankState, func()) {
+func (s *State) PopRandomEventSheetRank() (*EventSheetRank, func()) {
 	s.mtx.Lock()
 	defer s.mtx.Unlock()
 
-	n := len(s.sheetRankStates)
+	n := len(s.eventSheetRanks)
 	if n == 0 {
 		return nil, nil
 	}
 
 	i := rand.Intn(n)
-	rs := s.sheetRankStates[i]
+	rs := s.eventSheetRanks[i]
 
-	s.sheetRankStates[i] = s.sheetRankStates[n-1]
-	s.sheetRankStates[n-1] = nil
-	s.sheetRankStates = s.sheetRankStates[:n-1]
+	s.eventSheetRanks[i] = s.eventSheetRanks[n-1]
+	s.eventSheetRanks[n-1] = nil
+	s.eventSheetRanks = s.eventSheetRanks[:n-1]
 
-	return rs, func() { s.PushSheetRankState(rs) }
+	return rs, func() { s.PushEventSheetRank(rs) }
 }
 
-func (s *State) PushSheetRankState(sheetRankState *SheetRankState) {
+func (s *State) PushEventSheetRank(eventSheetRank *EventSheetRank) {
 	s.mtx.Lock()
 	defer s.mtx.Unlock()
 
-	s.sheetRankStates = append(s.sheetRankStates, sheetRankState)
+	s.eventSheetRanks = append(s.eventSheetRanks, eventSheetRank)
 }
 
 func GetRandomSheetRank() string {
