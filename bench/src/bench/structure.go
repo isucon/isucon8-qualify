@@ -46,6 +46,10 @@ type JsonReserve struct {
 	SheetNum  int    `json:"sheet_num`
 }
 
+type JsonError struct {
+	Error string `json:"error"`
+}
+
 type BenchDataSet struct {
 	Users    []*AppUser
 	NewUsers []*AppUser

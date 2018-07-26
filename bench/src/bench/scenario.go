@@ -31,6 +31,21 @@ func checkRedirectStatusCode(res *http.Response, body *bytes.Buffer) error {
 	return fmt.Errorf("期待していないステータスコード %d Expected 302 or 303", res.StatusCode)
 }
 
+func checkJsonErrorResponse(errorCode string) func(res *http.Response, body *bytes.Buffer) error {
+	return func(res *http.Response, body *bytes.Buffer) error {
+		dec := json.NewDecoder(body)
+		jsonError := JsonError{}
+		err := dec.Decode(&jsonError)
+		if err != nil {
+			return fatalErrorf("Jsonのデコードに失敗 %v", err)
+		}
+		if jsonError.Error != errorCode {
+			return fatalErrorf("正しいエラーコードを取得できません")
+		}
+		return nil
+	}
+}
+
 func loadStaticFile(ctx context.Context, checker *Checker, path string) error {
 	return checker.Play(ctx, &CheckAction{
 		EnableCache:          true,
@@ -313,6 +328,7 @@ func CheckCreateUser(ctx context.Context, state *State) error {
 			"password":   user.Password,
 		},
 		Description: "すでに作成済みの場合エラーになること",
+		CheckFunc:   checkJsonErrorResponse("duplicated"),
 	})
 	if err != nil {
 		return err
@@ -361,6 +377,7 @@ func CheckLogin(ctx context.Context, state *State) error {
 		Path:               "/api/actions/logout",
 		ExpectedStatusCode: 401,
 		Description:        "ログアウト済みの場合エラーになること",
+		CheckFunc:          checkJsonErrorResponse("login_required"),
 	})
 	if err != nil {
 		return err
@@ -375,6 +392,7 @@ func CheckLogin(ctx context.Context, state *State) error {
 			"password":   user.Password,
 		},
 		Description: "存在しないユーザでログインできないこと",
+		CheckFunc:   checkJsonErrorResponse("authentication_failed"),
 	})
 	if err != nil {
 		return err
@@ -389,6 +407,7 @@ func CheckLogin(ctx context.Context, state *State) error {
 			"password":   RandomAlphabetString(32),
 		},
 		Description: "パスワードが間違っている場合ログインできないこと",
+		CheckFunc:   checkJsonErrorResponse("authentication_failed"),
 	})
 	if err != nil {
 		return err
@@ -459,6 +478,7 @@ func CheckAdminLogin(ctx context.Context, state *State) error {
 			"password":   user.Password,
 		},
 		Description: "一般ユーザで管理者ログインできないこと",
+		CheckFunc:   checkJsonErrorResponse("authentication_failed"),
 	})
 	if err != nil {
 		return err
@@ -494,6 +514,7 @@ func CheckAdminLogin(ctx context.Context, state *State) error {
 		Path:               "/admin/api/actions/logout",
 		ExpectedStatusCode: 401,
 		Description:        "ログアウト済みの場合エラーになること",
+		CheckFunc:          checkJsonErrorResponse("admin_login_required"),
 	})
 	if err != nil {
 		return err
@@ -508,6 +529,7 @@ func CheckAdminLogin(ctx context.Context, state *State) error {
 			"password":   admin.Password,
 		},
 		Description: "存在しないユーザで管理者ログインできないこと",
+		CheckFunc:   checkJsonErrorResponse("authentication_failed"),
 	})
 	if err != nil {
 		return err
@@ -522,6 +544,7 @@ func CheckAdminLogin(ctx context.Context, state *State) error {
 			"password":   RandomAlphabetString(32),
 		},
 		Description: "パスワードが間違っている場合管理者ログインできないこと",
+		CheckFunc:   checkJsonErrorResponse("authentication_failed"),
 	})
 	if err != nil {
 		return err
@@ -647,6 +670,7 @@ func CheckAdminCreateEvent(ctx context.Context, state *State) error {
 		ExpectedStatusCode: 401,
 		Description:        "一般ユーザがイベントを作成できないこと",
 		PostJSON:           eventPostJSON(event),
+		CheckFunc:          checkJsonErrorResponse("admin_login_required"),
 	})
 	if err != nil {
 		return err
@@ -672,6 +696,7 @@ func CheckAdminCreateEvent(ctx context.Context, state *State) error {
 		Path:               fmt.Sprintf("/api/events/%d", event.ID),
 		ExpectedStatusCode: 404,
 		Description:        "非公開イベントを取得できないこと",
+		CheckFunc:          checkJsonErrorResponse("not_found"),
 	})
 	if err != nil {
 		return err
@@ -682,6 +707,7 @@ func CheckAdminCreateEvent(ctx context.Context, state *State) error {
 		Path:               fmt.Sprintf("/admin/api/events/%d", event.ID),
 		ExpectedStatusCode: 401,
 		Description:        "一般ユーザが管理者APIでイベントを取得できないこと",
+		CheckFunc:          checkJsonErrorResponse("admin_login_required"),
 	})
 	if err != nil {
 		return err
@@ -704,6 +730,7 @@ func CheckAdminCreateEvent(ctx context.Context, state *State) error {
 		ExpectedStatusCode: 401,
 		Description:        "一般ユーザがイベントを編集できないこと",
 		PostJSON:           eventPostJSON(event),
+		CheckFunc:          checkJsonErrorResponse("admin_login_required"),
 	})
 	if err != nil {
 		return err
@@ -751,6 +778,7 @@ func CheckAdminCreateEvent(ctx context.Context, state *State) error {
 		Path:               fmt.Sprintf("/admin/api/events/%d", event.ID+1),
 		ExpectedStatusCode: 404,
 		Description:        "イベントが存在しない場合取得に失敗すること",
+		CheckFunc:          checkJsonErrorResponse("not_found"),
 	})
 	if err != nil {
 		return err
@@ -761,6 +789,7 @@ func CheckAdminCreateEvent(ctx context.Context, state *State) error {
 		Path:               fmt.Sprintf("/api/events/%d", event.ID+1),
 		ExpectedStatusCode: 404,
 		Description:        "イベントが存在しない場合取得に失敗すること",
+		CheckFunc:          checkJsonErrorResponse("not_found"),
 	})
 	if err != nil {
 		return err
@@ -772,6 +801,7 @@ func CheckAdminCreateEvent(ctx context.Context, state *State) error {
 		ExpectedStatusCode: 404,
 		Description:        "イベントが存在しない場合編集に失敗すること",
 		PostJSON:           eventPostJSON(event),
+		CheckFunc:          checkJsonErrorResponse("not_found"),
 	})
 	if err != nil {
 		return err
