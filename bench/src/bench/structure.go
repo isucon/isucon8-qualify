@@ -59,7 +59,6 @@ type BenchDataSet struct {
 }
 
 type AppUser struct {
-	sync.Mutex
 	ID        uint
 	Nickname  string
 	LoginName string
