@@ -270,6 +270,13 @@ post '/api/events/{id}/actions/reserve' => [qw/allow_json_request login_required
 
     my $user  = $self->get_login_user($c);
     my $event = $self->get_event($event_id, $user->{id});
+    unless ($event && $event->{public_fg}) {
+        my $res = $c->render_json({
+            error => 'invalid_event',
+        });
+        $res->status(404);
+        return $res;
+    }
 
     my $sheet;
     while (1) {
@@ -312,6 +319,13 @@ router ['DELETE'] => '/api/events/{id}/sheets/{rank}/{num}/reservation' => [qw/l
 
     my $user  = $self->get_login_user($c);
     my $event = $self->get_event($event_id, $user->{id});
+    unless ($event && $event->{public_fg}) {
+        my $res = $c->render_json({
+            error => 'invalid_event',
+        });
+        $res->status(404);
+        return $res;
+    }
 
     my $error;
 
