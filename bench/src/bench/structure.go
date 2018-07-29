@@ -55,6 +55,10 @@ type AppUser struct {
 	Nickname  string
 	LoginName string
 	Password  string
+
+	Status struct {
+		Online bool
+	}
 }
 
 type Administrator struct {
