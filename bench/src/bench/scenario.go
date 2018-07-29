@@ -118,6 +118,7 @@ func LoadCreateUser(ctx context.Context, state *State) error {
 		return err
 	}
 
+	user.Status.Online = true
 	newUserPush()
 
 	return nil
@@ -130,30 +131,12 @@ func LoadLogin(ctx context.Context, state *State) error {
 	}
 	defer push()
 
-	act := &CheckAction{
-		Method:             "POST",
-		Path:               "/api/actions/login",
-		ExpectedStatusCode: 200,
-		Description:        "ログインできること",
-		PostJSON: map[string]interface{}{
-			"login_name": user.LoginName,
-			"password":   user.Password,
-		},
-	}
-
-	err := checker.Play(ctx, act)
+	err := loginAppUser(ctx, checker, user)
 	if err != nil {
 		return err
 	}
 
-	act = &CheckAction{
-		Method:             "POST",
-		Path:               "/api/actions/logout",
-		ExpectedStatusCode: 204,
-		Description:        "ログアウトできること",
-	}
-
-	err = checker.Play(ctx, act)
+	err = logoutAppUser(ctx, checker, user)
 	if err != nil {
 		return err
 	}
@@ -225,17 +208,7 @@ func LoadReserveCancelSheet(ctx context.Context, state *State) error {
 	}
 	defer userPush()
 
-	// TODO(sonots): Skip login if already logged in?
-	err := userChecker.Play(ctx, &CheckAction{
-		Method:             "POST",
-		Path:               "/api/actions/login",
-		ExpectedStatusCode: 200,
-		Description:        "ログインできること",
-		PostJSON: map[string]interface{}{
-			"login_name": user.LoginName,
-			"password":   user.Password,
-		},
-	})
+	err := loginAppUser(ctx, userChecker, user)
 	if err != nil {
 		return err
 	}
@@ -293,17 +266,7 @@ func LoadReserveSheet(ctx context.Context, state *State) error {
 	}
 	defer userPush()
 
-	// TODO(sonots): Skip login if already logged in?
-	err := userChecker.Play(ctx, &CheckAction{
-		Method:             "POST",
-		Path:               "/api/actions/login",
-		ExpectedStatusCode: 200,
-		Description:        "ログインできること",
-		PostJSON: map[string]interface{}{
-			"login_name": user.LoginName,
-			"password":   user.Password,
-		},
-	})
+	err := loginAppUser(ctx, userChecker, user)
 	if err != nil {
 		return err
 	}
@@ -434,6 +397,7 @@ func CheckCreateUser(ctx context.Context, state *State) error {
 	if err != nil {
 		return err
 	}
+	user.Status.Online = true
 
 	err = checker.Play(ctx, &CheckAction{
 		Method:             "POST",
@@ -463,28 +427,14 @@ func CheckLogin(ctx context.Context, state *State) error {
 	}
 	defer push()
 	checker.ResetCookie()
+	user.Status.Online = false
 
-	err := checker.Play(ctx, &CheckAction{
-		Method:             "POST",
-		Path:               "/api/actions/login",
-		ExpectedStatusCode: 200,
-		PostJSON: map[string]interface{}{
-			"login_name": user.LoginName,
-			"password":   user.Password,
-		},
-		Description: "ログインできること",
-		CheckFunc:   checkJsonUserResponse(user),
-	})
+	err := loginAppUser(ctx, checker, user)
 	if err != nil {
 		return err
 	}
 
-	err = checker.Play(ctx, &CheckAction{
-		Method:             "POST",
-		Path:               "/api/actions/logout",
-		ExpectedStatusCode: 204,
-		Description:        "ログアウトできること",
-	})
+	err = logoutAppUser(ctx, checker, user)
 	if err != nil {
 		return err
 	}
@@ -568,17 +518,7 @@ func CheckReserveSheet(ctx context.Context, state *State) error {
 	}
 	defer userPush()
 
-	// TODO(sonots): Skip login if already logged in?
-	err := userChecker.Play(ctx, &CheckAction{
-		Method:             "POST",
-		Path:               "/api/actions/login",
-		ExpectedStatusCode: 200,
-		Description:        "ログインできること",
-		PostJSON: map[string]interface{}{
-			"login_name": user.LoginName,
-			"password":   user.Password,
-		},
-	})
+	err := loginAppUser(ctx, userChecker, user)
 	if err != nil {
 		return err
 	}
@@ -774,7 +714,6 @@ func CheckAdminLogin(ctx context.Context, state *State) error {
 		return nil
 	}
 	defer userPush()
-	userChecker.ResetCookie()
 
 	err := userChecker.Play(ctx, &CheckAction{
 		Method:             "POST",
@@ -1116,5 +1055,48 @@ func CheckCreateEvent(ctx context.Context, state *State) error {
 
 	newEventPush()
 
+	return nil
+}
+
+func loginAppUser(ctx context.Context, checker *Checker, user *AppUser) error {
+	if user.Status.Online {
+		return nil
+	}
+
+	err := checker.Play(ctx, &CheckAction{
+		Method:             "POST",
+		Path:               "/api/actions/login",
+		ExpectedStatusCode: 200,
+		Description:        "ログインできること",
+		PostJSON: map[string]interface{}{
+			"login_name": user.LoginName,
+			"password":   user.Password,
+		},
+		CheckFunc: checkJsonUserResponse(user),
+	})
+	if err != nil {
+		return err
+	}
+
+	user.Status.Online = true
+	return nil
+}
+
+func logoutAppUser(ctx context.Context, checker *Checker, user *AppUser) error {
+	if !user.Status.Online {
+		return nil
+	}
+
+	err := checker.Play(ctx, &CheckAction{
+		Method:             "POST",
+		Path:               "/api/actions/logout",
+		ExpectedStatusCode: 204,
+		Description:        "ログアウトできること",
+	})
+	if err != nil {
+		return err
+	}
+
+	user.Status.Online = false
 	return nil
 }
