@@ -8,11 +8,27 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"hash"
+	"hash/crc32"
 	"io"
+	"math/rand"
 	"net/http"
+	"os"
+	"sort"
+	"time"
 
 	"github.com/PuerkitoBio/goquery"
+	htmldigest "github.com/karupanerura/go-html-digest"
+	"golang.org/x/net/html"
 )
+
+const (
+	expectedIndexHash = 497858079
+)
+
+func joinCrc32(crcSum []byte) uint32 {
+	return uint32(crcSum[0])<<24 | uint32(crcSum[1])<<16 | uint32(crcSum[2])<<8 | uint32(crcSum[3])
+}
 
 func checkHTML(f func(*http.Response, *goquery.Document) error) func(*http.Response, *bytes.Buffer) error {
 	return func(res *http.Response, body *bytes.Buffer) error {
@@ -44,6 +60,85 @@ func checkJsonErrorResponse(errorCode string) func(res *http.Response, body *byt
 		}
 		return nil
 	}
+}
+
+func checkEventsList(state *State, events []JsonEvent) error {
+	ok := sort.SliceIsSorted(events, func(i, j int) bool {
+		return events[i].ID < events[j].ID
+	})
+	if !ok {
+		return fatalErrorf("イベントの順番が正しくありません")
+	}
+
+	expected := FilterPublicEvents(state.GetEvents())
+	if len(events) == 0 {
+		return fatalErrorf("イベントの数が正しくありません")
+	} else if len(events) < len(expected) {
+		// 期待する数に満たない場合は1秒以内の誤差は許容する
+		var missed []*Event
+		for i := len(expected) - 1; i > 0; i-- {
+			if expected[i].ID <= events[len(events)-1].ID {
+				break
+			}
+			missed = expected[i:]
+		}
+
+		threshold := time.Now().Add(-1 * time.Second)
+		for _, e := range missed {
+			if e.CreatedAt.Before(threshold) {
+				return fatalErrorf("イベントの数が正しくありません")
+			}
+		}
+	} else if len(events) > len(expected) {
+		// XXX: 期待する数を超えて返ってきた場合はIDがより新しいものであることを確認して無視する
+		for i := len(events) - 1; i > 0; i-- {
+			if events[i].ID <= expected[len(expected)-1].ID {
+				break
+			}
+			events = events[:i]
+		}
+		if len(events) != len(expected) {
+			return fatalErrorf("イベントの数が正しくありません")
+		}
+	}
+
+	for i, e := range events {
+		if i == len(expected) {
+			break
+		}
+
+		if e.ID != expected[i].ID {
+			return fatalErrorf("イベントの順番が正しくありません")
+		}
+		if e.Title != expected[i].Title {
+			return fatalErrorf("イベント(id:%d)のタイトルが正しくありません", e.ID)
+		}
+		if int(e.Total) != len(DataSet.Sheets) {
+			return fatalErrorf("イベント(id:%d)の総座席数が正しくありません", e.ID)
+		}
+
+		var remains uint
+		for _, eventSheetRank := range state.GetEventSheetRanksByEventID(e.ID) {
+			if e.Sheets[eventSheetRank.Rank].Total != eventSheetRank.Total {
+				return fatalErrorf("イベント(id:%d)の%s席の総座席数が正しくありません", e.ID, eventSheetRank.Rank)
+			}
+			// TODO(karupa): check remains
+			// if e.Sheets[eventSheetRank.Rank].Remains != eventSheetRank.Remains {
+			// 	log.Printf("[DEBUG] Event(%d) %s: expected %d but got %d", e.ID, eventSheetRank.Rank, eventSheetRank.Remains, e.Sheets[eventSheetRank.Rank].Remains)
+			// 	return fatalErrorf("イベント(id:%d)の%s席の残座席数が正しくありません", e.ID, eventSheetRank.Rank)
+			//}
+			// TODO(karupa): check price
+			// if e.Sheets[eventSheetRank.Rank].Price != eventSheetRank.Price {
+			// 	return fatalErrorf("イベント(id:%d)の%s席の価格が正しくありません", e.ID, eventSheetRank.Rank)
+			// }
+			remains += eventSheetRank.Remains
+		}
+		// TODO(karupa): check remains
+		// if e.Remains != remains {
+		// 	return fatalErrorf("イベント(id:%d)の総残座席数が正しくありません", e.ID)
+		// }
+	}
+	return nil
 }
 
 func loadStaticFile(ctx context.Context, checker *Checker, path string) error {
@@ -152,40 +247,18 @@ func LoadTopPage(ctx context.Context, state *State) error {
 		return nil
 	}
 	defer push()
-	// checker.ResetCookie()  // may already login, or not
 
-	events := []JsonEvent{}
-
+	// CheckTopPageでがっつり見る代わりにこっちではチェックを頑張らない
 	err := checker.Play(ctx, &CheckAction{
 		Method:             "GET",
 		Path:               "/",
 		ExpectedStatusCode: 200,
 		Description:        "ページが表示されること",
-		CheckFunc: checkHTML(func(res *http.Response, doc *goquery.Document) error {
-			selection := doc.Find("#app-wrapper")
-			if selection == nil || len(selection.Nodes) == 0 {
-				return fatalErrorf("app-wrapperが見つかりません")
-			}
-
-			node := selection.Nodes[0]
-			for _, attr := range node.Attr {
-				if attr.Key == "data-events" {
-					err := json.Unmarshal([]byte(attr.Val), &events)
-					// TODO(sonots): Validate number of remains, total of events?
-					// TODO(sonots): Validate number of remains, total of ranked sheets of events?
-					if err != nil {
-						return fatalErrorf("イベント一覧のJsonデコードに失敗 %v", err)
-					}
-					return nil
-				}
-			}
-
-			return fatalErrorf("app-wrapperにdata-eventsがありません")
-		}),
 	})
 	if err != nil {
 		return err
 	}
+
 	return nil
 }
 
@@ -484,13 +557,105 @@ func CheckLogin(ctx context.Context, state *State) error {
 }
 
 func CheckTopPage(ctx context.Context, state *State) error {
-	// 1. ヘッダー部分の確認
-	//   ログイン済みの場合ユーザー名が表示されていること
-	//   ログインしていない場合ユーザー名が表示されていないこと
-	// 2. DOM 構造が変わっていないこと
-	// 3. イベント一覧が一定期間以内に更新されていること
-	//   何秒許容するかは要検討
-	// 4. イベント一覧の残席数が正しく更新されていること（要検討）
+	user, checker, push := state.PopRandomUser()
+	if user == nil {
+		return nil
+	}
+	defer push()
+
+	switch rand.Intn(3) {
+	case 0:
+		err := loginAppUser(ctx, checker, user)
+		if err != nil {
+			return err
+		}
+	case 1:
+		err := logoutAppUser(ctx, checker, user)
+		if err != nil {
+			return err
+		}
+	}
+
+	err := checker.Play(ctx, &CheckAction{
+		Method:             "GET",
+		Path:               "/",
+		ExpectedStatusCode: 200,
+		Description:        "ページが表示されること",
+		CheckFunc: checkHTML(func(res *http.Response, doc *goquery.Document) error {
+			h := htmldigest.NewHash(func() hash.Hash {
+				return crc32.NewIEEE()
+			})
+			crcSum, err := h.Sum(doc.Nodes[0])
+			if err != nil {
+				fmt.Fprint(os.Stderr, "HTML: ")
+				_ = html.Render(os.Stderr, doc.Nodes[0])
+				fmt.Fprintln(os.Stderr, "")
+				fmt.Fprintln(os.Stderr, err)
+				return fatalErrorf("チェックサムの生成に失敗しました (主催者に連絡してください)")
+			}
+			if crcSum32 := joinCrc32(crcSum); crcSum32 != expectedIndexHash {
+				fmt.Fprint(os.Stderr, "HTML: ")
+				_ = html.Render(os.Stderr, doc.Nodes[0])
+				fmt.Fprintln(os.Stderr, "")
+				fmt.Fprintf(os.Stderr, "crcSum32=%d\n", crcSum32)
+				return fatalErrorf("DOM構造が初期状態と一致しません")
+			}
+
+			selection := doc.Find("#app-wrapper")
+			if selection == nil || len(selection.Nodes) == 0 {
+				return fatalErrorf("app-wrapperが見つかりません")
+			}
+
+			var found int
+			node := selection.Nodes[0]
+			for _, attr := range node.Attr {
+				switch attr.Key {
+				case "data-events":
+					var events []JsonEvent
+					err := json.Unmarshal([]byte(attr.Val), &events)
+					if err != nil {
+						return fatalErrorf("イベント一覧のJsonデコードに失敗 %v", err)
+					}
+
+					err = checkEventsList(state, events)
+					if err != nil {
+						return err
+					}
+
+					found++
+				case "data-login-user":
+					if user.Status.Online {
+						var u *JsonUser
+						err := json.Unmarshal([]byte(attr.Val), &u)
+						if err != nil {
+							return fatalErrorf("ログインユーザーのJsonデコードに失敗 %v", err)
+						}
+						if u == nil {
+							return fatalErrorf("ログインユーザーがnull")
+						}
+						if u.ID != user.ID || u.Nickname != user.Nickname {
+							return fatalErrorf("ログインユーザーが違います")
+						}
+					} else {
+						if attr.Val != "null" {
+							return fatalErrorf("ログインユーザーが非null")
+						}
+					}
+
+					found++
+				}
+			}
+
+			if found != 2 {
+				return fatalErrorf("app-wrapperにdata-eventsまたはdata-login-userがありません")
+			}
+			return nil
+		}),
+	})
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -810,8 +975,9 @@ func checkJsonAdminEventCreateResponse(event *Event) func(res *http.Response, bo
 		if jsonEvent.Title != event.Title || jsonEvent.Price != event.Price || jsonEvent.Public != event.PublicFg {
 			return fatalErrorf("正しいイベントを取得できません")
 		}
-		// Set auto incremented ID from response
+		// Set created time and auto incremented ID from response
 		event.ID = jsonEvent.ID
+		event.CreatedAt = time.Now()
 		return nil
 	}
 }
@@ -936,6 +1102,7 @@ func CheckCreateEvent(ctx context.Context, state *State) error {
 	if err != nil {
 		return err
 	}
+	event.CreatedAt = time.Now()
 
 	err = checker.Play(ctx, &CheckAction{
 		Method:             "GET",

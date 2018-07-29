@@ -3,6 +3,7 @@ package bench
 import (
 	"math/rand"
 	"sync"
+	"time"
 )
 
 // {"nickname":"sonots","id":1001};
@@ -69,10 +70,11 @@ type Administrator struct {
 }
 
 type Event struct {
-	ID       uint
-	Title    string
-	PublicFg bool
-	Price    uint
+	ID        uint
+	Title     string
+	PublicFg  bool
+	Price     uint
+	CreatedAt time.Time
 }
 
 type SheetKind struct {
@@ -288,23 +290,13 @@ func (s *State) getAdminCheckerLocked(u *Administrator) *Checker {
 	return checker
 }
 
-func (s *State) PopRandomEvent() (*Event, func()) {
+func (s *State) GetEvents() (events []*Event) {
 	s.mtx.Lock()
 	defer s.mtx.Unlock()
 
-	n := len(s.events)
-	if n == 0 {
-		return nil, nil
-	}
-
-	i := rand.Intn(n)
-	event := s.events[i]
-
-	s.events[i] = s.events[n-1]
-	s.events[n-1] = nil
-	s.events = s.events[:n-1]
-
-	return event, func() { s.PushEvent(event) }
+	events = make([]*Event, len(s.events))
+	copy(events, s.events)
+	return
 }
 
 func (s *State) PushEvent(event *Event) {
@@ -330,8 +322,27 @@ func (s *State) PopNewEvent() (*Event, func()) {
 	// You should call push() after you verify that a new event is successfully created.
 	return event, func() {
 		// fmt.Printf("newEventPush %d %s %d %t\n", event.ID, event.Title, event.Price, event.PublicFg)
+		event.CreatedAt = time.Now()
 		s.PushEvent(event)
 	}
+}
+
+func (s *State) GetEventSheetRanksByEventID(eventID uint) []*EventSheetRank {
+	s.mtx.Lock()
+	defer s.mtx.Unlock()
+
+	eventSheetRanks := make([]*EventSheetRank, 0, len(DataSet.SheetKinds))
+	for _, eventSheetRank := range s.eventSheetRanks {
+		if eventSheetRank.EventID != eventID {
+			continue
+		}
+		eventSheetRanks = append(eventSheetRanks, eventSheetRank)
+		if len(eventSheetRanks) == len(DataSet.SheetKinds) {
+			break
+		}
+	}
+
+	return eventSheetRanks
 }
 
 func (s *State) PopRandomEventSheetRank() (*EventSheetRank, func()) {
@@ -372,4 +383,16 @@ func GetRandomSheetNum(sheetRank string) uint {
 		}
 	}
 	return uint(rand.Intn(int(total)))
+}
+
+func FilterPublicEvents(src []*Event) (filtered []*Event) {
+	filtered = make([]*Event, 0, len(src))
+	for _, e := range src {
+		if !e.PublicFg {
+			continue
+		}
+
+		filtered = append(filtered, e)
+	}
+	return
 }
