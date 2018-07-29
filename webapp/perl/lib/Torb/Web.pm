@@ -204,7 +204,7 @@ sub get_events {
     my $txn = $self->dbh->txn_scope();
 
     my @events;
-    my @event_ids = map { $_->{id} } @{ $self->dbh->select_all('SELECT id FROM events') };
+    my @event_ids = map { $_->{id} } @{ $self->dbh->select_all('SELECT id FROM events ORDER BY id ASC') };
     for my $event_id (@event_ids) {
         my $event = $self->get_event($event_id);
         next unless $event->{public_fg};
