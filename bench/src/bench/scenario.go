@@ -1024,6 +1024,31 @@ func CheckCreateEvent(ctx context.Context, state *State) error {
 	return nil
 }
 
+func CheckReport(ctx context.Context, state *State) error {
+	admin, checker, push := state.PopRandomAdministrator()
+	if admin == nil {
+		return nil
+	}
+	defer push()
+
+	err := loginAdministrator(ctx, checker, admin)
+	if err != nil {
+		return err
+	}
+
+	err = checker.Play(ctx, &CheckAction{
+		Method:             "GET",
+		Path:               "/admin/api/reports/sales",
+		ExpectedStatusCode: 200,
+		Description:        "レポートを正しく取得できること",
+	})
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func loginAdministrator(ctx context.Context, checker *Checker, admin *Administrator) error {
 	if admin.Status.Online {
 		return nil
