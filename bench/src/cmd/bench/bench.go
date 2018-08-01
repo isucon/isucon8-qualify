@@ -346,7 +346,7 @@ func startBenchmark(remoteAddrs []string) *BenchResult {
 	log.Println("checkMain() Done")
 
 	log.Println("postTest()")
-	err = postTest(ctx, state)
+	err = postTest(context.Background(), state)
 	if err != nil {
 		result.Score = 0
 		result.Errors = getErrorsString()

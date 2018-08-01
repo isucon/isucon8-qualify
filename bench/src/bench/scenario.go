@@ -5,11 +5,13 @@ import (
 	"bytes"
 	"context"
 	"crypto/md5"
+	"encoding/csv"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
+	"strconv"
 
 	"github.com/PuerkitoBio/goquery"
 )
@@ -1030,6 +1032,69 @@ func CheckCreateEvent(ctx context.Context, state *State) error {
 	return nil
 }
 
+func checkReportResponse(reservations map[uint]*Reservation) func(res *http.Response, body *bytes.Buffer) error {
+	return func(res *http.Response, body *bytes.Buffer) error {
+		// reservation_id,event_id,user_id,rank,price,sold_at
+		// 5,1,830,A,6000,2018-08-02T05:04:07Z
+		// 7,1,854,S,8000,2018-08-02T05:04:10Z
+		// 8,1,484,A,6000,2018-08-02T05:04:10Z
+		// 9,1,377,B,4000,2018-08-02T05:04:12Z
+
+		r := csv.NewReader(body)
+		record, err := r.Read()
+		if err == io.EOF ||
+			len(record) != 6 ||
+			record[0] != "reservation_id" ||
+			record[1] != "event_id" ||
+			record[2] != "user_id" ||
+			record[3] != "rank" ||
+			record[4] != "price" ||
+			record[5] != "sold_at" {
+			return fatalErrorf("正しいCSVヘッダを取得できません")
+		}
+
+		msg := "正しいレポートを取得できません"
+		count := 0
+		for {
+			record, err := r.Read()
+			if err == io.EOF {
+				break
+			}
+			reservationID, err := strconv.Atoi(record[0])
+			if err != nil {
+				return fatalErrorf(msg)
+			}
+			eventID, err := strconv.Atoi(record[1])
+			if err != nil {
+				return fatalErrorf(msg)
+			}
+			userID, err := strconv.Atoi(record[2])
+			if err != nil {
+				return fatalErrorf(msg)
+			}
+			sheetRank := record[3]
+
+			reservation, ok := reservations[uint(reservationID)]
+			if !ok {
+				return fatalErrorf(msg)
+			}
+			if reservation.ID != uint(reservationID) ||
+				reservation.EventID != uint(eventID) ||
+				reservation.UserID != uint(userID) ||
+				reservation.SheetRank != sheetRank {
+				return fatalErrorf(msg)
+			}
+			count += 1
+		}
+
+		if len(reservations) != count {
+			return fatalErrorf(msg)
+		}
+
+		return nil
+	}
+}
+
 func CheckReport(ctx context.Context, state *State) error {
 	admin, checker, push := state.PopRandomAdministrator()
 	if admin == nil {
@@ -1042,11 +1107,15 @@ func CheckReport(ctx context.Context, state *State) error {
 		return err
 	}
 
+	state.reservationMtx.Lock()
+	defer state.reservationMtx.Unlock()
+
 	err = checker.Play(ctx, &CheckAction{
 		Method:             "GET",
 		Path:               "/admin/api/reports/sales",
 		ExpectedStatusCode: 200,
 		Description:        "レポートを正しく取得できること",
+		CheckFunc:          checkReportResponse(state.reservations),
 	})
 	if err != nil {
 		return err
