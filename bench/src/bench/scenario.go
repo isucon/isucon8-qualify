@@ -708,6 +708,7 @@ func CheckAdminLogin(ctx context.Context, state *State) error {
 	}
 	defer adminPush()
 	adminChecker.ResetCookie()
+	admin.Status.Online = false
 
 	user, userChecker, userPush := state.PopRandomUser()
 	if user == nil {
@@ -730,27 +731,12 @@ func CheckAdminLogin(ctx context.Context, state *State) error {
 		return err
 	}
 
-	err = adminChecker.Play(ctx, &CheckAction{
-		Method:             "POST",
-		Path:               "/admin/api/actions/login",
-		ExpectedStatusCode: 200,
-		PostJSON: map[string]interface{}{
-			"login_name": admin.LoginName,
-			"password":   admin.Password,
-		},
-		Description: "管理者でログインできること",
-		CheckFunc:   checkJsonAdministratorResponse(admin),
-	})
+	err = loginAdministrator(ctx, adminChecker, admin)
 	if err != nil {
 		return err
 	}
 
-	err = adminChecker.Play(ctx, &CheckAction{
-		Method:             "POST",
-		Path:               "/admin/api/actions/logout",
-		ExpectedStatusCode: 204,
-		Description:        "管理者でログアウトできること",
-	})
+	err = logoutAdministrator(ctx, adminChecker, admin)
 	if err != nil {
 		return err
 	}
@@ -875,32 +861,12 @@ func CheckCreateEvent(ctx context.Context, state *State) error {
 	}
 	defer userPush()
 
-	// TODO(sonots): Skip login if already logged in?
-	err := adminChecker.Play(ctx, &CheckAction{
-		Method:             "POST",
-		Path:               "/admin/api/actions/login",
-		ExpectedStatusCode: 200,
-		PostJSON: map[string]interface{}{
-			"login_name": admin.LoginName,
-			"password":   admin.Password,
-		},
-		Description: "管理者でログインできること",
-	})
+	err := loginAdministrator(ctx, adminChecker, admin)
 	if err != nil {
 		return err
 	}
 
-	// TODO(sonots): Skip login if already logged in?
-	err = userChecker.Play(ctx, &CheckAction{
-		Method:             "POST",
-		Path:               "/api/actions/login",
-		ExpectedStatusCode: 200,
-		PostJSON: map[string]interface{}{
-			"login_name": user.LoginName,
-			"password":   user.Password,
-		},
-		Description: "一般ユーザでログインできること",
-	})
+	err = loginAppUser(ctx, userChecker, user)
 	if err != nil {
 		return err
 	}
@@ -1058,6 +1024,49 @@ func CheckCreateEvent(ctx context.Context, state *State) error {
 	return nil
 }
 
+func loginAdministrator(ctx context.Context, checker *Checker, admin *Administrator) error {
+	if admin.Status.Online {
+		return nil
+	}
+
+	err := checker.Play(ctx, &CheckAction{
+		Method:             "POST",
+		Path:               "/admin/api/actions/login",
+		ExpectedStatusCode: 200,
+		Description:        "管理者でログインできること",
+		PostJSON: map[string]interface{}{
+			"login_name": admin.LoginName,
+			"password":   admin.Password,
+		},
+		CheckFunc: checkJsonAdministratorResponse(admin),
+	})
+	if err != nil {
+		return err
+	}
+
+	admin.Status.Online = true
+	return nil
+}
+
+func logoutAdministrator(ctx context.Context, checker *Checker, admin *Administrator) error {
+	if !admin.Status.Online {
+		return nil
+	}
+
+	err := checker.Play(ctx, &CheckAction{
+		Method:             "POST",
+		Path:               "/admin/api/actions/logout",
+		ExpectedStatusCode: 204,
+		Description:        "管理者でログアウトできること",
+	})
+	if err != nil {
+		return err
+	}
+
+	admin.Status.Online = false
+	return nil
+}
+
 func loginAppUser(ctx context.Context, checker *Checker, user *AppUser) error {
 	if user.Status.Online {
 		return nil
@@ -1067,7 +1076,7 @@ func loginAppUser(ctx context.Context, checker *Checker, user *AppUser) error {
 		Method:             "POST",
 		Path:               "/api/actions/login",
 		ExpectedStatusCode: 200,
-		Description:        "ログインできること",
+		Description:        "一般ユーザでログインできること",
 		PostJSON: map[string]interface{}{
 			"login_name": user.LoginName,
 			"password":   user.Password,
@@ -1091,7 +1100,7 @@ func logoutAppUser(ctx context.Context, checker *Checker, user *AppUser) error {
 		Method:             "POST",
 		Path:               "/api/actions/logout",
 		ExpectedStatusCode: 204,
-		Description:        "ログアウトできること",
+		Description:        "一般ユーザでログアウトできること",
 	})
 	if err != nil {
 		return err
