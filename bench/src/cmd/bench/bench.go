@@ -201,22 +201,18 @@ func loadMain(ctx context.Context, state *bench.State) {
 
 func printCounterSummary() {
 	m := map[string]int64{}
-	// TODO(sonots): Fix
-	for key, count := range counter.GetMap() {
-		if strings.HasPrefix(key, "GET|/history/") {
-			key = "GET|/history/*"
-		} else if strings.HasPrefix(key, "GET|/message?") {
-			key = "GET|/message?*"
-		} else if strings.HasPrefix(key, "GET|/icons/") {
-			key = "GET|/icons/*"
-		} else if strings.HasPrefix(key, "GET|/channel/") {
-			key = "GET|/channel/*"
-		} else if strings.HasPrefix(key, "GET|/profile/") {
-			key = "GET|/profile/*"
-		}
 
-		if strings.HasPrefix(key, "SKIP|/icons/") {
-			key = "SKIP|/icons/*"
+	for key, count := range counter.GetMap() {
+		if strings.HasPrefix(key, "GET|/api/events/") {
+			key = "GET|/api/events/*"
+		} else if strings.HasPrefix(key, "POST|/api/events/") {
+			key = "POST|/api/events/*/actions/reserve"
+		} else if strings.HasPrefix(key, "DELETE|/api/events/") {
+			key = "DELETE|/api/events/*/sheets/*/*/reservation"
+		} else if strings.HasPrefix(key, "GET|/admin/api/events/") {
+			key = "GET|/admin/api/events/*"
+		} else if strings.HasPrefix(key, "POST|/admin/api/events/") {
+			key = "POST|/admin/api/events/*/actions/edit"
 		}
 
 		m[key] += count
@@ -236,13 +232,13 @@ func printCounterSummary() {
 
 	log.Println("----- Request counts -----")
 	for _, kv := range s {
-		if strings.HasPrefix(kv.Key, "GET|") || strings.HasPrefix(kv.Key, "POST|") {
+		if strings.HasPrefix(kv.Key, "GET|") || strings.HasPrefix(kv.Key, "POST|") || strings.HasPrefix(kv.Key, "DELETE|") {
 			log.Println(kv.Key, kv.Value)
 		}
 	}
 	log.Println("----- Other counts ------")
 	for _, kv := range s {
-		if strings.HasPrefix(kv.Key, "GET|") || strings.HasPrefix(kv.Key, "POST|") {
+		if strings.HasPrefix(kv.Key, "GET|") || strings.HasPrefix(kv.Key, "POST|") || strings.HasPrefix(kv.Key, "DELETE|") {
 		} else {
 			log.Println(kv.Key, kv.Value)
 		}
@@ -333,18 +329,16 @@ func startBenchmark(remoteAddrs []string) *BenchResult {
 
 	printCounterSummary()
 
-	// TODO(sonots): Fix
 	getCount := counter.SumPrefix(`GET|/`)
-	fetchCount := counter.SumPrefix(`GET|/fetch`)
 	postCount := counter.SumPrefix(`POST|/`)
-	msgCount := counter.SumPrefix(`get-message-count`)
+	deleteCount := counter.SumPrefix(`DELETE|/`)
 	s304Count := counter.GetKey("staticfile-304")
-	score := 1*(getCount-fetchCount-s304Count) + 3*postCount + 1*msgCount + s304Count/100
+	// TODO(sonots): Determine
+	score := 1*(getCount-s304Count) + 3*postCount + 3*deleteCount + s304Count/100
 
 	log.Println("get", getCount)
-	log.Println("fetch", fetchCount)
 	log.Println("post", postCount)
-	log.Println("msg", msgCount)
+	log.Println("delete", deleteCount)
 	log.Println("s304", s304Count)
 	log.Println("score", score)
 
