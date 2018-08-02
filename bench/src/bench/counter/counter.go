@@ -58,6 +58,18 @@ func SumPrefix(prefix string) int64 {
 	return sum
 }
 
+func SumEqual(str string) int64 {
+	var sum int64
+	mtx.Lock()
+	for k, v := range cntMap {
+		if k == str {
+			sum += v
+		}
+	}
+	mtx.Unlock()
+	return sum
+}
+
 func GetMap() map[string]int64 {
 	m := map[string]int64{}
 	mtx.Lock()

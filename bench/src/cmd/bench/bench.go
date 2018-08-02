@@ -360,12 +360,16 @@ func startBenchmark(remoteAddrs []string) *BenchResult {
 
 	printCounterSummary()
 
+	reserveCount := counter.SumPrefix("POST|/api/events/")
+	cancelCount := counter.SumPrefix("DELETE|/api/events/")
+	topCount := counter.SumEqual("GET|/")
+
 	getCount := counter.SumPrefix(`GET|/`)
 	postCount := counter.SumPrefix(`POST|/`)
-	deleteCount := counter.SumPrefix(`DELETE|/`)
+	deleteCount := counter.SumPrefix(`DELETE|/`) // == cancelCount
 	s304Count := counter.GetKey("staticfile-304")
 	// TODO(sonots): Determine
-	score := 1*(getCount-s304Count) + 3*postCount + 3*deleteCount + s304Count/100
+	score := 1*(getCount-s304Count-topCount) + 1*(postCount-reserveCount) + 3*(topCount+reserveCount+cancelCount) + s304Count/100
 
 	log.Println("get", getCount)
 	log.Println("post", postCount)
