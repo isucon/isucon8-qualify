@@ -1,6 +1,7 @@
 package bench
 
 import (
+	"fmt"
 	"math/rand"
 	"sync"
 	"time"
@@ -435,6 +436,7 @@ func (s *State) AppendReservation(eventID uint, userID uint, reserved *JsonReser
 	reservation := &Reservation{reserved.ReservationID, eventID, userID, reserved.SheetRank, reserved.SheetNum}
 	s.reservations[reserved.ReservationID] = reservation
 
+	fmt.Printf("Reserved %2d %3d %s %d\n", eventID, userID, reserved.SheetRank, reserved.ReservationID)
 	return nil
 }
 

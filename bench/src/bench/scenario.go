@@ -1110,6 +1110,7 @@ func checkReportResponse(reservations map[uint]*Reservation) func(res *http.Resp
 		// 8,1,484,A,6000,2018-08-02T05:04:10Z
 		// 9,1,377,B,4000,2018-08-02T05:04:12Z
 
+		fmt.Println(body)
 		r := csv.NewReader(body)
 		record, err := r.Read()
 		if err == io.EOF ||
@@ -1147,6 +1148,8 @@ func checkReportResponse(reservations map[uint]*Reservation) func(res *http.Resp
 
 			reservation, ok := reservations[uint(reservationID)]
 			if !ok {
+				fmt.Println(reservationID)
+				fmt.Println(reservation)
 				return fatalErrorf(msg)
 			}
 			if reservation.ID != uint(reservationID) ||
@@ -1283,6 +1286,7 @@ func logoutAppUser(ctx context.Context, checker *Checker, user *AppUser) error {
 
 func checkJsonReservedResponse(reserved *JsonReserved) func(res *http.Response, body *bytes.Buffer) error {
 	return func(res *http.Response, body *bytes.Buffer) error {
+		fmt.Println(body)
 		dec := json.NewDecoder(body)
 		resReserved := JsonReserved{}
 		err := dec.Decode(&resReserved)
@@ -1304,6 +1308,7 @@ func reserveSheet(ctx context.Context, state *State, checker *Checker, userID ui
 	rank := eventSheetRank.Rank
 
 	reserved := &JsonReserved{0, rank, 0}
+	fmt.Printf("Reserve  %2d %3d %s\n", eventID, userID, rank)
 	err := checker.Play(ctx, &CheckAction{
 		Method:             "POST",
 		Path:               fmt.Sprintf("/api/events/%d/actions/reserve", eventID),
@@ -1315,6 +1320,7 @@ func reserveSheet(ctx context.Context, state *State, checker *Checker, userID ui
 		CheckFunc: checkJsonReservedResponse(reserved),
 	})
 	if err != nil {
+		fmt.Println(err)
 		return nil, err
 	}
 	eventSheetRank.Remains--
@@ -1330,6 +1336,7 @@ func cancelSheet(ctx context.Context, state *State, checker *Checker, userID uin
 	reservationID := reserved.ReservationID
 	sheetNum := reserved.SheetNum
 
+	fmt.Printf("Cancel   %2d %3d %s %d\n", eventID, userID, rank, reservationID)
 	err := checker.Play(ctx, &CheckAction{
 		Method:             "DELETE",
 		Path:               fmt.Sprintf("/api/events/%d/sheets/%s/%d/reservation", eventID, rank, sheetNum),
@@ -1337,6 +1344,7 @@ func cancelSheet(ctx context.Context, state *State, checker *Checker, userID uin
 		Description:        "キャンセルができること",
 	})
 	if err != nil {
+		fmt.Println(err)
 		return err
 	}
 	eventSheetRank.Remains++
