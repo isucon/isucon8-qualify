@@ -279,6 +279,7 @@ post '/api/events/{id}/actions/reserve' => [qw/allow_json_request login_required
     }
 
     my $sheet;
+    my $reservation_id;
     while (1) {
         $sheet = $self->dbh->select_row('SELECT * FROM sheets WHERE id NOT IN (SELECT sheet_id FROM reservations WHERE event_id = ?) AND `rank` = ? ORDER BY RAND() LIMIT 1', $event->{id}, $rank);
         unless ($sheet) {
@@ -292,6 +293,7 @@ post '/api/events/{id}/actions/reserve' => [qw/allow_json_request login_required
         my $txn = $self->dbh->txn_scope();
         eval {
             $self->dbh->query('INSERT INTO reservations (event_id, sheet_id, user_id, reserved_at) VALUES (?, ?, ?, UNIX_TIMESTAMP())', $event->{id}, $sheet->{id}, $user->{id});
+            $reservation_id = $self->dbh->last_insert_id() + 0;
             $txn->commit();
         };
         if ($@) {
@@ -304,6 +306,7 @@ post '/api/events/{id}/actions/reserve' => [qw/allow_json_request login_required
     }
 
     my $res = $c->render_json({
+        reservation_id => $reservation_id,
         sheet_rank => $rank,
         sheet_num => $sheet->{num},
     });
@@ -567,13 +570,14 @@ get '/admin/api/reports/events/{id}/sales' => [qw/admin_login_required/] => sub 
             my $sheet = $event->{sheets}->{$rank}->{detail}->[$i];
             next unless $sheet->{reserved};
 
-            my $user_id = $self->dbh->select_one('SELECT r.user_id FROM reservations r INNER JOIN sheets s ON s.id = r.sheet_id WHERE r.event_id = ? AND s.rank = ? AND s.num = ?', $event->{id}, $rank, $i+1);
+            my $reservation = $self->dbh->select_row('SELECT r.id as id, r.user_id as user_id dFROM reservations r INNER JOIN sheets s ON s.id = r.sheet_id WHERE r.event_id = ? AND s.rank = ? AND s.num = ?', $event->{id}, $rank, $i+1);
             my $report = {
-                event_id => $event->{id},
-                rank     => $rank,
-                user_id  => $user_id,
-                sold_at  => Time::Moment->from_epoch($sheet->{reserved_at}, 0)->to_string,
-                price    => $event->{sheets}->{$rank}->{price},
+                reservation_id => $reservation->{id},
+                event_id       => $event->{id},
+                rank           => $rank,
+                user_id        => $reservation->{user_id},
+                sold_at        => Time::Moment->from_epoch($sheet->{reserved_at}, 0)->to_string,
+                price          => $event->{sheets}->{$rank}->{price},
             };
             push @reports => $report;
         }
@@ -597,13 +601,14 @@ get '/admin/api/reports/sales' => [qw/admin_login_required/] => sub {
                 my $sheet = $event->{sheets}->{$rank}->{detail}->[$i];
                 next unless $sheet->{reserved};
 
-                my $user_id = $self->dbh->select_one('SELECT r.user_id FROM reservations r INNER JOIN sheets s ON s.id = r.sheet_id WHERE r.event_id = ? AND s.rank = ? AND s.num = ?', $event->{id}, $rank, $i+1);
+                my $reservation = $self->dbh->select_row('SELECT r.id as id, r.user_id as user_id FROM reservations r INNER JOIN sheets s ON s.id = r.sheet_id WHERE r.event_id = ? AND s.rank = ? AND s.num = ?', $event->{id}, $rank, $i+1);
                 my $report = {
-                    event_id => $event->{id},
-                    rank     => $rank,
-                    user_id  => $user_id,
-                    sold_at  => Time::Moment->from_epoch($sheet->{reserved_at}, 0)->to_string,
-                    price    => $event->{sheets}->{$rank}->{price},
+                    reservation_id => $reservation->{id},
+                    event_id       => $event->{id},
+                    rank           => $rank,
+                    user_id        => $reservation->{user_id},
+                    sold_at        => Time::Moment->from_epoch($sheet->{reserved_at}, 0)->to_string,
+                    price          => $event->{sheets}->{$rank}->{price},
                 };
                 push @reports => $report;
             }
@@ -617,7 +622,7 @@ sub render_report_csv {
     my ($self, $c, $reports) = @_;
     my @reports = sort { $a->{sold_at} cmp $b->{sold_at} } @$reports;
 
-    my @keys = qw/event_id rank price user_id sold_at/;
+    my @keys = qw/reservation_id event_id user_id rank price sold_at/;
     my $body = join ',', @keys;
     $body .= "\n";
     for my $report (@reports) {

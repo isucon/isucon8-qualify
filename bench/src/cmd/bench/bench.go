@@ -24,9 +24,10 @@ var (
 	benchDuration    time.Duration = time.Minute
 	preTestOnly      bool
 	noLevelup        bool
-	checkFuncs       []benchFunc
+	checkFuncs       []benchFunc // also preTestFuncs
 	loadFuncs        []benchFunc
 	loadLevelUpFuncs []benchFunc
+	postTestFuncs    []benchFunc
 	loadLogs         []string
 
 	pprofPort int = 16060
@@ -51,6 +52,10 @@ func addLoadLevelUpFunc(weight int, f benchFunc) {
 	for i := 0; i < weight; i++ {
 		loadLevelUpFuncs = append(loadLevelUpFuncs, f)
 	}
+}
+
+func addPostTestFunc(f benchFunc) {
+	postTestFuncs = append(postTestFuncs, f)
 }
 
 func requestInitialize(targetHost string) error {
@@ -93,6 +98,17 @@ func requestInitialize(targetHost string) error {
 func preTest(ctx context.Context, state *bench.State) error {
 	for _, checkFunc := range checkFuncs {
 		err := checkFunc.Func(ctx, state)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func postTest(ctx context.Context, state *bench.State) error {
+	for _, postTestFunc := range postTestFuncs {
+		err := postTestFunc.Func(ctx, state)
 		if err != nil {
 			return err
 		}
@@ -261,6 +277,8 @@ func startBenchmark(remoteAddrs []string) *BenchResult {
 	addCheckFunc(benchFunc{"CheckAdminLogin", bench.CheckAdminLogin})
 	addCheckFunc(benchFunc{"CheckCreateEvent", bench.CheckCreateEvent})
 
+	addPostTestFunc(benchFunc{"CheckReport", bench.CheckReport})
+
 	result := new(BenchResult)
 	result.StartTime = time.Now()
 	defer func() {
@@ -326,6 +344,18 @@ func startBenchmark(remoteAddrs []string) *BenchResult {
 		}
 	}
 	log.Println("checkMain() Done")
+
+	time.Sleep(time.Second) // allow 1 sec delay
+
+	log.Println("postTest()")
+	err = postTest(context.Background(), state)
+	if err != nil {
+		result.Score = 0
+		result.Errors = getErrorsString()
+		result.Message = fmt.Sprint("負荷走行後のバリデーションに失敗しました。", err)
+		return result
+	}
+	log.Println("postTest() Done")
 
 	printCounterSummary()
 
