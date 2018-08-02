@@ -24,9 +24,10 @@ var (
 	benchDuration    time.Duration = time.Minute
 	preTestOnly      bool
 	noLevelup        bool
-	checkFuncs       []benchFunc
+	checkFuncs       []benchFunc // also preTestFuncs
 	loadFuncs        []benchFunc
 	loadLevelUpFuncs []benchFunc
+	postTestFuncs    []benchFunc
 	loadLogs         []string
 
 	pprofPort int = 16060
@@ -51,6 +52,10 @@ func addLoadLevelUpFunc(weight int, f benchFunc) {
 	for i := 0; i < weight; i++ {
 		loadLevelUpFuncs = append(loadLevelUpFuncs, f)
 	}
+}
+
+func addPostTestFunc(f benchFunc) {
+	postTestFuncs = append(postTestFuncs, f)
 }
 
 func requestInitialize(targetHost string) error {
@@ -93,6 +98,17 @@ func requestInitialize(targetHost string) error {
 func preTest(ctx context.Context, state *bench.State) error {
 	for _, checkFunc := range checkFuncs {
 		err := checkFunc.Func(ctx, state)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func postTest(ctx context.Context, state *bench.State) error {
+	for _, postTestFunc := range postTestFuncs {
+		err := postTestFunc.Func(ctx, state)
 		if err != nil {
 			return err
 		}
@@ -201,22 +217,18 @@ func loadMain(ctx context.Context, state *bench.State) {
 
 func printCounterSummary() {
 	m := map[string]int64{}
-	// TODO(sonots): Fix
-	for key, count := range counter.GetMap() {
-		if strings.HasPrefix(key, "GET|/history/") {
-			key = "GET|/history/*"
-		} else if strings.HasPrefix(key, "GET|/message?") {
-			key = "GET|/message?*"
-		} else if strings.HasPrefix(key, "GET|/icons/") {
-			key = "GET|/icons/*"
-		} else if strings.HasPrefix(key, "GET|/channel/") {
-			key = "GET|/channel/*"
-		} else if strings.HasPrefix(key, "GET|/profile/") {
-			key = "GET|/profile/*"
-		}
 
-		if strings.HasPrefix(key, "SKIP|/icons/") {
-			key = "SKIP|/icons/*"
+	for key, count := range counter.GetMap() {
+		if strings.HasPrefix(key, "GET|/api/events/") {
+			key = "GET|/api/events/*"
+		} else if strings.HasPrefix(key, "POST|/api/events/") {
+			key = "POST|/api/events/*/actions/reserve"
+		} else if strings.HasPrefix(key, "DELETE|/api/events/") {
+			key = "DELETE|/api/events/*/sheets/*/*/reservation"
+		} else if strings.HasPrefix(key, "GET|/admin/api/events/") {
+			key = "GET|/admin/api/events/*"
+		} else if strings.HasPrefix(key, "POST|/admin/api/events/") {
+			key = "POST|/admin/api/events/*/actions/edit"
 		}
 
 		m[key] += count
@@ -236,13 +248,13 @@ func printCounterSummary() {
 
 	log.Println("----- Request counts -----")
 	for _, kv := range s {
-		if strings.HasPrefix(kv.Key, "GET|") || strings.HasPrefix(kv.Key, "POST|") {
+		if strings.HasPrefix(kv.Key, "GET|") || strings.HasPrefix(kv.Key, "POST|") || strings.HasPrefix(kv.Key, "DELETE|") {
 			log.Println(kv.Key, kv.Value)
 		}
 	}
 	log.Println("----- Other counts ------")
 	for _, kv := range s {
-		if strings.HasPrefix(kv.Key, "GET|") || strings.HasPrefix(kv.Key, "POST|") {
+		if strings.HasPrefix(kv.Key, "GET|") || strings.HasPrefix(kv.Key, "POST|") || strings.HasPrefix(kv.Key, "DELETE|") {
 		} else {
 			log.Println(kv.Key, kv.Value)
 		}
@@ -265,6 +277,8 @@ func startBenchmark(remoteAddrs []string) *BenchResult {
 	addCheckFunc(benchFunc{"CheckReserveSheet", bench.CheckReserveSheet})
 	addCheckFunc(benchFunc{"CheckAdminLogin", bench.CheckAdminLogin})
 	addCheckFunc(benchFunc{"CheckCreateEvent", bench.CheckCreateEvent})
+
+	addPostTestFunc(benchFunc{"CheckReport", bench.CheckReport})
 
 	result := new(BenchResult)
 	result.StartTime = time.Now()
@@ -332,20 +346,30 @@ func startBenchmark(remoteAddrs []string) *BenchResult {
 	}
 	log.Println("checkMain() Done")
 
+	time.Sleep(time.Second) // allow 1 sec delay
+
+	log.Println("postTest()")
+	err = postTest(context.Background(), state)
+	if err != nil {
+		result.Score = 0
+		result.Errors = getErrorsString()
+		result.Message = fmt.Sprint("負荷走行後のバリデーションに失敗しました。", err)
+		return result
+	}
+	log.Println("postTest() Done")
+
 	printCounterSummary()
 
-	// TODO(sonots): Fix
 	getCount := counter.SumPrefix(`GET|/`)
-	fetchCount := counter.SumPrefix(`GET|/fetch`)
 	postCount := counter.SumPrefix(`POST|/`)
-	msgCount := counter.SumPrefix(`get-message-count`)
+	deleteCount := counter.SumPrefix(`DELETE|/`)
 	s304Count := counter.GetKey("staticfile-304")
-	score := 1*(getCount-fetchCount-s304Count) + 3*postCount + 1*msgCount + s304Count/100
+	// TODO(sonots): Determine
+	score := 1*(getCount-s304Count) + 3*postCount + 3*deleteCount + s304Count/100
 
 	log.Println("get", getCount)
-	log.Println("fetch", fetchCount)
 	log.Println("post", postCount)
-	log.Println("msg", msgCount)
+	log.Println("delete", deleteCount)
 	log.Println("s304", s304Count)
 	log.Println("score", score)
 
