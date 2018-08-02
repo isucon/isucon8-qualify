@@ -221,26 +221,6 @@ func LoadCreateUser(ctx context.Context, state *State) error {
 	return nil
 }
 
-func LoadLogin(ctx context.Context, state *State) error {
-	user, checker, push := state.PopRandomUser()
-	if user == nil {
-		return nil
-	}
-	defer push()
-
-	err := loginAppUser(ctx, checker, user)
-	if err != nil {
-		return err
-	}
-
-	err = logoutAppUser(ctx, checker, user)
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
 // イベントが公開されるのを待ってトップページをF5連打するユーザがいる
 // イベント一覧はログインしていてもしていなくても取れる
 func LoadTopPage(ctx context.Context, state *State) error {
