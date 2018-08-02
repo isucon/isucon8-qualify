@@ -1076,7 +1076,11 @@ func checkReportResponse(reservations map[uint]*Reservation) func(res *http.Resp
 
 			reservation, ok := reservations[uint(reservationID)]
 			if !ok {
-				return fatalErrorf(msg)
+				// Golang context forcely stops benchmarker if benchDuration is passed.
+				// However, some requests would already been issued to webapps, thus,
+				// the report would include some reservations which we did not complete and missed.
+				// Ignore such reservations.
+				continue
 			}
 			if reservation.ID != uint(reservationID) ||
 				reservation.EventID != uint(eventID) ||
