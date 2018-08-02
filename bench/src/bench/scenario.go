@@ -1054,7 +1054,6 @@ func checkReportResponse(reservations map[uint]*Reservation) func(res *http.Resp
 		}
 
 		msg := "正しいレポートを取得できません"
-		count := 0
 		for {
 			record, err := r.Read()
 			if err == io.EOF {
@@ -1088,12 +1087,12 @@ func checkReportResponse(reservations map[uint]*Reservation) func(res *http.Resp
 				reservation.SheetRank != sheetRank {
 				return fatalErrorf(msg)
 			}
-			count += 1
 		}
 
-		if len(reservations) != count {
-			return fatalErrorf(msg)
-		}
+		// Count also does not match by same reasons that context forcely stops
+		// if len(reservations) != count {
+		// 	return fatalErrorf(msg)
+		// }
 
 		return nil
 	}
