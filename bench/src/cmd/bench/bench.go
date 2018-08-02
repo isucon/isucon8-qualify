@@ -374,6 +374,9 @@ func startBenchmark(remoteAddrs []string) *BenchResult {
 	log.Println("post", postCount)
 	log.Println("delete", deleteCount)
 	log.Println("s304", s304Count)
+	log.Println("top", topCount)
+	log.Println("reserve", reserveCount)
+	log.Println("cancel", cancelCount)
 	log.Println("score", score)
 
 	result.LoadLevel = int(counter.GetKey("load-level-up"))
