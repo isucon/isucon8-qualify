@@ -622,7 +622,7 @@ sub render_report_csv {
     my ($self, $c, $reports) = @_;
     my @reports = sort { $a->{sold_at} cmp $b->{sold_at} } @$reports;
 
-    my @keys = qw/reservation_id event_id rank price user_id sold_at/;
+    my @keys = qw/reservation_id event_id user_id rank price sold_at/;
     my $body = join ',', @keys;
     $body .= "\n";
     for my $report (@reports) {
