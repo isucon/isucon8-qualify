@@ -1124,58 +1124,43 @@ func checkReportResponse(reservations map[uint]*Reservation) func(res *http.Resp
 		}
 
 		msg := "正しいレポートを取得できません"
+		count := 0
 		for {
 			record, err := r.Read()
 			if err == io.EOF {
 				break
 			}
-			_, err = strconv.Atoi(record[0])
-			if err != nil {
-				return fatalErrorf(msg)
-			}
-			_, err = strconv.Atoi(record[1])
-			if err != nil {
-				return fatalErrorf(msg)
-			}
-			_, err = strconv.Atoi(record[2])
-			if err != nil {
-				return fatalErrorf(msg)
-			}
 
-			// reservationID, err := strconv.Atoi(record[0])
-			// if err != nil {
-			// 	return fatalErrorf(msg)
-			// }
-			// eventID, err := strconv.Atoi(record[1])
-			// if err != nil {
-			// 	return fatalErrorf(msg)
-			// }
-			// userID, err := strconv.Atoi(record[2])
-			// if err != nil {
-			// 	return fatalErrorf(msg)
-			// }
-			// sheetRank := record[3]
-			//
-			// reservation, ok := reservations[uint(reservationID)]
-			// if !ok {
-			// 	// Golang context forcely stops benchmarker if benchDuration is passed.
-			// 	// However, some requests would already been issued to webapps, thus,
-			// 	// the report would include some reservations which we did not complete and missed.
-			// 	// Ignore such reservations.
-			// 	continue
-			// }
-			// if reservation.ID != uint(reservationID) ||
-			// 	reservation.EventID != uint(eventID) ||
-			// 	reservation.UserID != uint(userID) ||
-			// 	reservation.SheetRank != sheetRank {
-			// 	return fatalErrorf(msg)
-			// }
+			reservationID, err := strconv.Atoi(record[0])
+			if err != nil {
+				return fatalErrorf(msg)
+			}
+			eventID, err := strconv.Atoi(record[1])
+			if err != nil {
+				return fatalErrorf(msg)
+			}
+			userID, err := strconv.Atoi(record[2])
+			if err != nil {
+				return fatalErrorf(msg)
+			}
+			sheetRank := record[3]
+
+			reservation, ok := reservations[uint(reservationID)]
+			if !ok {
+				return fatalErrorf(msg)
+			}
+			if reservation.ID != uint(reservationID) ||
+				reservation.EventID != uint(eventID) ||
+				reservation.UserID != uint(userID) ||
+				reservation.SheetRank != sheetRank {
+				return fatalErrorf(msg)
+			}
+			count += 1
 		}
 
-		// Count also does not match by same reasons that context forcely stops
-		// if len(reservations) != count {
-		// 	return fatalErrorf(msg)
-		// }
+		if len(reservations) != count {
+			return fatalErrorf(msg)
+		}
 
 		return nil
 	}
