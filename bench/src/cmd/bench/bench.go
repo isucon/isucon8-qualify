@@ -345,6 +345,8 @@ func startBenchmark(remoteAddrs []string) *BenchResult {
 	}
 	log.Println("checkMain() Done")
 
+	time.Sleep(time.Second) // allow 1 sec delay
+
 	log.Println("postTest()")
 	err = postTest(context.Background(), state)
 	if err != nil {
