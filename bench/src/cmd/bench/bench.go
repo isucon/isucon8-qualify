@@ -264,7 +264,6 @@ func printCounterSummary() {
 
 func startBenchmark(remoteAddrs []string) *BenchResult {
 	addLoadFunc(1, benchFunc{"LoadCreateUser", bench.LoadCreateUser})
-	addLoadFunc(1, benchFunc{"LoadLogin", bench.LoadLogin})
 
 	addLoadLevelUpFunc(1, benchFunc{"LoadTopPage", bench.LoadTopPage})
 	addLoadLevelUpFunc(1, benchFunc{"LoadReserveCancelSheet", bench.LoadReserveCancelSheet})
