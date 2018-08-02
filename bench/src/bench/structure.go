@@ -42,8 +42,9 @@ type JsonAdminEvent struct {
 }
 
 type JsonReserved struct {
-	SheetRank string `json:"sheet_rank"`
-	SheetNum  uint   `json:"sheet_num"`
+	ReservationID uint   `json:"reservation_id"`
+	SheetRank     string `json:"sheet_rank"`
+	SheetNum      uint   `json:"sheet_num"`
 }
 
 type JsonError struct {
@@ -93,10 +94,12 @@ type Sheet struct {
 }
 
 type Reservation struct {
-	EventID    uint
-	SheetID    uint
-	UserID     uint
-	ReservedAt uint
+	ID        uint
+	EventID   uint
+	UserID    uint
+	SheetRank string
+	SheetNum  uint
+	// ReservedAt uint // No way to obtain now
 }
 
 type BenchDataSet struct {
@@ -135,6 +138,9 @@ type State struct {
 
 	eventSheetRanks        []*EventSheetRank
 	privateEventSheetRanks []*EventSheetRank
+
+	reservationMtx sync.Mutex
+	reservations   map[uint]*Reservation
 }
 
 func (s *State) Init() {
@@ -174,6 +180,8 @@ func (s *State) Init() {
 			}
 		}
 	}
+
+	s.reservations = map[uint]*Reservation{}
 }
 
 func (s *State) PopRandomUser() (*AppUser, *Checker, func()) {
@@ -376,4 +384,24 @@ func GetRandomSheetNum(sheetRank string) uint {
 		}
 	}
 	return uint(rand.Intn(int(total)))
+}
+
+// TODO(sonots): Any better ways to avoid global mutex lock?
+func (s *State) AppendReservation(eventID uint, userID uint, reserved *JsonReserved) error {
+	s.reservationMtx.Lock()
+	defer s.reservationMtx.Unlock()
+
+	reservation := &Reservation{reserved.ReservationID, eventID, userID, reserved.SheetRank, reserved.SheetNum}
+	s.reservations[reserved.ReservationID] = reservation
+
+	return nil
+}
+
+func (s *State) DeleteReservation(reservationID uint) error {
+	s.reservationMtx.Lock()
+	defer s.reservationMtx.Unlock()
+
+	delete(s.reservations, reservationID)
+
+	return nil
 }

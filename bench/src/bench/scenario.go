@@ -213,7 +213,7 @@ func LoadReserveCancelSheet(ctx context.Context, state *State) error {
 		return err
 	}
 
-	reserved := &JsonReserved{rank, 0}
+	reserved := &JsonReserved{0, rank, 0}
 	err = userChecker.Play(ctx, &CheckAction{
 		Method:             "POST",
 		Path:               fmt.Sprintf("/api/events/%d/actions/reserve", eventID),
@@ -229,6 +229,7 @@ func LoadReserveCancelSheet(ctx context.Context, state *State) error {
 	}
 	eventSheetRank.Remains--
 	eventSheetRank.Reserved[reserved.SheetNum] = true
+	state.AppendReservation(eventID, user.ID, reserved)
 
 	err = userChecker.Play(ctx, &CheckAction{
 		Method:             "DELETE",
@@ -241,6 +242,7 @@ func LoadReserveCancelSheet(ctx context.Context, state *State) error {
 	}
 	eventSheetRank.Remains++
 	eventSheetRank.Reserved[reserved.SheetNum] = false
+	state.DeleteReservation(reserved.ReservationID)
 
 	return nil
 }
@@ -271,7 +273,7 @@ func LoadReserveSheet(ctx context.Context, state *State) error {
 		return err
 	}
 
-	reserved := &JsonReserved{rank, 0}
+	reserved := &JsonReserved{0, rank, 0}
 	err = userChecker.Play(ctx, &CheckAction{
 		Method:             "POST",
 		Path:               fmt.Sprintf("/api/events/%d/actions/reserve", eventID),
@@ -287,6 +289,7 @@ func LoadReserveSheet(ctx context.Context, state *State) error {
 	}
 	eventSheetRank.Remains--
 	eventSheetRank.Reserved[reserved.SheetNum] = true
+	state.AppendReservation(eventID, user.ID, reserved)
 
 	return nil
 }
@@ -505,7 +508,8 @@ func checkJsonReservedResponse(reserved *JsonReserved) func(res *http.Response, 
 		if resReserved.SheetRank != reserved.SheetRank {
 			return fatalErrorf("正しい予約情報を取得できません")
 		}
-		// Set reserved number from response
+		// Set reserved ID and Sheet Number from response
+		reserved.ReservationID = resReserved.ReservationID
 		reserved.SheetNum = resReserved.SheetNum
 		return nil
 	}
@@ -547,7 +551,7 @@ func CheckReserveSheet(ctx context.Context, state *State) error {
 		}
 
 	} else {
-		reserved := &JsonReserved{rank, 0}
+		reserved := &JsonReserved{0, rank, 0}
 		err = userChecker.Play(ctx, &CheckAction{
 			Method:             "POST",
 			Path:               fmt.Sprintf("/api/events/%d/actions/reserve", eventID),
@@ -563,6 +567,7 @@ func CheckReserveSheet(ctx context.Context, state *State) error {
 		}
 		eventSheetRank.Remains--
 		eventSheetRank.Reserved[reserved.SheetNum] = true
+		state.AppendReservation(eventID, user.ID, reserved)
 
 		err = userChecker.Play(ctx, &CheckAction{
 			Method:             "DELETE",
@@ -575,6 +580,7 @@ func CheckReserveSheet(ctx context.Context, state *State) error {
 		}
 		eventSheetRank.Remains++
 		eventSheetRank.Reserved[reserved.SheetNum] = false
+		state.DeleteReservation(reserved.ReservationID)
 
 		err = userChecker.Play(ctx, &CheckAction{
 			Method:             "DELETE",
