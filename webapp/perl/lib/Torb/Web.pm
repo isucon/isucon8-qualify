@@ -201,8 +201,10 @@ get '/api/events/{id}' => sub {
 sub get_events {
     my $self = shift;
 
+    my $txn = $self->dbh->txn_scope();
+
     my @events;
-    my @event_ids = map { $_->{id} } @{ $self->dbh->select_all('SELECT id FROM events') };
+    my @event_ids = map { $_->{id} } @{ $self->dbh->select_all('SELECT id FROM events ORDER BY id ASC') };
     for my $event_id (@event_ids) {
         my $event = $self->get_event($event_id);
         next unless $event->{public_fg};
@@ -210,6 +212,8 @@ sub get_events {
         delete $event->{sheets}->{$_}->{detail} for keys %{ $event->{sheets} };
         push @events => $event;
     }
+
+    $txn->commit();
 
     return @events;
 }
