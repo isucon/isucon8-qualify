@@ -22,11 +22,12 @@ CREATE TABLE IF NOT EXISTS sheets (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS reservations (
+    id          INTEGER UNSIGNED PRIMARY KEY AUTO_INCREMENT,
     event_id    INTEGER UNSIGNED NOT NULL,
     sheet_id    INTEGER UNSIGNED NOT NULL,
     user_id     INTEGER UNSIGNED NOT NULL,
     reserved_at INTEGER UNSIGNED NOT NULL,
-    PRIMARY KEY (event_id, sheet_id, user_id)
+    UNIQUE KEY (event_id, sheet_id, user_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS administrators (
