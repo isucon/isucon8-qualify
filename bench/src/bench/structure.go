@@ -168,19 +168,7 @@ func (s *State) Init() {
 	s.newEvents = append(s.newEvents, DataSet.NewEvents...)
 
 	for _, event := range s.events {
-		for _, sheetKind := range DataSet.SheetKinds {
-			eventSheetRank := &EventSheetRank{}
-			eventSheetRank.EventID = event.ID
-			eventSheetRank.Rank = sheetKind.Rank
-			eventSheetRank.Total = sheetKind.Total
-			eventSheetRank.Remains = sheetKind.Total
-			eventSheetRank.Reserved = map[uint]bool{}
-			if event.PublicFg {
-				s.eventSheetRanks = append(s.eventSheetRanks, eventSheetRank)
-			} else {
-				s.privateEventSheetRanks = append(s.privateEventSheetRanks, eventSheetRank)
-			}
-		}
+		s.pushEventSheetRanksLocked(event)
 	}
 
 	s.reservations = map[uint]*Reservation{}
@@ -336,22 +324,31 @@ func (s *State) PopNewEvent() (*Event, func()) {
 		// fmt.Printf("newEventPush %d %s %d %t\n", event.ID, event.Title, event.Price, event.PublicFg)
 		event.CreatedAt = time.Now()
 		s.PushEvent(event)
-
-		for _, sheetKind := range DataSet.SheetKinds {
-			eventSheetRank := &EventSheetRank{}
-			eventSheetRank.EventID = event.ID
-			eventSheetRank.Rank = sheetKind.Rank
-			eventSheetRank.Total = sheetKind.Total
-			eventSheetRank.Remains = sheetKind.Total
-			eventSheetRank.Reserved = map[uint]bool{}
-			if event.PublicFg {
-				s.eventSheetRanks = append(s.eventSheetRanks, eventSheetRank)
-			} else {
-				s.privateEventSheetRanks = append(s.privateEventSheetRanks, eventSheetRank)
-			}
-		}
-
+		s.PushEventSheetRanks(event)
 	}
+}
+
+func (s *State) pushEventSheetRanksLocked(event *Event) {
+	for _, sheetKind := range DataSet.SheetKinds {
+		eventSheetRank := &EventSheetRank{}
+		eventSheetRank.EventID = event.ID
+		eventSheetRank.Rank = sheetKind.Rank
+		eventSheetRank.Total = sheetKind.Total
+		eventSheetRank.Remains = sheetKind.Total
+		eventSheetRank.Reserved = map[uint]bool{}
+		if event.PublicFg {
+			s.eventSheetRanks = append(s.eventSheetRanks, eventSheetRank)
+		} else {
+			s.privateEventSheetRanks = append(s.privateEventSheetRanks, eventSheetRank)
+		}
+	}
+}
+
+func (s *State) PushEventSheetRanks(event *Event) {
+	s.mtx.Lock()
+	defer s.mtx.Unlock()
+
+	s.pushEventSheetRanksLocked(event)
 }
 
 func (s *State) GetEventSheetRanksByEventID(eventID uint) []*EventSheetRank {
