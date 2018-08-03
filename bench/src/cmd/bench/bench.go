@@ -174,8 +174,11 @@ func goLoadLevelUpFuncs(ctx context.Context, state *bench.State, n int) {
 }
 
 func loadMain(ctx context.Context, state *bench.State) {
+	levelUpRatio := 1.2
+	loadLevel := 10.0
+
 	goLoadFuncs(ctx, state, 10)
-	goLoadLevelUpFuncs(ctx, state, 1)
+	goLoadLevelUpFuncs(ctx, state, int(loadLevel))
 
 	beat := time.NewTicker(time.Second)
 	defer beat.Stop()
@@ -204,8 +207,10 @@ func loadMain(ctx context.Context, state *bench.State) {
 			} else {
 				loadLogs = append(loadLogs, fmt.Sprintf("%v 負荷レベルが上昇しました。", now))
 				counter.IncKey("load-level-up")
+				nextLoadLevel := loadLevel * levelUpRatio
 				log.Println("Increase Load Level.")
-				goLoadLevelUpFuncs(ctx, state, 5)
+				goLoadLevelUpFuncs(ctx, state, int(nextLoadLevel-loadLevel))
+				loadLevel = nextLoadLevel
 			}
 		case <-ctx.Done():
 			// ベンチ終了、このタイミングでエラーの収集をやめる。
