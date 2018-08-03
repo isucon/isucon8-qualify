@@ -336,6 +336,21 @@ func (s *State) PopNewEvent() (*Event, func()) {
 		// fmt.Printf("newEventPush %d %s %d %t\n", event.ID, event.Title, event.Price, event.PublicFg)
 		event.CreatedAt = time.Now()
 		s.PushEvent(event)
+
+		for _, sheetKind := range DataSet.SheetKinds {
+			eventSheetRank := &EventSheetRank{}
+			eventSheetRank.EventID = event.ID
+			eventSheetRank.Rank = sheetKind.Rank
+			eventSheetRank.Total = sheetKind.Total
+			eventSheetRank.Remains = sheetKind.Total
+			eventSheetRank.Reserved = map[uint]bool{}
+			if event.PublicFg {
+				s.eventSheetRanks = append(s.eventSheetRanks, eventSheetRank)
+			} else {
+				s.privateEventSheetRanks = append(s.privateEventSheetRanks, eventSheetRank)
+			}
+		}
+
 	}
 }
 
