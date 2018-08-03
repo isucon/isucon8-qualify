@@ -574,7 +574,7 @@ get '/admin/api/reports/events/{id}/sales' => [qw/admin_login_required/] => sub 
             my $sheet = $event->{sheets}->{$rank}->{detail}->[$i];
             next unless $sheet->{reserved};
 
-            my $reservation = $self->dbh->select_row('SELECT r.id as id, r.user_id as user_id dFROM reservations r INNER JOIN sheets s ON s.id = r.sheet_id WHERE r.event_id = ? AND s.rank = ? AND s.num = ?', $event->{id}, $rank, $i+1);
+            my $reservation = $self->dbh->select_row('SELECT r.id as id, r.user_id as user_id FROM reservations r INNER JOIN sheets s ON s.id = r.sheet_id WHERE r.event_id = ? AND s.rank = ? AND s.num = ?', $event->{id}, $rank, $i+1);
             my $report = {
                 reservation_id => $reservation->{id},
                 event_id       => $event->{id},
