@@ -50,8 +50,6 @@ var (
 	requestCountMtx sync.Mutex
 
 	checkerRequestCounter int32 = 0
-
-	gCache = urlcache.NewCacheStore()
 )
 
 func SetTargetHosts(target []string) {
@@ -375,9 +373,7 @@ func (c *Checker) Play(ctx context.Context, a *CheckAction) error {
 	}
 
 	if a.EnableCache {
-		if cache, found := gCache.Get(a.Path); found {
-			cache.ApplyRequest(req)
-		} else if cache, found := c.Cache.Get(a.Path); found {
+		if cache, found := c.Cache.Get(a.Path); found {
 			cache.ApplyRequest(req)
 		}
 	}
@@ -470,9 +466,6 @@ func (c *Checker) Play(ctx context.Context, a *CheckAction) error {
 		cache, _ := urlcache.NewURLCache(res, body)
 		if cache != nil {
 			c.Cache.Set(a.Path, cache)
-			if cache.CacheControl.Public() {
-				gCache.Set(a.Path, cache)
-			}
 		}
 	}
 
