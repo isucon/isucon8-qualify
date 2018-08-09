@@ -149,27 +149,23 @@ func (s *State) Init() {
 	s.mtx.Lock()
 	defer s.mtx.Unlock()
 
-	s.users = append(s.users, DataSet.Users...)
-	s.newUsers = append(s.newUsers, DataSet.NewUsers...)
 	s.userMap = map[string]*AppUser{}
 	s.checkerMap = map[*AppUser]*Checker{}
 	for _, u := range DataSet.Users {
-		s.userMap[u.LoginName] = u
+		s.pushNewUserLocked(u)
 	}
+	s.newUsers = append(s.newUsers, DataSet.NewUsers...)
 
-	s.admins = append(s.admins, DataSet.Administrators...)
 	s.adminMap = map[string]*Administrator{}
 	s.adminCheckerMap = map[*Administrator]*Checker{}
 	for _, u := range DataSet.Administrators {
-		s.adminMap[u.LoginName] = u
+		s.pushNewAdministratorLocked(u)
 	}
 
-	s.events = append(s.events, DataSet.Events...)
+	for _, event := range DataSet.Events {
+		s.pushNewEventLocked(event)
+	}
 	s.newEvents = append(s.newEvents, DataSet.NewEvents...)
-
-	for _, event := range s.events {
-		s.pushEventSheetRanksLocked(event)
-	}
 
 	s.reservations = map[uint]*Reservation{}
 }
@@ -193,21 +189,11 @@ func (s *State) PopRandomUser() (*AppUser, *Checker, func()) {
 	return u, s.getCheckerLocked(u), func() { s.PushUser(u) }
 }
 
-func (s *State) popNewUserLocked() (*AppUser, *Checker, func()) {
-	n := len(s.newUsers)
-	if n == 0 {
-		return nil, nil, nil
-	}
+func (s *State) PushUser(u *AppUser) {
+	s.mtx.Lock()
+	defer s.mtx.Unlock()
 
-	u := s.newUsers[n-1]
-	s.newUsers = s.newUsers[:n-1]
-
-	// NOTE: push() function pushes into s.users, does not push back to s.newUsers.
-	// You should call push() after you verify that a new user is successfully created.
-	return u, s.getCheckerLocked(u), func() {
-		// fmt.Printf("newUserPush %d %s %s\n", u.ID, u.LoginName, u.Nickname)
-		s.PushUser(u)
-	}
+	s.users = append(s.users, u)
 }
 
 func (s *State) PopNewUser() (*AppUser, *Checker, func()) {
@@ -217,10 +203,29 @@ func (s *State) PopNewUser() (*AppUser, *Checker, func()) {
 	return s.popNewUserLocked()
 }
 
-func (s *State) PushUser(u *AppUser) {
+func (s *State) popNewUserLocked() (*AppUser, *Checker, func()) {
+	n := len(s.newUsers)
+	if n == 0 {
+		return nil, nil, nil
+	}
+
+	u := s.newUsers[n-1]
+	s.newUsers = s.newUsers[:n-1]
+
+	// NOTE: push() functions pushes into s.users, does not push back to s.newUsers.
+	// You should call push() after you verify that a new user is successfully created on the server.
+	return u, s.getCheckerLocked(u), func() { s.PushNewUser(u) }
+}
+
+func (s *State) PushNewUser(u *AppUser) {
 	s.mtx.Lock()
 	defer s.mtx.Unlock()
 
+	s.pushNewUserLocked(u)
+}
+
+func (s *State) pushNewUserLocked(u *AppUser) {
+	// fmt.Printf("newUserPush %d %s %s\n", u.ID, u.LoginName, u.Nickname)
 	s.userMap[u.LoginName] = u
 	s.users = append(s.users, u)
 }
@@ -267,6 +272,17 @@ func (s *State) PushAdministrator(u *Administrator) {
 	s.mtx.Lock()
 	defer s.mtx.Unlock()
 
+	s.admins = append(s.admins, u)
+}
+
+func (s *State) PushNewAdministrator(u *Administrator) {
+	s.mtx.Lock()
+	defer s.mtx.Unlock()
+
+	s.pushNewAdministratorLocked(u)
+}
+
+func (s *State) pushNewAdministratorLocked(u *Administrator) {
 	s.adminMap[u.LoginName] = u
 	s.admins = append(s.admins, u)
 }
@@ -319,16 +335,22 @@ func (s *State) PopNewEvent() (*Event, func()) {
 	s.newEvents = s.newEvents[:n-1]
 
 	// NOTE: push() function pushes into s.events, does not push back to s.newEvents.
-	// You should call push() after you verify that a new event is successfully created.
-	return event, func() {
-		// fmt.Printf("newEventPush %d %s %d %t\n", event.ID, event.Title, event.Price, event.PublicFg)
-		event.CreatedAt = time.Now()
-		s.PushEvent(event)
-		s.PushEventSheetRanks(event)
-	}
+	// You should call push() after you verify that a new event is successfully created on the server.
+	return event, func() { s.PushNewEvent(event) }
 }
 
-func (s *State) pushEventSheetRanksLocked(event *Event) {
+func (s *State) PushNewEvent(event *Event) {
+	s.mtx.Lock()
+	defer s.mtx.Unlock()
+
+	s.pushNewEventLocked(event)
+}
+
+func (s *State) pushNewEventLocked(event *Event) {
+	event.CreatedAt = time.Now()
+	// fmt.Printf("newEventPush %d %s %d %t\n", event.ID, event.Title, event.Price, event.PublicFg)
+	s.events = append(s.events, event)
+
 	for _, sheetKind := range DataSet.SheetKinds {
 		eventSheetRank := &EventSheetRank{}
 		eventSheetRank.EventID = event.ID
@@ -342,13 +364,6 @@ func (s *State) pushEventSheetRanksLocked(event *Event) {
 			s.privateEventSheetRanks = append(s.privateEventSheetRanks, eventSheetRank)
 		}
 	}
-}
-
-func (s *State) PushEventSheetRanks(event *Event) {
-	s.mtx.Lock()
-	defer s.mtx.Unlock()
-
-	s.pushEventSheetRanksLocked(event)
 }
 
 func (s *State) GetEventSheetRanksByEventID(eventID uint) []*EventSheetRank {
