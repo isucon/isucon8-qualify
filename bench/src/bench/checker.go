@@ -315,7 +315,7 @@ func (c *Checker) NewRequest(method, uri string, body io.Reader) (*http.Request,
 
 func (c *Checker) Play(ctx context.Context, a *CheckAction) error {
 	if ctx.Err() != nil {
-		return nil
+		return ctx.Err()
 	}
 
 	select {
@@ -324,7 +324,7 @@ func (c *Checker) Play(ctx context.Context, a *CheckAction) error {
 			c.chRequestToken <- token
 		}()
 	case <-ctx.Done():
-		return nil
+		return ctx.Err()
 	}
 
 	var req *http.Request
