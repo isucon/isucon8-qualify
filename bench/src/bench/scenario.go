@@ -1193,8 +1193,8 @@ func CheckReport(ctx context.Context, state *State) error {
 		return err
 	}
 
-	state.reservationMtx.Lock()
-	defer state.reservationMtx.Unlock()
+	state.reservationsMtx.Lock()
+	defer state.reservationsMtx.Unlock()
 
 	err = checker.Play(ctx, &CheckAction{
 		Method:             "GET",

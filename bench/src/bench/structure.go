@@ -141,8 +141,8 @@ type State struct {
 	eventSheetRanks        []*EventSheetRank
 	privateEventSheetRanks []*EventSheetRank
 
-	reservationMtx sync.Mutex
-	reservations   map[uint]*Reservation
+	reservationsMtx sync.Mutex
+	reservations    map[uint]*Reservation
 }
 
 func (s *State) Init() {
@@ -411,8 +411,8 @@ func GetRandomSheetNum(sheetRank string) uint {
 
 // TODO(sonots): Any better ways to avoid global mutex lock?
 func (s *State) AppendReservation(eventID uint, userID uint, reserved *JsonReserved) error {
-	s.reservationMtx.Lock()
-	defer s.reservationMtx.Unlock()
+	s.reservationsMtx.Lock()
+	defer s.reservationsMtx.Unlock()
 
 	reservation := &Reservation{reserved.ReservationID, eventID, userID, reserved.SheetRank, reserved.SheetNum}
 	s.reservations[reserved.ReservationID] = reservation
@@ -421,8 +421,8 @@ func (s *State) AppendReservation(eventID uint, userID uint, reserved *JsonReser
 }
 
 func (s *State) DeleteReservation(reservationID uint) error {
-	s.reservationMtx.Lock()
-	defer s.reservationMtx.Unlock()
+	s.reservationsMtx.Lock()
+	defer s.reservationsMtx.Unlock()
 
 	delete(s.reservations, reservationID)
 
