@@ -127,16 +127,19 @@ type EventSheetRank struct {
 }
 
 type State struct {
-	mtx             sync.Mutex
-	users           []*AppUser
-	newUsers        []*AppUser
-	userMap         map[string]*AppUser
-	checkerMap      map[*AppUser]*Checker
+	mtx sync.Mutex
+
+	users      []*AppUser
+	newUsers   []*AppUser
+	userMap    map[string]*AppUser
+	checkerMap map[*AppUser]*Checker
+
 	admins          []*Administrator
 	adminMap        map[string]*Administrator
 	adminCheckerMap map[*Administrator]*Checker
-	events          []*Event
-	newEvents       []*Event
+
+	events    []*Event
+	newEvents []*Event
 
 	eventSheetRanks        []*EventSheetRank
 	privateEventSheetRanks []*EventSheetRank
