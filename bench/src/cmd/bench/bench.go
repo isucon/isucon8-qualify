@@ -208,7 +208,7 @@ func loadMain(ctx context.Context, state *bench.State) {
 				loadLogs = append(loadLogs, fmt.Sprintf("%v 負荷レベルが上昇しました。", now))
 				counter.IncKey("load-level-up")
 				nextLoadLevel := loadLevel * levelUpRatio
-				log.Println("Increase Load Level.")
+				log.Println("Increase Load Level", counter.GetKey("load-level-up"))
 				goLoadLevelUpFuncs(ctx, state, int(nextLoadLevel-loadLevel))
 				loadLevel = nextLoadLevel
 			}
