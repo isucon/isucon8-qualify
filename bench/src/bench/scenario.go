@@ -696,9 +696,9 @@ func CheckReserveSheet(ctx context.Context, state *State) error {
 	err = userChecker.Play(ctx, &CheckAction{
 		Method:             "POST",
 		Path:               fmt.Sprintf("/api/events/%d/actions/reserve", eventID),
-		ExpectedStatusCode: 409,
+		ExpectedStatusCode: 400,
 		Description:        "存在しないランクのシートを予約しようとするとエラーになること",
-		CheckFunc:          checkJsonErrorResponse("sold_out"), // TOOD(sonots): FIX ME
+		CheckFunc:          checkJsonErrorResponse("invalid_rank"),
 		PostJSON: map[string]interface{}{
 			"sheet_rank": unknownRank,
 		},
@@ -719,11 +719,21 @@ func CheckReserveSheet(ctx context.Context, state *State) error {
 		return err
 	}
 
-	// TODO(sonots): Randomize, but find ID which does not exist.
-	unknownNum := 0
 	err = userChecker.Play(ctx, &CheckAction{
 		Method:             "DELETE",
-		Path:               fmt.Sprintf("/api/events/%d/sheets/%s/%d/reservation", eventID, unknownRank, unknownNum),
+		Path:               fmt.Sprintf("/api/events/%d/sheets/%s/%d/reservation", eventID, "D", randomNum),
+		ExpectedStatusCode: 404,
+		Description:        "存在しないランクのシートをキャンセルしようとするとエラーになること",
+		CheckFunc:          checkJsonErrorResponse("invalid_rank"),
+	})
+	if err != nil {
+		return err
+	}
+
+	unknownNum := 1 + DataSet.SheetKinds[0].Total + uint(rand.Intn(int(DataSet.SheetKinds[0].Total)))
+	err = userChecker.Play(ctx, &CheckAction{
+		Method:             "DELETE",
+		Path:               fmt.Sprintf("/api/events/%d/sheets/%s/%d/reservation", eventID, DataSet.SheetKinds[0].Rank, unknownNum),
 		ExpectedStatusCode: 404,
 		Description:        "存在しないシートをキャンセルしようとするとエラーになること",
 		CheckFunc:          checkJsonErrorResponse("invalid_sheet"),

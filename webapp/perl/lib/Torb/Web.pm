@@ -272,6 +272,14 @@ post '/api/events/{id}/actions/reserve' => [qw/allow_json_request login_required
     my $event_id = $c->args->{id};
     my $rank = $c->req->body_parameters->get('sheet_rank');
 
+    unless ($self->validate_rank($rank)) {
+        my $res = $c->render_json({
+            error => 'invalid_rank',
+        });
+        $res->status(400);
+        return $res;
+    }
+
     my $user  = $self->get_login_user($c);
     my $event = $self->get_event($event_id, $user->{id});
     unless ($event && $event->{public_fg}) {
@@ -334,18 +342,28 @@ router ['DELETE'] => '/api/events/{id}/sheets/{rank}/{num}/reservation' => [qw/l
         return $res;
     }
 
+    unless ($self->validate_rank($rank)) {
+        my $res = $c->render_json({
+            error => 'invalid_rank',
+        });
+        $res->status(404);
+        return $res;
+    }
+
+    my $sheet = $self->dbh->select_row('SELECT * FROM sheets WHERE `rank` = ? AND num = ?', $rank, $num);
+    unless ($sheet) {
+        my $res = $c->render_json({
+            error => 'invalid_sheet',
+        });
+        $res->status(404);
+        return $res;
+    }
+
     my $error;
 
     my $txn = $self->dbh->txn_scope();
     eval {
-        my $sheet = $self->dbh->select_row('SELECT * FROM sheets WHERE `rank` = ? AND num = ?', $rank, $num);
-        unless ($sheet) {
-            $error = 'invalid_sheet';
-            $txn->rollback();
-            return;
-        }
-
-        my $reservation = $self->dbh->select_row('SELECT * FROM reservations WHERE event_id = ? AND sheet_id = ?', $event->{id}, $sheet->{id});
+        my $reservation = $self->dbh->select_row('SELECT * FROM reservations WHERE event_id = ? AND sheet_id = ? FOR UPDATE', $event->{id}, $sheet->{id});
         unless ($reservation) {
             $error = 'not_reserved';
             $txn->rollback();
@@ -371,7 +389,6 @@ router ['DELETE'] => '/api/events/{id}/sheets/{rank}/{num}/reservation' => [qw/l
             error => $error,
         });
         $res->status(500);
-        $res->status(404) if $error eq 'invalid_sheet';
         $res->status(400) if $error eq 'not_reserved';
         $res->status(403) if $error eq 'not_permitted';
         return $res;
@@ -379,6 +396,14 @@ router ['DELETE'] => '/api/events/{id}/sheets/{rank}/{num}/reservation' => [qw/l
 
     return $c->req->new_response(204, [], '');
 };
+
+sub validate_rank {
+    my ($self, $rank) = @_;
+    return unless $rank;
+
+    my $valid = $self->dbh->select_one('SELECT COUNT(*) FROM sheets WHERE `rank` = ?', $rank);
+    return $valid;
+}
 
 filter admin_login_required => sub {
     my $app = shift;
