@@ -26,8 +26,7 @@ CREATE TABLE IF NOT EXISTS reservations (
     event_id    INTEGER UNSIGNED NOT NULL,
     sheet_id    INTEGER UNSIGNED NOT NULL,
     user_id     INTEGER UNSIGNED NOT NULL,
-    reserved_at INTEGER UNSIGNED NOT NULL,
-    UNIQUE KEY (event_id, sheet_id, user_id)
+    reserved_at INTEGER UNSIGNED NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS administrators (
