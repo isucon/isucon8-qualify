@@ -285,7 +285,7 @@ post '/api/events/{id}/actions/reserve' => [qw/allow_json_request login_required
     my $sheet;
     my $reservation_id;
     while (1) {
-        $sheet = $self->dbh->select_row('SELECT * FROM sheets WHERE id NOT IN (SELECT sheet_id FROM reservations WHERE event_id = ?) AND `rank` = ? ORDER BY RAND() LIMIT 1', $event->{id}, $rank);
+        $sheet = $self->dbh->select_row('SELECT * FROM sheets WHERE id NOT IN (SELECT sheet_id FROM reservations WHERE event_id = ? FOR UPDATE) AND `rank` = ? ORDER BY RAND() LIMIT 1', $event->{id}, $rank);
         unless ($sheet) {
             my $res = $c->render_json({
                 error => 'sold_out',
