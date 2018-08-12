@@ -56,11 +56,11 @@ const API = (() => {
           credentials: 'same-origin',
         }).then(handleJSON).then(handleJSONError);
       },
-      edit (eventId, isPublic) {
+      edit (eventId, isPublic, isClosed) {
         return fetch(`/admin/api/events/${eventId}/actions/edit`, {
           method: 'POST',
           headers: new Headers({ 'Content-Type': 'application/json' }),
-          body: JSON.stringify({ public: isPublic }),
+          body: JSON.stringify({ public: isPublic, closed: isClosed }),
           credentials: 'same-origin',
         }).then(handleJSON).then(handleJSONError);
       },
@@ -157,7 +157,17 @@ const EventModal = new Vue({
     publish() {
       const message = 'Do you publish this event?';
       confirm('Edit event', message).then(() => {
-        return API.Event.edit(this.event.id, true);
+        return API.Event.edit(this.event.id, true, false);
+      }).then((event) => {
+        this.event = event;
+      }).catch(err => {
+        showError(err);
+      });
+    },
+    close() {
+      const message = 'Do you close this event? (You CANNOT back to public it.)';
+      confirm('Edit event', message).then(() => {
+        return API.Event.edit(this.event.id, false, true);
       }).then((event) => {
         this.event = event;
       }).catch(err => {
@@ -167,7 +177,7 @@ const EventModal = new Vue({
     disappear() {
       const message = 'Do you disappear this event?';
       confirm('Edit event', message).then(() => {
-        return API.Event.edit(this.event.id, false);
+        return API.Event.edit(this.event.id, false, false);
       }).then((event) => {
         this.event = event;
       }).catch(err => {

@@ -449,6 +449,7 @@ get '/admin/' => [qw/fillin_administrator/] => sub {
             my $event = $self->get_event($event_id);
             delete $event->{sheets}->{$_}->{detail} for keys %{ $event->{sheets} };
             $event->{public} = delete $event->{public_fg} ? JSON::XS::true : JSON::XS::false;
+            $event->{closed} = delete $event->{closed_fg} ? JSON::XS::true : JSON::XS::false;
             push @events => $event;
         }
     }
@@ -514,6 +515,7 @@ get '/admin/api/events' => [qw/admin_login_required/] => sub {
         my $event = $self->get_event($event_id);
         delete $event->{sheets}->{$_}->{detail} for keys %{ $event->{sheets} };
         $event->{public} = delete $event->{public_fg} ? JSON::XS::true : JSON::XS::false;
+        $event->{closed} = delete $event->{closed_fg} ? JSON::XS::true : JSON::XS::false;
         push @events => $event;
     }
 
@@ -530,7 +532,7 @@ post '/admin/api/events' => [qw/allow_json_request admin_login_required/] => sub
 
     my $txn = $self->dbh->txn_scope();
     eval {
-        $self->dbh->query('INSERT INTO events (title, public_fg, price) VALUES (?, ?, ?)', $title, $public, $price);
+        $self->dbh->query('INSERT INTO events (title, public_fg, closed_fg, price) VALUES (?, ?, 0, ?)', $title, $public, $price);
         $event_id = $self->dbh->last_insert_id();
         $txn->commit();
     };
@@ -556,6 +558,7 @@ get '/admin/api/events/{id}' => [qw/admin_login_required/] => sub {
     }
 
     $event->{public} = delete $event->{public_fg} ? JSON::XS::true : JSON::XS::false;
+    $event->{closed} = delete $event->{closed_fg} ? JSON::XS::true : JSON::XS::false;
     return $c->render_json($event);
 };
 
@@ -563,6 +566,8 @@ post '/admin/api/events/{id}/actions/edit' => [qw/allow_json_request admin_login
     my ($self, $c) = @_;
     my $event_id = $c->args->{id};
     my $public = $c->req->body_parameters->get('public') ? 1 : 0;
+    my $closed = $c->req->body_parameters->get('closed') ? 1 : 0;
+    $public = 0 if $closed;
 
     my $event = $self->get_event($event_id);
     unless ($event) {
@@ -573,9 +578,23 @@ post '/admin/api/events/{id}/actions/edit' => [qw/allow_json_request admin_login
         return $res;
     }
 
+    if ($event->{closed_fg}) {
+        my $res = $c->render_json({
+            error => 'cannot_edit_closed_event',
+        });
+        $res->status(400);
+        return $res;
+    } elsif ($event->{public_fg} && $closed) {
+        my $res = $c->render_json({
+            error => 'cannot_close_public_event',
+        });
+        $res->status(400);
+        return $res;
+    }
+
     my $txn = $self->dbh->txn_scope();
     eval {
-        $self->dbh->query('UPDATE events SET public_fg = ? WHERE id = ?', $public, $event->{id});
+        $self->dbh->query('UPDATE events SET public_fg = ?, closed_fg = ? WHERE id = ?', $public, $closed, $event->{id});
         $txn->commit();
     };
     if ($@) {
@@ -584,6 +603,7 @@ post '/admin/api/events/{id}/actions/edit' => [qw/allow_json_request admin_login
 
     $event = $self->get_event($event_id);
     $event->{public} = delete $event->{public_fg} ? JSON::XS::true : JSON::XS::false;
+    $event->{closed} = delete $event->{closed_fg} ? JSON::XS::true : JSON::XS::false;
     return $c->render_json($event);
 };
 

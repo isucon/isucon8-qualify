@@ -82,12 +82,14 @@ func prepareEventDataSet() {
 		line := strings.Split(s.Text(), "\t")
 		title := line[0]
 		publicFg, _ := strconv.ParseBool(line[1])
-		price, _ := strconv.Atoi(line[2])
+		closedFg, _ := strconv.ParseBool(line[2])
+		price, _ := strconv.Atoi(line[3])
 
 		event := &Event{
 			ID:       uint(i + 1),
 			Title:    title,
 			PublicFg: publicFg,
+			ClosedFg: closedFg,
 			Price:    uint(price),
 		}
 
@@ -99,6 +101,7 @@ func prepareEventDataSet() {
 			ID:       0, // auto increment
 			Title:    RandomAlphabetString(32),
 			PublicFg: true,
+			ClosedFg: false,
 			Price:    uint(rand.Intn(10) * 1000),
 		}
 		DataSet.NewEvents = append(DataSet.NewEvents, event)
@@ -188,8 +191,8 @@ func GenerateInitialDataSetSQL(outputPath string) {
 	// event
 	for _, event := range DataSet.Events {
 		must(err)
-		fbadf(w, "INSERT INTO events (id, title, public_fg, price) VALUES (%s, %s, %s, %s);",
-			event.ID, event.Title, event.PublicFg, event.Price)
+		fbadf(w, "INSERT INTO events (id, title, public_fg, closed_fg, price) VALUES (%s, %s, %s, %s, %s);",
+			event.ID, event.Title, event.PublicFg, event.ClosedFg, event.Price)
 	}
 
 	// sheet
