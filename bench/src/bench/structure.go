@@ -105,6 +105,23 @@ type Reservation struct {
 	// ReservedAt uint // No way to obtain now
 }
 
+// Like a transactional log for reserve API.
+// A log is removed after we verified that the reserve API request succeeded.
+// If a request is timeouted or failed by any reasons, the log remains kept.
+type ReserveLog struct {
+	EventID   uint
+	UserID    uint
+	SheetRank string
+}
+
+// cancel API version of ReserveLog
+type CancelLog struct {
+	EventID       uint
+	UserID        uint
+	SheetRank     string
+	ReservationID uint
+}
+
 type BenchDataSet struct {
 	Users    []*AppUser
 	NewUsers []*AppUser
@@ -146,7 +163,14 @@ type State struct {
 	privateEventSheetRanks []*EventSheetRank
 
 	reservationsMtx sync.Mutex
-	reservations    map[uint]*Reservation
+	reservations    map[uint]*Reservation // key: reservation id
+
+	reserveLogMtx sync.Mutex
+	reserveLogID  uint                 // 2^64 should be enough
+	reserveLog    map[uint]*ReserveLog // key: reserveLogID
+	cancelLogMtx  sync.Mutex
+	cancelLogID   uint                // 2^64 should be enough
+	cancelLog     map[uint]*CancelLog // key: cancelLogID
 }
 
 func (s *State) Init() {
@@ -172,6 +196,11 @@ func (s *State) Init() {
 	s.newEvents = append(s.newEvents, DataSet.NewEvents...)
 
 	s.reservations = map[uint]*Reservation{}
+
+	s.reserveLogID = 0
+	s.reserveLog = map[uint]*ReserveLog{}
+	s.cancelLogID = 0
+	s.cancelLog = map[uint]*CancelLog{}
 }
 
 func (s *State) PopRandomUser() (*AppUser, *Checker, func()) {
@@ -428,27 +457,6 @@ func GetRandomSheetNum(sheetRank string) uint {
 	return uint(rand.Intn(int(total)))
 }
 
-// TODO(sonots): Any better ways to avoid global mutex lock?
-func (s *State) AppendReservation(eventID uint, userID uint, reserved *JsonReserved) error {
-	s.reservationsMtx.Lock()
-	defer s.reservationsMtx.Unlock()
-
-	reservation := &Reservation{reserved.ReservationID, eventID, userID, reserved.SheetRank, reserved.SheetNum}
-	s.reservations[reserved.ReservationID] = reservation
-
-	fmt.Printf("Reserved %2d %3d %s %d\n", eventID, userID, reserved.SheetRank, reserved.ReservationID)
-	return nil
-}
-
-func (s *State) DeleteReservation(reservationID uint) error {
-	s.reservationsMtx.Lock()
-	defer s.reservationsMtx.Unlock()
-
-	delete(s.reservations, reservationID)
-
-	return nil
-}
-
 func FilterPublicEvents(src []*Event) (filtered []*Event) {
 	filtered = make([]*Event, 0, len(src))
 	for _, e := range src {
@@ -459,4 +467,57 @@ func FilterPublicEvents(src []*Event) (filtered []*Event) {
 		filtered = append(filtered, e)
 	}
 	return
+}
+
+func (s *State) AppendReservation(eventID uint, userID uint, reserved *JsonReserved) {
+	s.reservationsMtx.Lock()
+	defer s.reservationsMtx.Unlock()
+
+	reservation := &Reservation{reserved.ReservationID, eventID, userID, reserved.SheetRank, reserved.SheetNum}
+	s.reservations[reserved.ReservationID] = reservation
+}
+
+func (s *State) DeleteReservation(reservationID uint) {
+	s.reservationsMtx.Lock()
+	defer s.reservationsMtx.Unlock()
+
+	delete(s.reservations, reservationID)
+}
+
+func (s *State) AppendReserveLog(reserveLog *ReserveLog) uint {
+	s.reserveLogMtx.Lock()
+	defer s.reserveLogMtx.Unlock()
+
+	s.reserveLogID += 1
+	s.reserveLog[s.reserveLogID] = reserveLog
+
+	fmt.Printf("AppendReserveLog LogID:%2d EventID:%2d UserID:%3d SheetRank:%s\n", s.reserveLogID, reserveLog.EventID, reserveLog.UserID, reserveLog.SheetRank)
+	return s.reserveLogID
+}
+
+func (s *State) DeleteReserveLog(reserveLogID uint) {
+	s.reserveLogMtx.Lock()
+	defer s.reserveLogMtx.Unlock()
+
+	fmt.Printf("DeleteReserveLog LogID:%2d\n", reserveLogID)
+	delete(s.reserveLog, reserveLogID)
+}
+
+func (s *State) AppendCancelLog(cancelLog *CancelLog) uint {
+	s.cancelLogMtx.Lock()
+	defer s.cancelLogMtx.Unlock()
+
+	s.cancelLogID += 1
+	s.cancelLog[s.cancelLogID] = cancelLog
+
+	fmt.Printf("AppendCancelLog  LogID:%2d EventID:%2d UserID:%3d SheetRank:%s ReservationID:%d\n", s.cancelLogID, cancelLog.EventID, cancelLog.UserID, cancelLog.SheetRank, cancelLog.ReservationID)
+	return s.cancelLogID
+}
+
+func (s *State) DeleteCancelLog(cancelLogID uint) {
+	s.cancelLogMtx.Lock()
+	defer s.cancelLogMtx.Unlock()
+
+	fmt.Printf("DeleteCancelLog  LogID:%2d\n", cancelLogID)
+	delete(s.cancelLog, cancelLogID)
 }
