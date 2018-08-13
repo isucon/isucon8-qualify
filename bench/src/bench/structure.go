@@ -1,7 +1,6 @@
 package bench
 
 import (
-	"fmt"
 	"math/rand"
 	"sync"
 	"time"
@@ -491,7 +490,7 @@ func (s *State) AppendReserveLog(reserveLog *ReserveLog) uint {
 	s.reserveLogID += 1
 	s.reserveLog[s.reserveLogID] = reserveLog
 
-	fmt.Printf("AppendReserveLog LogID:%2d EventID:%2d UserID:%3d SheetRank:%s\n", s.reserveLogID, reserveLog.EventID, reserveLog.UserID, reserveLog.SheetRank)
+	// fmt.Printf("AppendReserveLog LogID:%2d EventID:%2d UserID:%3d SheetRank:%s\n", s.reserveLogID, reserveLog.EventID, reserveLog.UserID, reserveLog.SheetRank)
 	return s.reserveLogID
 }
 
@@ -499,7 +498,7 @@ func (s *State) DeleteReserveLog(reserveLogID uint) {
 	s.reserveLogMtx.Lock()
 	defer s.reserveLogMtx.Unlock()
 
-	fmt.Printf("DeleteReserveLog LogID:%2d\n", reserveLogID)
+	// fmt.Printf("DeleteReserveLog LogID:%2d\n", reserveLogID)
 	delete(s.reserveLog, reserveLogID)
 }
 
@@ -510,7 +509,7 @@ func (s *State) AppendCancelLog(cancelLog *CancelLog) uint {
 	s.cancelLogID += 1
 	s.cancelLog[s.cancelLogID] = cancelLog
 
-	fmt.Printf("AppendCancelLog  LogID:%2d EventID:%2d UserID:%3d SheetRank:%s ReservationID:%d\n", s.cancelLogID, cancelLog.EventID, cancelLog.UserID, cancelLog.SheetRank, cancelLog.ReservationID)
+	// fmt.Printf("AppendCancelLog  LogID:%2d EventID:%2d UserID:%3d SheetRank:%s ReservationID:%d\n", s.cancelLogID, cancelLog.EventID, cancelLog.UserID, cancelLog.SheetRank, cancelLog.ReservationID)
 	return s.cancelLogID
 }
 
@@ -518,6 +517,6 @@ func (s *State) DeleteCancelLog(cancelLogID uint) {
 	s.cancelLogMtx.Lock()
 	defer s.cancelLogMtx.Unlock()
 
-	fmt.Printf("DeleteCancelLog  LogID:%2d\n", cancelLogID)
+	// fmt.Printf("DeleteCancelLog  LogID:%2d\n", cancelLogID)
 	delete(s.cancelLog, cancelLogID)
 }

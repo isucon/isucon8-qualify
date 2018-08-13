@@ -1171,7 +1171,7 @@ func checkReportResponse(s *State) func(res *http.Response, body *bytes.Buffer) 
 		reservationsCount := len(s.reservations)
 		maybeCanceledCount := len(s.cancelLog)
 		maybeReservedCount := len(s.reserveLog)
-		fmt.Printf("reservationsCount:%d - maybeCanceldCount:%d <= reportCount:%d <= reservationsCount:%d + maybeReservedCount%d\n", reservationsCount, maybeCanceledCount, reportCount, reservationsCount, maybeReservedCount)
+		// fmt.Printf("reservationsCount:%d - maybeCanceldCount:%d <= reportCount:%d <= reservationsCount:%d + maybeReservedCount%d\n", reservationsCount, maybeCanceledCount, reportCount, reservationsCount, maybeReservedCount)
 		if reservationsCount-maybeCanceledCount <= reportCount && reportCount <= reservationsCount+maybeReservedCount {
 		} else {
 			return fatalErrorf(msg)
