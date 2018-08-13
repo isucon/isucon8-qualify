@@ -1112,14 +1112,23 @@ func CheckCreateEvent(ctx context.Context, state *State) error {
 	return nil
 }
 
-func checkReportResponse(reservations map[uint]*Reservation) func(res *http.Response, body *bytes.Buffer) error {
+func checkReportResponse(s *State) func(res *http.Response, body *bytes.Buffer) error {
 	return func(res *http.Response, body *bytes.Buffer) error {
+		// TODO(sonots): Avoid global mutex lock if we need to run concurrently
+		s.reservationsMtx.Lock()
+		defer s.reservationsMtx.Unlock()
+		s.reserveLogMtx.Lock()
+		defer s.reserveLogMtx.Unlock()
+		s.cancelLogMtx.Lock()
+		defer s.cancelLogMtx.Unlock()
+
 		// reservation_id,event_id,user_id,rank,price,sold_at
 		// 5,1,830,A,6000,2018-08-02T05:04:07Z
 		// 7,1,854,S,8000,2018-08-02T05:04:10Z
 		// 8,1,484,A,6000,2018-08-02T05:04:10Z
 		// 9,1,377,B,4000,2018-08-02T05:04:12Z
 
+		// fmt.Println(body)
 		r := csv.NewReader(body)
 		record, err := r.Read()
 		if err == io.EOF ||
@@ -1134,58 +1143,49 @@ func checkReportResponse(reservations map[uint]*Reservation) func(res *http.Resp
 		}
 
 		msg := "正しいレポートを取得できません"
+		reportCount := 0
 		for {
 			record, err := r.Read()
 			if err == io.EOF {
 				break
 			}
-			_, err = strconv.Atoi(record[0])
-			if err != nil {
-				return fatalErrorf(msg)
-			}
-			_, err = strconv.Atoi(record[1])
-			if err != nil {
-				return fatalErrorf(msg)
-			}
-			_, err = strconv.Atoi(record[2])
-			if err != nil {
-				return fatalErrorf(msg)
-			}
+			reportCount += 1
 
-			// reservationID, err := strconv.Atoi(record[0])
-			// if err != nil {
-			// 	return fatalErrorf(msg)
-			// }
-			// eventID, err := strconv.Atoi(record[1])
-			// if err != nil {
-			// 	return fatalErrorf(msg)
-			// }
-			// userID, err := strconv.Atoi(record[2])
-			// if err != nil {
-			// 	return fatalErrorf(msg)
-			// }
-			// sheetRank := record[3]
-			//
-			// reservation, ok := reservations[uint(reservationID)]
-			// if !ok {
-			// 	// Golang context forcely stops benchmarker if benchDuration is passed.
-			// 	// However, some requests would already been issued to webapps, thus,
-			// 	// the report would include some reservations which we did not complete and missed.
-			// 	// Ignore such reservations.
-			// 	continue
-			// }
-			// if reservation.ID != uint(reservationID) ||
-			// 	reservation.EventID != uint(eventID) ||
-			// 	reservation.UserID != uint(userID) ||
-			// 	reservation.SheetRank != sheetRank {
-			// 	return fatalErrorf(msg)
-			// }
+			reservationID, err := strconv.Atoi(record[0])
+			if err != nil {
+				return fatalErrorf(msg)
+			}
+			eventID, err := strconv.Atoi(record[1])
+			if err != nil {
+				return fatalErrorf(msg)
+			}
+			userID, err := strconv.Atoi(record[2])
+			if err != nil {
+				return fatalErrorf(msg)
+			}
+			sheetRank := record[3]
+
+			reservation, ok := s.reservations[uint(reservationID)]
+			if !ok {
+				// reserve request is possibly timed-out
+				continue
+			}
+			if reservation.ID != uint(reservationID) ||
+				reservation.EventID != uint(eventID) ||
+				reservation.UserID != uint(userID) ||
+				reservation.SheetRank != sheetRank {
+				return fatalErrorf(msg)
+			}
 		}
 
-		// Count also does not match by same reasons that context forcely stops
-		// if len(reservations) != count {
-		// 	return fatalErrorf(msg)
-		// }
+		reservationsCount := len(s.reservations)
+		maybeCanceledCount := len(s.cancelLog)
+		maybeReservedCount := len(s.reserveLog)
+		// fmt.Printf("reservationsCount:%d - maybeCanceldCount:%d <= reportCount:%d <= reservationsCount:%d + maybeReservedCount%d\n", reservationsCount, maybeCanceledCount, reportCount, reservationsCount, maybeReservedCount)
+		if reservationsCount-maybeCanceledCount <= reportCount && reportCount <= reservationsCount+maybeReservedCount {
+		} else {
+			return fatalErrorf(msg)
+		}
 
 		return nil
 	}
@@ -1203,15 +1203,12 @@ func CheckReport(ctx context.Context, state *State) error {
 		return err
 	}
 
-	state.reservationsMtx.Lock()
-	defer state.reservationsMtx.Unlock()
-
 	err = checker.Play(ctx, &CheckAction{
 		Method:             "GET",
 		Path:               "/admin/api/reports/sales",
 		ExpectedStatusCode: 200,
 		Description:        "レポートを正しく取得できること",
-		CheckFunc:          checkReportResponse(state.reservations),
+		CheckFunc:          checkReportResponse(state),
 	})
 	if err != nil {
 		return err
@@ -1329,6 +1326,7 @@ func reserveSheet(ctx context.Context, state *State, checker *Checker, userID ui
 	rank := eventSheetRank.Rank
 
 	reserved := &JsonReserved{0, rank, 0}
+	logID := state.AppendReserveLog(&ReserveLog{eventID, userID, rank})
 	err := checker.Play(ctx, &CheckAction{
 		Method:             "POST",
 		Path:               fmt.Sprintf("/api/events/%d/actions/reserve", eventID),
@@ -1342,6 +1340,7 @@ func reserveSheet(ctx context.Context, state *State, checker *Checker, userID ui
 	if err != nil {
 		return nil, err
 	}
+	state.DeleteReserveLog(logID)
 	eventSheetRank.Remains--
 	eventSheetRank.Reserved[reserved.SheetNum] = true
 	state.AppendReservation(eventID, userID, reserved)
@@ -1355,6 +1354,7 @@ func cancelSheet(ctx context.Context, state *State, checker *Checker, userID uin
 	reservationID := reserved.ReservationID
 	sheetNum := reserved.SheetNum
 
+	logID := state.AppendCancelLog(&CancelLog{eventID, userID, rank, reservationID})
 	err := checker.Play(ctx, &CheckAction{
 		Method:             "DELETE",
 		Path:               fmt.Sprintf("/api/events/%d/sheets/%s/%d/reservation", eventID, rank, sheetNum),
@@ -1364,6 +1364,7 @@ func cancelSheet(ctx context.Context, state *State, checker *Checker, userID uin
 	if err != nil {
 		return err
 	}
+	state.DeleteCancelLog(logID)
 	eventSheetRank.Remains++
 	eventSheetRank.Reserved[sheetNum] = false
 	state.DeleteReservation(reservationID)
