@@ -165,11 +165,11 @@ type State struct {
 	reservations    map[uint]*Reservation // key: reservation id
 
 	reserveLogMtx sync.Mutex
-	reserveLogID  uint                 // 2^64 should be enough
-	reserveLog    map[uint]*ReserveLog // key: reserveLogID
+	reserveLogID  uint64                 // 2^64 should be enough
+	reserveLog    map[uint64]*ReserveLog // key: reserveLogID
 	cancelLogMtx  sync.Mutex
-	cancelLogID   uint                // 2^64 should be enough
-	cancelLog     map[uint]*CancelLog // key: cancelLogID
+	cancelLogID   uint64                // 2^64 should be enough
+	cancelLog     map[uint64]*CancelLog // key: cancelLogID
 }
 
 func (s *State) Init() {
@@ -197,9 +197,9 @@ func (s *State) Init() {
 	s.reservations = map[uint]*Reservation{}
 
 	s.reserveLogID = 0
-	s.reserveLog = map[uint]*ReserveLog{}
+	s.reserveLog = map[uint64]*ReserveLog{}
 	s.cancelLogID = 0
-	s.cancelLog = map[uint]*CancelLog{}
+	s.cancelLog = map[uint64]*CancelLog{}
 }
 
 func (s *State) PopRandomUser() (*AppUser, *Checker, func()) {
@@ -483,7 +483,7 @@ func (s *State) DeleteReservation(reservationID uint) {
 	delete(s.reservations, reservationID)
 }
 
-func (s *State) AppendReserveLog(reserveLog *ReserveLog) uint {
+func (s *State) AppendReserveLog(reserveLog *ReserveLog) uint64 {
 	s.reserveLogMtx.Lock()
 	defer s.reserveLogMtx.Unlock()
 
@@ -494,7 +494,7 @@ func (s *State) AppendReserveLog(reserveLog *ReserveLog) uint {
 	return s.reserveLogID
 }
 
-func (s *State) DeleteReserveLog(reserveLogID uint) {
+func (s *State) DeleteReserveLog(reserveLogID uint64) {
 	s.reserveLogMtx.Lock()
 	defer s.reserveLogMtx.Unlock()
 
@@ -502,7 +502,7 @@ func (s *State) DeleteReserveLog(reserveLogID uint) {
 	delete(s.reserveLog, reserveLogID)
 }
 
-func (s *State) AppendCancelLog(cancelLog *CancelLog) uint {
+func (s *State) AppendCancelLog(cancelLog *CancelLog) uint64 {
 	s.cancelLogMtx.Lock()
 	defer s.cancelLogMtx.Unlock()
 
@@ -513,7 +513,7 @@ func (s *State) AppendCancelLog(cancelLog *CancelLog) uint {
 	return s.cancelLogID
 }
 
-func (s *State) DeleteCancelLog(cancelLogID uint) {
+func (s *State) DeleteCancelLog(cancelLogID uint64) {
 	s.cancelLogMtx.Lock()
 	defer s.cancelLogMtx.Unlock()
 
