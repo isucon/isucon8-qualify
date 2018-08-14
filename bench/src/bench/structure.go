@@ -78,6 +78,7 @@ type Event struct {
 	ID        uint
 	Title     string
 	PublicFg  bool
+	ClosedFg  bool
 	Price     uint
 	CreatedAt time.Time
 }
