@@ -430,6 +430,7 @@ func (s *State) PushEventSheetRank(eventSheetRank *EventSheetRank) {
 	if eventSheetRank.Remains > 0 {
 		s.eventSheetRanks = append(s.eventSheetRanks, eventSheetRank)
 	} else {
+		log.Printf("debug: EventSheetRank EventID:%d SheetRank:%s is sold out\n", eventSheetRank.EventID, eventSheetRank.Rank)
 		s.soldOutEventSheetRanks = append(s.soldOutEventSheetRanks, eventSheetRank)
 	}
 }
