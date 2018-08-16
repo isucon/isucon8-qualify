@@ -100,9 +100,6 @@ func checkEventsList(state *State, events []JsonEvent) error {
 			}
 			events = events[:i]
 		}
-		if len(events) != len(expected) {
-			return fatalErrorf("イベントの数が正しくありません")
-		}
 	}
 
 	for i, e := range events {
