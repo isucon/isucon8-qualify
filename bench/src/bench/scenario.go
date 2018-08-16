@@ -880,7 +880,7 @@ func checkJsonAdminEventCreateResponse(event *Event) func(res *http.Response, bo
 		if err != nil {
 			return fatalErrorf("Jsonのデコードに失敗 %v", err)
 		}
-		if jsonEvent.Title != event.Title || jsonEvent.Price != event.Price || jsonEvent.Public != event.PublicFg {
+		if jsonEvent.Title != event.Title || jsonEvent.Price != event.Price || jsonEvent.Public != event.PublicFg || jsonEvent.Closed != event.ClosedFg {
 			return fatalErrorf("正しいイベントを取得できません")
 		}
 		// Set created time and auto incremented ID from response
@@ -988,6 +988,7 @@ func CheckCreateEvent(ctx context.Context, state *State) error {
 		return err
 	}
 	event.CreatedAt = time.Now()
+	newEventPush()
 
 	err = checker.Play(ctx, &CheckAction{
 		Method:             "GET",
@@ -1104,8 +1105,6 @@ func CheckCreateEvent(ctx context.Context, state *State) error {
 	if err != nil {
 		return err
 	}
-
-	newEventPush()
 
 	return nil
 }
@@ -1331,7 +1330,6 @@ func popOrCreateEventSheetRank(ctx context.Context, state *State) (*EventSheetRa
 		return nil, nil, err
 	}
 	event.CreatedAt = time.Now()
-
 	newEventPush()
 
 	eventSheetRank, eventSheetRankPush = state.PopEventSheetRank()

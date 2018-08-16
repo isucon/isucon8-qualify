@@ -38,6 +38,7 @@ type JsonAdminEvent struct {
 	ID      uint                 `json:"id"`
 	Title   string               `json:"title"`
 	Public  bool                 `json:"public"`
+	Closed  bool                 `json:"closed"`
 	Price   uint                 `json:"price"`
 	Remains uint                 `json:"remains"`
 	Sheets  map[string]JsonSheet `json:"sheets"`
