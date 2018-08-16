@@ -140,8 +140,7 @@ type State struct {
 	adminMap        map[string]*Administrator
 	adminCheckerMap map[*Administrator]*Checker
 
-	events    []*Event
-	newEvents []*Event
+	events []*Event
 
 	eventSheetRanks        []*EventSheetRank
 	privateEventSheetRanks []*EventSheetRank
@@ -180,7 +179,6 @@ func (s *State) Init() {
 	for _, event := range DataSet.Events {
 		s.pushNewEventLocked(event)
 	}
-	s.newEvents = append(s.newEvents, DataSet.NewEvents...)
 
 	s.reservations = map[uint]*Reservation{}
 
@@ -342,19 +340,16 @@ func (s *State) PushEvent(event *Event) {
 	s.events = append(s.events, event)
 }
 
-func (s *State) PopNewEvent() (*Event, func()) {
-	s.mtx.Lock()
-	defer s.mtx.Unlock()
-
-	n := len(s.newEvents)
-	if n == 0 {
-		return nil, nil
+func (s *State) CreateNewEvent() (*Event, func()) {
+	event := &Event{
+		ID:       0, // auto increment
+		Title:    RandomAlphabetString(32),
+		PublicFg: true,
+		ClosedFg: false,
+		Price:    1000 + uint(rand.Intn(10)*1000),
 	}
 
-	event := s.newEvents[n-1]
-	s.newEvents = s.newEvents[:n-1]
-
-	// NOTE: push() function pushes into s.events, does not push back to s.newEvents.
+	// NOTE: push() function pushes into s.events, does not push to s.newEvents.
 	// You should call push() after you verify that a new event is successfully created on the server.
 	return event, func() { s.PushNewEvent(event) }
 }

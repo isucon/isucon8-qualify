@@ -958,7 +958,7 @@ func CheckCreateEvent(ctx context.Context, state *State) error {
 		return err
 	}
 
-	event, newEventPush := state.PopNewEvent()
+	event, newEventPush := state.CreateNewEvent()
 	if event == nil {
 		return nil
 	}
