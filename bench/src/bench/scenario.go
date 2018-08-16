@@ -1304,14 +1304,14 @@ func popOrCreateEventSheet(ctx context.Context, state *State) (*EventSheet, func
 		return eventSheet, eventSheetPush, nil
 	}
 
-	// Create a new event if not sheet is available
+	// Create a new event if no sheet is available
 
 	ok := state.newEventMtx.TryLock()
 	defer state.newEventMtx.Unlock()
 	if !ok {
 		log.Println("debug: Somebody else is trying to create a new event. Exit.")
-		// NOTE: We immediately exit rather than waiting somebody else creates a new event
-		// based on assumption that the former makes benchmarker work faster.
+		// NOTE: We immediately return rather than waiting somebody else finishes to create a new event
+		// because probably the former strategy makes benchmarker work faster.
 		return nil, nil, nil
 	}
 
