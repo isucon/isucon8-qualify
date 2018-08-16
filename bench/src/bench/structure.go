@@ -106,23 +106,6 @@ type Reservation struct {
 	// ReservedAt uint // No way to obtain now
 }
 
-// Like a transactional log for reserve API.
-// A log is removed after we verified that the reserve API request succeeded.
-// If a request is timeouted or failed by any reasons, the log remains kept.
-type ReserveLog struct {
-	EventID   uint
-	UserID    uint
-	SheetRank string
-}
-
-// cancel API version of ReserveLog
-type CancelLog struct {
-	EventID       uint
-	UserID        uint
-	SheetRank     string
-	ReservationID uint
-}
-
 type BenchDataSet struct {
 	Users    []*AppUser
 	NewUsers []*AppUser
@@ -166,12 +149,15 @@ type State struct {
 	reservationsMtx sync.Mutex
 	reservations    map[uint]*Reservation // key: reservation id
 
+	// Like a transactional log for reserve/cancel API.
+	// A log is removed after we verified that the reserve/cancel API request succeeded.
+	// If a request is timeouted or failed by any reasons, the log remains kept.
 	reserveLogMtx sync.Mutex
-	reserveLogID  uint64                 // 2^64 should be enough
-	reserveLog    map[uint64]*ReserveLog // key: reserveLogID
+	reserveLogID  uint64                  // 2^64 should be enough
+	reserveLog    map[uint64]*Reservation // key: reserveLogID
 	cancelLogMtx  sync.Mutex
-	cancelLogID   uint64                // 2^64 should be enough
-	cancelLog     map[uint64]*CancelLog // key: cancelLogID
+	cancelLogID   uint64                  // 2^64 should be enough
+	cancelLog     map[uint64]*Reservation // key: cancelLogID
 }
 
 func (s *State) Init() {
@@ -199,9 +185,9 @@ func (s *State) Init() {
 	s.reservations = map[uint]*Reservation{}
 
 	s.reserveLogID = 0
-	s.reserveLog = map[uint64]*ReserveLog{}
+	s.reserveLog = map[uint64]*Reservation{}
 	s.cancelLogID = 0
-	s.cancelLog = map[uint64]*CancelLog{}
+	s.cancelLog = map[uint64]*Reservation{}
 }
 
 func (s *State) PopRandomUser() (*AppUser, *Checker, func()) {
@@ -470,12 +456,11 @@ func FilterPublicEvents(src []*Event) (filtered []*Event) {
 	return
 }
 
-func (s *State) AppendReservation(eventID uint, userID uint, reserved *JsonReserved) {
+func (s *State) AppendReservation(reservation *Reservation) {
 	s.reservationsMtx.Lock()
 	defer s.reservationsMtx.Unlock()
 
-	reservation := &Reservation{reserved.ReservationID, eventID, userID, reserved.SheetRank, reserved.SheetNum}
-	s.reservations[reserved.ReservationID] = reservation
+	s.reservations[reservation.ID] = reservation
 }
 
 func (s *State) DeleteReservation(reservationID uint) {
@@ -485,40 +470,40 @@ func (s *State) DeleteReservation(reservationID uint) {
 	delete(s.reservations, reservationID)
 }
 
-func (s *State) AppendReserveLog(reserveLog *ReserveLog) uint64 {
+func (s *State) AppendReserveLog(reservation *Reservation) uint64 {
 	s.reserveLogMtx.Lock()
 	defer s.reserveLogMtx.Unlock()
 
 	s.reserveLogID += 1
-	s.reserveLog[s.reserveLogID] = reserveLog
+	s.reserveLog[s.reserveLogID] = reservation
 
-	log.Printf("debug: AppendReserveLog LogID:%2d EventID:%2d UserID:%3d SheetRank:%s\n", s.reserveLogID, reserveLog.EventID, reserveLog.UserID, reserveLog.SheetRank)
+	log.Printf("debug: appendReserveLog LogID:%2d EventID:%2d UserID:%3d SheetRank:%s\n", s.reserveLogID, reservation.EventID, reservation.UserID, reservation.SheetRank)
 	return s.reserveLogID
 }
 
-func (s *State) DeleteReserveLog(reserveLogID uint64) {
+func (s *State) DeleteReserveLog(reserveLogID uint64, reservation *Reservation) {
 	s.reserveLogMtx.Lock()
 	defer s.reserveLogMtx.Unlock()
 
-	log.Printf("debug: DeleteReserveLog LogID:%2d\n", reserveLogID)
+	log.Printf("debug: deleteReserveLog LogID:%2d EventID:%2d UserID:%3d SheetRank:%s SheetNum:%d ReservationID:%d (Reserved)\n", reserveLogID, reservation.EventID, reservation.UserID, reservation.SheetRank, reservation.SheetNum, reservation.ID)
 	delete(s.reserveLog, reserveLogID)
 }
 
-func (s *State) AppendCancelLog(cancelLog *CancelLog) uint64 {
+func (s *State) AppendCancelLog(reservation *Reservation) uint64 {
 	s.cancelLogMtx.Lock()
 	defer s.cancelLogMtx.Unlock()
 
 	s.cancelLogID += 1
-	s.cancelLog[s.cancelLogID] = cancelLog
+	s.cancelLog[s.cancelLogID] = reservation
 
-	log.Printf("debug: AppendCancelLog  LogID:%2d EventID:%2d UserID:%3d SheetRank:%s ReservationID:%d\n", s.cancelLogID, cancelLog.EventID, cancelLog.UserID, cancelLog.SheetRank, cancelLog.ReservationID)
+	log.Printf("debug: appendCancelLog  LogID:%2d EventID:%2d UserID:%3d SheetRank:%s SheetNum:%d ReservationID:%d\n", s.cancelLogID, reservation.EventID, reservation.UserID, reservation.SheetRank, reservation.SheetNum, reservation.ID)
 	return s.cancelLogID
 }
 
-func (s *State) DeleteCancelLog(cancelLogID uint64) {
+func (s *State) DeleteCancelLog(cancelLogID uint64, reservation *Reservation) {
 	s.cancelLogMtx.Lock()
 	defer s.cancelLogMtx.Unlock()
 
-	log.Printf("debug: DeleteCancelLog  LogID:%2d\n", cancelLogID)
+	log.Printf("debug: deleteCancelLog  LogID:%2d EventID:%2d UserID:%3d SheetRank:%s SheetNum:%d ReservationID:%d (Canceled)\n", s.cancelLogID, reservation.EventID, reservation.UserID, reservation.SheetRank, reservation.SheetNum, reservation.ID)
 	delete(s.cancelLog, cancelLogID)
 }

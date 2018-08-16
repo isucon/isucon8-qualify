@@ -1326,7 +1326,8 @@ func reserveSheet(ctx context.Context, state *State, checker *Checker, userID ui
 	rank := eventSheetRank.Rank
 
 	reserved := &JsonReserved{0, rank, 0}
-	logID := state.AppendReserveLog(&ReserveLog{eventID, userID, rank})
+	reservation := &Reservation{ID: 0, EventID: eventID, UserID: userID, SheetRank: rank, SheetNum: 0}
+	logID := state.AppendReserveLog(reservation)
 	err := checker.Play(ctx, &CheckAction{
 		Method:             "POST",
 		Path:               fmt.Sprintf("/api/events/%d/actions/reserve", eventID),
@@ -1340,10 +1341,12 @@ func reserveSheet(ctx context.Context, state *State, checker *Checker, userID ui
 	if err != nil {
 		return nil, err
 	}
-	state.DeleteReserveLog(logID)
+	reservation.ID = reserved.ReservationID
+	reservation.SheetNum = reserved.SheetNum
+	state.DeleteReserveLog(logID, reservation)
 	eventSheetRank.Remains--
 	eventSheetRank.Reserved[reserved.SheetNum] = true
-	state.AppendReservation(eventID, userID, reserved)
+	state.AppendReservation(reservation)
 
 	return reserved, nil
 }
@@ -1354,7 +1357,8 @@ func cancelSheet(ctx context.Context, state *State, checker *Checker, userID uin
 	reservationID := reserved.ReservationID
 	sheetNum := reserved.SheetNum
 
-	logID := state.AppendCancelLog(&CancelLog{eventID, userID, rank, reservationID})
+	reservation := &Reservation{reservationID, eventID, userID, rank, sheetNum}
+	logID := state.AppendCancelLog(reservation)
 	err := checker.Play(ctx, &CheckAction{
 		Method:             "DELETE",
 		Path:               fmt.Sprintf("/api/events/%d/sheets/%s/%d/reservation", eventID, rank, sheetNum),
@@ -1364,7 +1368,7 @@ func cancelSheet(ctx context.Context, state *State, checker *Checker, userID uin
 	if err != nil {
 		return err
 	}
-	state.DeleteCancelLog(logID)
+	state.DeleteCancelLog(logID, reservation)
 	eventSheetRank.Remains++
 	eventSheetRank.Reserved[sheetNum] = false
 	state.DeleteReservation(reservationID)
