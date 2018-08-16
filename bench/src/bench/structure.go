@@ -5,6 +5,8 @@ import (
 	"math/rand"
 	"sync"
 	"time"
+
+	"github.com/LK4D4/trylock"
 )
 
 // {"nickname":"sonots","id":1001};
@@ -38,6 +40,7 @@ type JsonAdminEvent struct {
 	ID      uint                 `json:"id"`
 	Title   string               `json:"title"`
 	Public  bool                 `json:"public"`
+	Closed  bool                 `json:"closed"`
 	Price   uint                 `json:"price"`
 	Remains uint                 `json:"remains"`
 	Sheets  map[string]JsonSheet `json:"sheets"`
@@ -119,17 +122,18 @@ type BenchDataSet struct {
 	Sheets     []*Sheet
 }
 
-// Represents a state of a sheet rank winthin an event
-type EventSheetRank struct {
-	EventID  uint
-	Rank     string
-	Total    uint
-	Remains  uint
-	Reserved map[uint]bool // key: Sheet.Num
+var NonReservedNum = uint(0)
+
+// Represents a sheet within an event
+type EventSheet struct {
+	EventID uint
+	Rank    string
+	Num     uint
 }
 
 type State struct {
-	mtx sync.Mutex
+	mtx         sync.Mutex
+	newEventMtx trylock.Mutex
 
 	users      []*AppUser
 	newUsers   []*AppUser
@@ -140,11 +144,13 @@ type State struct {
 	adminMap        map[string]*Administrator
 	adminCheckerMap map[*Administrator]*Checker
 
-	events    []*Event
-	newEvents []*Event
+	events []*Event
 
-	eventSheetRanks        []*EventSheetRank
-	privateEventSheetRanks []*EventSheetRank
+	// public && closed does not happen
+	eventSheets         []*EventSheet // public && !closed
+	privateEventSheets  []*EventSheet // !public && !closed
+	closedEventSheets   []*EventSheet // !public && closed
+	reservedEventSheets []*EventSheet
 
 	reservationsMtx sync.Mutex
 	reservations    map[uint]*Reservation // key: reservation id
@@ -178,9 +184,8 @@ func (s *State) Init() {
 	}
 
 	for _, event := range DataSet.Events {
-		s.pushNewEventLocked(event)
+		s.pushNewEventLocked(event, "Init")
 	}
-	s.newEvents = append(s.newEvents, DataSet.NewEvents...)
 
 	s.reservations = map[uint]*Reservation{}
 
@@ -196,6 +201,7 @@ func (s *State) PopRandomUser() (*AppUser, *Checker, func()) {
 
 	n := len(s.users)
 	if n == 0 {
+		log.Println("debug: Empty users")
 		return nil, nil, nil
 	}
 
@@ -275,6 +281,7 @@ func (s *State) PopRandomAdministrator() (*Administrator, *Checker, func()) {
 
 	n := len(s.admins)
 	if n == 0 {
+		log.Println("debug: Empty admins")
 		return nil, nil, nil
 	}
 
@@ -342,92 +349,93 @@ func (s *State) PushEvent(event *Event) {
 	s.events = append(s.events, event)
 }
 
-func (s *State) PopNewEvent() (*Event, func()) {
-	s.mtx.Lock()
-	defer s.mtx.Unlock()
-
-	n := len(s.newEvents)
-	if n == 0 {
-		return nil, nil
+func (s *State) CreateNewEvent() (*Event, func(caller string)) {
+	event := &Event{
+		ID:       0, // auto increment
+		Title:    RandomAlphabetString(32),
+		PublicFg: true,
+		ClosedFg: false,
+		Price:    1000 + uint(rand.Intn(10)*1000),
 	}
 
-	event := s.newEvents[n-1]
-	s.newEvents = s.newEvents[:n-1]
-
-	// NOTE: push() function pushes into s.events, does not push back to s.newEvents.
+	// NOTE: push() function pushes into s.events, does not push to s.newEvents.
 	// You should call push() after you verify that a new event is successfully created on the server.
-	return event, func() { s.PushNewEvent(event) }
+	return event, func(caller string) { s.PushNewEvent(event, caller) }
 }
 
-func (s *State) PushNewEvent(event *Event) {
+func (s *State) PushNewEvent(event *Event, caller string) {
 	s.mtx.Lock()
 	defer s.mtx.Unlock()
 
-	s.pushNewEventLocked(event)
+	s.pushNewEventLocked(event, caller)
 }
 
-func (s *State) pushNewEventLocked(event *Event) {
+func (s *State) pushNewEventLocked(event *Event, caller string) {
+	log.Printf("debug: newEventPush %d %s %d Public:%t Closed:%t (Caller:%s)\n", event.ID, event.Title, event.Price, event.PublicFg, event.ClosedFg, caller)
+
 	event.CreatedAt = time.Now()
-	log.Printf("debug: newEventPush %d %s %d %t\n", event.ID, event.Title, event.Price, event.PublicFg)
 	s.events = append(s.events, event)
 
+	newEventSheets := []*EventSheet{}
 	for _, sheetKind := range DataSet.SheetKinds {
-		eventSheetRank := &EventSheetRank{}
-		eventSheetRank.EventID = event.ID
-		eventSheetRank.Rank = sheetKind.Rank
-		eventSheetRank.Total = sheetKind.Total
-		eventSheetRank.Remains = sheetKind.Total
-		eventSheetRank.Reserved = map[uint]bool{}
-		if event.PublicFg {
-			s.eventSheetRanks = append(s.eventSheetRanks, eventSheetRank)
-		} else {
-			s.privateEventSheetRanks = append(s.privateEventSheetRanks, eventSheetRank)
+		for i := uint(0); i < sheetKind.Total; i++ {
+			eventSheet := &EventSheet{event.ID, sheetKind.Rank, NonReservedNum}
+			newEventSheets = append(newEventSheets, eventSheet)
 		}
+	}
+	// NOTE: Push new events to front so that PopEventSheet pops a sheet from older ones.
+	if event.ClosedFg {
+		s.closedEventSheets = append(newEventSheets, s.closedEventSheets...)
+	} else if !event.PublicFg {
+		s.privateEventSheets = append(newEventSheets, s.privateEventSheets...)
+	} else {
+		s.eventSheets = append(newEventSheets, s.eventSheets...)
 	}
 }
 
-func (s *State) GetEventSheetRanksByEventID(eventID uint) []*EventSheetRank {
+// func (s *State) GetEventSheetRanksByEventID(eventID uint) []*EventSheetRank {
+// 	s.mtx.Lock()
+// 	defer s.mtx.Unlock()
+//
+// 	eventSheetRanks := make([]*EventSheetRank, 0, len(DataSet.SheetKinds))
+// 	for _, eventSheetRank := range s.eventSheetRanks {
+// 		if eventSheetRank.EventID != eventID {
+// 			continue
+// 		}
+// 		eventSheetRanks = append(eventSheetRanks, eventSheetRank)
+// 		if len(eventSheetRanks) == len(DataSet.SheetKinds) {
+// 			break
+// 		}
+// 	}
+//
+// 	return eventSheetRanks
+// }
+
+func (s *State) PopEventSheet() (*EventSheet, func()) {
 	s.mtx.Lock()
 	defer s.mtx.Unlock()
 
-	eventSheetRanks := make([]*EventSheetRank, 0, len(DataSet.SheetKinds))
-	for _, eventSheetRank := range s.eventSheetRanks {
-		if eventSheetRank.EventID != eventID {
-			continue
-		}
-		eventSheetRanks = append(eventSheetRanks, eventSheetRank)
-		if len(eventSheetRanks) == len(DataSet.SheetKinds) {
-			break
-		}
-	}
-
-	return eventSheetRanks
-}
-
-func (s *State) PopRandomEventSheetRank() (*EventSheetRank, func()) {
-	s.mtx.Lock()
-	defer s.mtx.Unlock()
-
-	n := len(s.eventSheetRanks)
+	n := len(s.eventSheets)
 	if n == 0 {
+		log.Println("debug: Empty eventSheets, will create a new event.")
 		return nil, nil
 	}
 
-	i := rand.Intn(n)
-	rs := s.eventSheetRanks[i]
+	es := s.eventSheets[n-1]
+	s.eventSheets = s.eventSheets[:n-1]
 
-	s.eventSheetRanks[i] = s.eventSheetRanks[n-1]
-	s.eventSheetRanks[n-1] = nil
-	s.eventSheetRanks = s.eventSheetRanks[:n-1]
-
-	return rs, func() { s.PushEventSheetRank(rs) }
+	return es, func() { s.PushEventSheet(es) }
 }
 
-func (s *State) PushEventSheetRank(eventSheetRank *EventSheetRank) {
+func (s *State) PushEventSheet(eventSheet *EventSheet) {
 	s.mtx.Lock()
 	defer s.mtx.Unlock()
 
-	s.eventSheetRanks = append(s.eventSheetRanks, eventSheetRank)
+	if eventSheet.Num == NonReservedNum {
+		s.eventSheets = append(s.eventSheets, eventSheet)
+	} else {
+		s.reservedEventSheets = append(s.reservedEventSheets, eventSheet)
+	}
 }
 
 func GetRandomSheetRank() string {

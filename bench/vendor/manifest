@@ -31,6 +31,12 @@
 			"repository": "https://github.com/comail/colog",
 			"revision": "fba8e7b1f46c3607f09760ce3880066e7ff57c5a",
 			"branch": "master"
+		},
+		{
+			"importpath": "github.com/LK4D4/trylock",
+			"repository": "https://github.com/LK4D4/trylock",
+			"revision": "5d1441de670510a33233d8746b2d32f00355fa8b",
+			"branch": "master"
 		}
 	]
 }

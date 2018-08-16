@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"io"
 	"log"
-	"math/rand"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -116,17 +115,6 @@ func prepareEventDataSet() {
 		}
 
 		DataSet.Events = append(DataSet.Events, event)
-	}
-
-	for i := 0; i < 100; i++ {
-		event := &Event{
-			ID:       0, // auto increment
-			Title:    RandomAlphabetString(32),
-			PublicFg: true,
-			ClosedFg: false,
-			Price:    1000 + uint(rand.Intn(10)*1000),
-		}
-		DataSet.NewEvents = append(DataSet.NewEvents, event)
 	}
 }
 
