@@ -12,6 +12,7 @@ import (
 	"hash"
 	"hash/crc32"
 	"io"
+	"log"
 	"math/rand"
 	"net/http"
 	"os"
@@ -1128,7 +1129,7 @@ func checkReportResponse(s *State) func(res *http.Response, body *bytes.Buffer) 
 		// 8,1,484,A,6000,2018-08-02T05:04:10Z
 		// 9,1,377,B,4000,2018-08-02T05:04:12Z
 
-		// fmt.Println(body)
+		log.Println("debug:", body)
 		r := csv.NewReader(body)
 		record, err := r.Read()
 		if err == io.EOF ||
@@ -1181,7 +1182,7 @@ func checkReportResponse(s *State) func(res *http.Response, body *bytes.Buffer) 
 		reservationsCount := len(s.reservations)
 		maybeCanceledCount := len(s.cancelLog)
 		maybeReservedCount := len(s.reserveLog)
-		// fmt.Printf("reservationsCount:%d - maybeCanceldCount:%d <= reportCount:%d <= reservationsCount:%d + maybeReservedCount%d\n", reservationsCount, maybeCanceledCount, reportCount, reservationsCount, maybeReservedCount)
+		log.Printf("debug: reservationsCount:%d - maybeCanceldCount:%d <= reportCount:%d <= reservationsCount:%d + maybeReservedCount%d\n", reservationsCount, maybeCanceledCount, reportCount, reservationsCount, maybeReservedCount)
 		if reservationsCount-maybeCanceledCount <= reportCount && reportCount <= reservationsCount+maybeReservedCount {
 		} else {
 			return fatalErrorf(msg)

@@ -25,6 +25,12 @@
 			"revision": "1c05540f6879653db88113bc4a2b70aec4bd491f",
 			"branch": "master",
 			"path": "/html"
+		},
+		{
+			"importpath": "github.com/comail/colog",
+			"repository": "https://github.com/comail/colog",
+			"revision": "fba8e7b1f46c3607f09760ce3880066e7ff57c5a",
+			"branch": "master"
 		}
 	]
 }

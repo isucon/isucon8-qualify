@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"bench"
+	"github.com/comail/colog"
 )
 
 var (
@@ -395,6 +396,9 @@ func startBenchmark(remoteAddrs []string) *BenchResult {
 func main() {
 	log.SetFlags(log.LstdFlags | log.Lmicroseconds | log.Lshortfile)
 	log.SetPrefix("[isu8q-bench] ")
+	colog.Register()
+	colog.SetDefaultLevel(colog.LInfo)
+	colog.SetMinLevel(colog.LInfo)
 
 	var (
 		workermode bool
@@ -405,7 +409,8 @@ func main() {
 		jobid      string
 		tempdir    string
 		test       bool
-		debug      bool
+		debugMode  bool
+		debugLog   bool
 		nolevelup  bool
 		duration   time.Duration
 	)
@@ -418,12 +423,16 @@ func main() {
 	flag.StringVar(&jobid, "jobid", "", "job id")
 	flag.StringVar(&tempdir, "tempdir", "", "path to temp dir")
 	flag.BoolVar(&test, "test", false, "run pretest only")
-	flag.BoolVar(&debug, "debug", false, "add debugging info into request header")
+	flag.BoolVar(&debugMode, "debug-mode", false, "add debugging info into request header")
+	flag.BoolVar(&debugLog, "debug-log", false, "print debug log")
 	flag.DurationVar(&duration, "duration", time.Minute, "benchamrk duration")
 	flag.BoolVar(&nolevelup, "nolevelup", false, "dont increase load level")
 	flag.Parse()
 
-	bench.DebugMode = debug
+	if debugLog {
+		colog.SetMinLevel(colog.LDebug)
+	}
+	bench.DebugMode = debugMode
 	bench.DataPath = dataPath
 	bench.PrepareDataSet()
 
