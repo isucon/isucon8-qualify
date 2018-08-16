@@ -184,7 +184,7 @@ func (s *State) Init() {
 	}
 
 	for _, event := range DataSet.Events {
-		s.pushNewEventLocked(event)
+		s.pushNewEventLocked(event, "Init")
 	}
 
 	s.reservations = map[uint]*Reservation{}
@@ -349,7 +349,7 @@ func (s *State) PushEvent(event *Event) {
 	s.events = append(s.events, event)
 }
 
-func (s *State) CreateNewEvent() (*Event, func()) {
+func (s *State) CreateNewEvent() (*Event, func(caller string)) {
 	event := &Event{
 		ID:       0, // auto increment
 		Title:    RandomAlphabetString(32),
@@ -360,19 +360,20 @@ func (s *State) CreateNewEvent() (*Event, func()) {
 
 	// NOTE: push() function pushes into s.events, does not push to s.newEvents.
 	// You should call push() after you verify that a new event is successfully created on the server.
-	return event, func() { s.PushNewEvent(event) }
+	return event, func(caller string) { s.PushNewEvent(event, caller) }
 }
 
-func (s *State) PushNewEvent(event *Event) {
+func (s *State) PushNewEvent(event *Event, caller string) {
 	s.mtx.Lock()
 	defer s.mtx.Unlock()
 
-	s.pushNewEventLocked(event)
+	s.pushNewEventLocked(event, caller)
 }
 
-func (s *State) pushNewEventLocked(event *Event) {
+func (s *State) pushNewEventLocked(event *Event, caller string) {
+	log.Printf("debug: newEventPush %d %s %d Public:%t Closed:%t (Caller:%s)\n", event.ID, event.Title, event.Price, event.PublicFg, event.ClosedFg, caller)
+
 	event.CreatedAt = time.Now()
-	log.Printf("debug: newEventPush %d %s %d Public:%t Closed:%t\n", event.ID, event.Title, event.Price, event.PublicFg, event.ClosedFg)
 	s.events = append(s.events, event)
 
 	newEventSheets := []*EventSheet{}
