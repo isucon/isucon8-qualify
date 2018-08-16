@@ -94,6 +94,7 @@ func checkEventsList(state *State, events []JsonEvent) error {
 		}
 	} else if len(events) > len(expected) {
 		// XXX: 期待する数を超えて返ってきた場合はIDがより新しいものであることを確認して無視する
+		// TODO(sonots): This does not cover cases such that younger IDs are timeouted. Fix it.
 		for i := len(events) - 1; i > 0; i-- {
 			if events[i].ID <= expected[len(expected)-1].ID {
 				break
@@ -102,42 +103,43 @@ func checkEventsList(state *State, events []JsonEvent) error {
 		}
 	}
 
-	for i, e := range events {
-		if i == len(expected) {
-			break
-		}
+	// TODO(sonots): Following checks possibly fail if create event API is timeouted. Fix it.
+	// for i, e := range events {
+	// 	if i == len(expected) {
+	// 		break
+	// 	}
 
-		if e.ID != expected[i].ID {
-			return fatalErrorf("イベントの順番が正しくありません")
-		}
-		if e.Title != expected[i].Title {
-			return fatalErrorf("イベント(id:%d)のタイトルが正しくありません", e.ID)
-		}
-		if int(e.Total) != len(DataSet.Sheets) {
-			return fatalErrorf("イベント(id:%d)の総座席数が正しくありません", e.ID)
-		}
+	// 	if e.ID != expected[i].ID {
+	// 		return fatalErrorf("イベントの順番が正しくありません")
+	// 	}
+	// 	if e.Title != expected[i].Title {
+	// 		return fatalErrorf("イベント(id:%d)のタイトルが正しくありません", e.ID)
+	// 	}
+	// 	if int(e.Total) != len(DataSet.Sheets) {
+	// 		return fatalErrorf("イベント(id:%d)の総座席数が正しくありません", e.ID)
+	// 	}
 
-		var remains uint
-		for _, eventSheetRank := range state.GetEventSheetRanksByEventID(e.ID) {
-			if e.Sheets[eventSheetRank.Rank].Total != eventSheetRank.Total {
-				return fatalErrorf("イベント(id:%d)の%s席の総座席数が正しくありません", e.ID, eventSheetRank.Rank)
-			}
-			// TODO(karupa): check remains
-			// if e.Sheets[eventSheetRank.Rank].Remains != eventSheetRank.Remains {
-			// 	log.Printf("[DEBUG] Event(%d) %s: expected %d but got %d", e.ID, eventSheetRank.Rank, eventSheetRank.Remains, e.Sheets[eventSheetRank.Rank].Remains)
-			// 	return fatalErrorf("イベント(id:%d)の%s席の残座席数が正しくありません", e.ID, eventSheetRank.Rank)
-			//}
-			// TODO(karupa): check price
-			// if e.Sheets[eventSheetRank.Rank].Price != eventSheetRank.Price {
-			// 	return fatalErrorf("イベント(id:%d)の%s席の価格が正しくありません", e.ID, eventSheetRank.Rank)
-			// }
-			remains += eventSheetRank.Remains
-		}
-		// TODO(karupa): check remains
-		// if e.Remains != remains {
-		// 	return fatalErrorf("イベント(id:%d)の総残座席数が正しくありません", e.ID)
-		// }
-	}
+	// 	var remains uint
+	// 	for _, eventSheetRank := range state.GetEventSheetRanksByEventID(e.ID) {
+	// 		if e.Sheets[eventSheetRank.Rank].Total != eventSheetRank.Total {
+	// 			return fatalErrorf("イベント(id:%d)の%s席の総座席数が正しくありません", e.ID, eventSheetRank.Rank)
+	// 		}
+	// 		// TODO(karupa): check remains
+	// 		// if e.Sheets[eventSheetRank.Rank].Remains != eventSheetRank.Remains {
+	// 		// 	log.Printf("[DEBUG] Event(%d) %s: expected %d but got %d", e.ID, eventSheetRank.Rank, eventSheetRank.Remains, e.Sheets[eventSheetRank.Rank].Remains)
+	// 		// 	return fatalErrorf("イベント(id:%d)の%s席の残座席数が正しくありません", e.ID, eventSheetRank.Rank)
+	// 		//}
+	// 		// TODO(karupa): check price
+	// 		// if e.Sheets[eventSheetRank.Rank].Price != eventSheetRank.Price {
+	// 		// 	return fatalErrorf("イベント(id:%d)の%s席の価格が正しくありません", e.ID, eventSheetRank.Rank)
+	// 		// }
+	// 		remains += eventSheetRank.Remains
+	// 	}
+	// 	// TODO(karupa): check remains
+	// 	// if e.Remains != remains {
+	// 	// 	return fatalErrorf("イベント(id:%d)の総残座席数が正しくありません", e.ID)
+	// 	// }
+	// }
 	return nil
 }
 
