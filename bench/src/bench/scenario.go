@@ -246,14 +246,14 @@ func LoadTopPage(ctx context.Context, state *State) error {
 
 // 席は(rank 内で)ランダムに割り当てられるため、良い席に当たるまで予約連打して、キャンセルする悪質ユーザがいる
 func LoadReserveCancelSheet(ctx context.Context, state *State) error {
-	eventSheetRank, eventSheetRankPush := state.PopEventSheetRank()
+	eventSheetRank, eventSheetRankPush, err := popOrCreateEventSheetRank(ctx, state)
+	if err != nil {
+		return err
+	}
 	if eventSheetRank == nil {
 		return nil
 	}
 	defer eventSheetRankPush()
-	if eventSheetRank.Remains <= 0 {
-		return nil
-	}
 
 	user, userChecker, userPush := state.PopRandomUser()
 	if user == nil {
@@ -261,7 +261,7 @@ func LoadReserveCancelSheet(ctx context.Context, state *State) error {
 	}
 	defer userPush()
 
-	err := loginAppUser(ctx, userChecker, user)
+	err = loginAppUser(ctx, userChecker, user)
 	if err != nil {
 		return err
 	}
@@ -280,7 +280,10 @@ func LoadReserveCancelSheet(ctx context.Context, state *State) error {
 }
 
 func LoadReserveSheet(ctx context.Context, state *State) error {
-	eventSheetRank, eventSheetRankPush := state.PopEventSheetRank()
+	eventSheetRank, eventSheetRankPush, err := popOrCreateEventSheetRank(ctx, state)
+	if err != nil {
+		return err
+	}
 	if eventSheetRank == nil {
 		return nil
 	}
@@ -292,7 +295,7 @@ func LoadReserveSheet(ctx context.Context, state *State) error {
 	}
 	defer userPush()
 
-	err := loginAppUser(ctx, userChecker, user)
+	err = loginAppUser(ctx, userChecker, user)
 	if err != nil {
 		return err
 	}
@@ -612,11 +615,15 @@ func CheckReserveSheet(ctx context.Context, state *State) error {
 		return err
 	}
 
-	eventSheetRank, eventSheetRankPush := state.PopEventSheetRank()
+	eventSheetRank, eventSheetRankPush, err := popOrCreateEventSheetRank(ctx, state)
+	if err != nil {
+		return err
+	}
 	if eventSheetRank == nil {
 		return nil
 	}
 	defer eventSheetRankPush()
+
 	eventID := eventSheetRank.EventID
 	rank := eventSheetRank.Rank
 
@@ -953,9 +960,6 @@ func CheckCreateEvent(ctx context.Context, state *State) error {
 	}
 
 	event, newEventPush := state.CreateNewEvent()
-	if event == nil {
-		return nil
-	}
 
 	err = userChecker.Play(ctx, &CheckAction{
 		Method:             "POST",
@@ -1295,6 +1299,43 @@ func logoutAppUser(ctx context.Context, checker *Checker, user *AppUser) error {
 
 	user.Status.Online = false
 	return nil
+}
+
+func popOrCreateEventSheetRank(ctx context.Context, state *State) (*EventSheetRank, func(), error) {
+	eventSheetRank, eventSheetRankPush := state.PopEventSheetRank()
+	if eventSheetRank != nil {
+		return eventSheetRank, eventSheetRankPush, nil
+	}
+
+	admin, adminChecker, adminPush := state.PopRandomAdministrator()
+	if admin == nil {
+		return nil, nil, nil
+	}
+	defer adminPush()
+
+	err := loginAdministrator(ctx, adminChecker, admin)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	event, newEventPush := state.CreateNewEvent()
+	err = adminChecker.Play(ctx, &CheckAction{
+		Method:             "POST",
+		Path:               "/admin/api/events",
+		ExpectedStatusCode: 200,
+		Description:        "管理者がイベントを作成できること",
+		PostJSON:           eventPostJSON(event),
+		CheckFunc:          checkJsonAdminEventCreateResponse(event),
+	})
+	if err != nil {
+		return nil, nil, err
+	}
+	event.CreatedAt = time.Now()
+
+	newEventPush()
+
+	eventSheetRank, eventSheetRankPush = state.PopEventSheetRank()
+	return eventSheetRank, eventSheetRankPush, nil
 }
 
 func checkJsonReservedResponse(reserved *JsonReserved) func(res *http.Response, body *bytes.Buffer) error {

@@ -195,6 +195,7 @@ func (s *State) PopRandomUser() (*AppUser, *Checker, func()) {
 
 	n := len(s.users)
 	if n == 0 {
+		log.Println("debug: Empty users")
 		return nil, nil, nil
 	}
 
@@ -274,6 +275,7 @@ func (s *State) PopRandomAdministrator() (*Administrator, *Checker, func()) {
 
 	n := len(s.admins)
 	if n == 0 {
+		log.Println("debug: Empty admins")
 		return nil, nil, nil
 	}
 
@@ -364,7 +366,7 @@ func (s *State) PushNewEvent(event *Event) {
 
 func (s *State) pushNewEventLocked(event *Event) {
 	event.CreatedAt = time.Now()
-	log.Printf("debug: newEventPush %d %s %d %t\n", event.ID, event.Title, event.Price, event.PublicFg)
+	log.Printf("debug: newEventPush %d %s %d Public:%t Closed:%t\n", event.ID, event.Title, event.Price, event.PublicFg, event.ClosedFg)
 	s.events = append(s.events, event)
 
 	for _, sheetKind := range DataSet.SheetKinds {
@@ -410,6 +412,7 @@ func (s *State) PopEventSheetRank() (*EventSheetRank, func()) {
 
 	n := len(s.eventSheetRanks)
 	if n == 0 {
+		log.Println("debug: Empty eventSheetRanks, will create a new event.")
 		return nil, nil
 	}
 
