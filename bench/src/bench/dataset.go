@@ -102,7 +102,7 @@ func prepareEventDataSet() {
 			Title:    RandomAlphabetString(32),
 			PublicFg: true,
 			ClosedFg: false,
-			Price:    uint(rand.Intn(10) * 1000),
+			Price:    1000 + uint(rand.Intn(10)*1000),
 		}
 		DataSet.NewEvents = append(DataSet.NewEvents, event)
 	}
