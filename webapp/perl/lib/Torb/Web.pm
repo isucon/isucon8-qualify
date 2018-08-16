@@ -541,6 +541,8 @@ post '/admin/api/events' => [qw/allow_json_request admin_login_required/] => sub
     }
 
     my $event = $self->get_event($event_id);
+    $event->{public} = delete $event->{public_fg} ? JSON::XS::true : JSON::XS::false;
+    $event->{closed} = delete $event->{closed_fg} ? JSON::XS::true : JSON::XS::false;
     return $c->render_json($event);
 };
 
