@@ -1,6 +1,7 @@
 package bench
 
 import (
+	"log"
 	"math/rand"
 	"sync"
 	"time"
@@ -258,7 +259,7 @@ func (s *State) PushNewUser(u *AppUser) {
 }
 
 func (s *State) pushNewUserLocked(u *AppUser) {
-	// fmt.Printf("newUserPush %d %s %s\n", u.ID, u.LoginName, u.Nickname)
+	log.Printf("debug: newUserPush %d %s %s\n", u.ID, u.LoginName, u.Nickname)
 	s.userMap[u.LoginName] = u
 	s.users = append(s.users, u)
 }
@@ -381,7 +382,7 @@ func (s *State) PushNewEvent(event *Event) {
 
 func (s *State) pushNewEventLocked(event *Event) {
 	event.CreatedAt = time.Now()
-	// fmt.Printf("newEventPush %d %s %d %t\n", event.ID, event.Title, event.Price, event.PublicFg)
+	log.Printf("debug: newEventPush %d %s %d %t\n", event.ID, event.Title, event.Price, event.PublicFg)
 	s.events = append(s.events, event)
 
 	for _, sheetKind := range DataSet.SheetKinds {
@@ -491,7 +492,7 @@ func (s *State) AppendReserveLog(reserveLog *ReserveLog) uint64 {
 	s.reserveLogID += 1
 	s.reserveLog[s.reserveLogID] = reserveLog
 
-	// fmt.Printf("AppendReserveLog LogID:%2d EventID:%2d UserID:%3d SheetRank:%s\n", s.reserveLogID, reserveLog.EventID, reserveLog.UserID, reserveLog.SheetRank)
+	log.Printf("debug: AppendReserveLog LogID:%2d EventID:%2d UserID:%3d SheetRank:%s\n", s.reserveLogID, reserveLog.EventID, reserveLog.UserID, reserveLog.SheetRank)
 	return s.reserveLogID
 }
 
@@ -499,7 +500,7 @@ func (s *State) DeleteReserveLog(reserveLogID uint64) {
 	s.reserveLogMtx.Lock()
 	defer s.reserveLogMtx.Unlock()
 
-	// fmt.Printf("DeleteReserveLog LogID:%2d\n", reserveLogID)
+	log.Printf("debug: DeleteReserveLog LogID:%2d\n", reserveLogID)
 	delete(s.reserveLog, reserveLogID)
 }
 
@@ -510,7 +511,7 @@ func (s *State) AppendCancelLog(cancelLog *CancelLog) uint64 {
 	s.cancelLogID += 1
 	s.cancelLog[s.cancelLogID] = cancelLog
 
-	// fmt.Printf("AppendCancelLog  LogID:%2d EventID:%2d UserID:%3d SheetRank:%s ReservationID:%d\n", s.cancelLogID, cancelLog.EventID, cancelLog.UserID, cancelLog.SheetRank, cancelLog.ReservationID)
+	log.Printf("debug: AppendCancelLog  LogID:%2d EventID:%2d UserID:%3d SheetRank:%s ReservationID:%d\n", s.cancelLogID, cancelLog.EventID, cancelLog.UserID, cancelLog.SheetRank, cancelLog.ReservationID)
 	return s.cancelLogID
 }
 
@@ -518,6 +519,6 @@ func (s *State) DeleteCancelLog(cancelLogID uint64) {
 	s.cancelLogMtx.Lock()
 	defer s.cancelLogMtx.Unlock()
 
-	// fmt.Printf("DeleteCancelLog  LogID:%2d\n", cancelLogID)
+	log.Printf("debug: DeleteCancelLog  LogID:%2d\n", cancelLogID)
 	delete(s.cancelLog, cancelLogID)
 }
