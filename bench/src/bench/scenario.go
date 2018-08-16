@@ -246,14 +246,14 @@ func LoadTopPage(ctx context.Context, state *State) error {
 
 // 席は(rank 内で)ランダムに割り当てられるため、良い席に当たるまで予約連打して、キャンセルする悪質ユーザがいる
 func LoadReserveCancelSheet(ctx context.Context, state *State) error {
-	eventSheetRank, eventSheetRankPush, err := popOrCreateEventSheetRank(ctx, state)
+	eventSheet, eventSheetPush, err := popOrCreateEventSheet(ctx, state)
 	if err != nil {
 		return err
 	}
-	if eventSheetRank == nil {
+	if eventSheet == nil {
 		return nil
 	}
-	defer eventSheetRankPush()
+	defer eventSheetPush()
 
 	user, userChecker, userPush := state.PopRandomUser()
 	if user == nil {
@@ -266,12 +266,12 @@ func LoadReserveCancelSheet(ctx context.Context, state *State) error {
 		return err
 	}
 
-	reserved, err := reserveSheet(ctx, state, userChecker, user.ID, eventSheetRank)
+	reserved, err := reserveSheet(ctx, state, userChecker, user.ID, eventSheet)
 	if err != nil {
 		return err
 	}
 
-	err = cancelSheet(ctx, state, userChecker, user.ID, eventSheetRank, reserved)
+	err = cancelSheet(ctx, state, userChecker, user.ID, eventSheet, reserved)
 	if err != nil {
 		return err
 	}
@@ -280,14 +280,14 @@ func LoadReserveCancelSheet(ctx context.Context, state *State) error {
 }
 
 func LoadReserveSheet(ctx context.Context, state *State) error {
-	eventSheetRank, eventSheetRankPush, err := popOrCreateEventSheetRank(ctx, state)
+	eventSheet, eventSheetPush, err := popOrCreateEventSheet(ctx, state)
 	if err != nil {
 		return err
 	}
-	if eventSheetRank == nil {
+	if eventSheet == nil {
 		return nil
 	}
-	defer eventSheetRankPush()
+	defer eventSheetPush()
 
 	user, userChecker, userPush := state.PopRandomUser()
 	if user == nil {
@@ -300,7 +300,7 @@ func LoadReserveSheet(ctx context.Context, state *State) error {
 		return err
 	}
 
-	_, err = reserveSheet(ctx, state, userChecker, user.ID, eventSheetRank)
+	_, err = reserveSheet(ctx, state, userChecker, user.ID, eventSheet)
 	if err != nil {
 		return err
 	}
@@ -615,67 +615,65 @@ func CheckReserveSheet(ctx context.Context, state *State) error {
 		return err
 	}
 
-	eventSheetRank, eventSheetRankPush, err := popOrCreateEventSheetRank(ctx, state)
+	// TODO(sonots); Need to find a sheet rank which are sold_out
+	// err = userChecker.Play(ctx, &CheckAction{
+	// 	Method:             "POST",
+	// 	Path:               fmt.Sprintf("/api/events/%d/actions/reserve", eventID),
+	// 	ExpectedStatusCode: 409,
+	// 	Description:        "売り切れの場合エラーになること",
+	// 	CheckFunc:          checkJsonErrorResponse("sold_out"),
+	// 	PostJSON: map[string]interface{}{
+	// 		"sheet_rank": rank,
+	// 	},
+	// })
+	// if err != nil {
+	// 	return err
+	// }
+
+	eventSheet, eventSheetPush, err := popOrCreateEventSheet(ctx, state)
 	if err != nil {
 		return err
 	}
-	if eventSheetRank == nil {
+	if eventSheet == nil {
 		return nil
 	}
-	defer eventSheetRankPush()
+	defer eventSheetPush()
 
-	eventID := eventSheetRank.EventID
-	rank := eventSheetRank.Rank
+	eventID := eventSheet.EventID
+	rank := eventSheet.Rank
 
-	if eventSheetRank.Remains <= 0 {
-		err = userChecker.Play(ctx, &CheckAction{
-			Method:             "POST",
-			Path:               fmt.Sprintf("/api/events/%d/actions/reserve", eventID),
-			ExpectedStatusCode: 409,
-			Description:        "売り切れの場合エラーになること",
-			CheckFunc:          checkJsonErrorResponse("sold_out"),
-			PostJSON: map[string]interface{}{
-				"sheet_rank": rank,
-			},
-		})
-		if err != nil {
-			return err
-		}
-
-	} else {
-		reserved, err := reserveSheet(ctx, state, userChecker, user.ID, eventSheetRank)
-		if err != nil {
-			return err
-		}
-
-		err = cancelSheet(ctx, state, userChecker, user.ID, eventSheetRank, reserved)
-		if err != nil {
-			return err
-		}
-
-		err = userChecker.Play(ctx, &CheckAction{
-			Method:             "DELETE",
-			Path:               fmt.Sprintf("/api/events/%d/sheets/%s/%d/reservation", eventID, reserved.SheetRank, reserved.SheetNum),
-			ExpectedStatusCode: 400,
-			Description:        "すでにキャンセル済みの場合エラーになること",
-			CheckFunc:          checkJsonErrorResponse("not_reserved"),
-		})
-		if err != nil {
-			return err
-		}
-
-		// TODO(sonots): Need to find a sheet which somebody else reserved.
-		// err := userChecker.Play(ctx, &CheckAction{
-		// 	Method:      "DELETE",
-		// 	Path:        fmt.Sprintf("/api/events/%d/sheets/%s/%d/reservation", eventID, reserved.SheetRank, reserved.SheetNum),
-		// 	ExpectedStatusCode: 403,
-		// 	Description: "購入していないチケットをキャンセルしようとするとエラーになること",
-		//	CheckFunc:          checkJsonErrorResponse("not_permitted"),
-		// })
-		// if err != nil {
-		// 	return err
-		// }
+	reserved, err := reserveSheet(ctx, state, userChecker, user.ID, eventSheet)
+	if err != nil {
+		return err
 	}
+
+	err = cancelSheet(ctx, state, userChecker, user.ID, eventSheet, reserved)
+	if err != nil {
+		return err
+	}
+
+	err = userChecker.Play(ctx, &CheckAction{
+		Method:             "DELETE",
+		Path:               fmt.Sprintf("/api/events/%d/sheets/%s/%d/reservation", eventID, reserved.SheetRank, reserved.SheetNum),
+		ExpectedStatusCode: 400,
+		Description:        "すでにキャンセル済みの場合エラーになること",
+		CheckFunc:          checkJsonErrorResponse("not_reserved"),
+	})
+	if err != nil {
+		return err
+	}
+
+	// TODO(sonots): Need to find a sheet which somebody else reserved.
+	// err := userChecker.Play(ctx, &CheckAction{
+	// 	Method:      "DELETE",
+	// 	Path:        fmt.Sprintf("/api/events/%d/sheets/%s/%d/reservation", eventID, reserved.SheetRank, reserved.SheetNum),
+	// 	ExpectedStatusCode: 403,
+	// 	Description: "購入していないチケットをキャンセルしようとするとエラーになること",
+	//	CheckFunc:          checkJsonErrorResponse("not_permitted"),
+	// })
+	// if err != nil {
+	// 	return err
+	// }
 
 	// TODO(sonots): Randomize, but find ID which does not exist.
 	unknownEventID := 0
@@ -1300,12 +1298,13 @@ func logoutAppUser(ctx context.Context, checker *Checker, user *AppUser) error {
 	return nil
 }
 
-func popOrCreateEventSheetRank(ctx context.Context, state *State) (*EventSheetRank, func(), error) {
-	eventSheetRank, eventSheetRankPush := state.PopEventSheetRank()
-	if eventSheetRank != nil {
-		return eventSheetRank, eventSheetRankPush, nil
+func popOrCreateEventSheet(ctx context.Context, state *State) (*EventSheet, func(), error) {
+	eventSheet, eventSheetPush := state.PopEventSheet()
+	if eventSheet != nil {
+		return eventSheet, eventSheetPush, nil
 	}
 
+	// If no EventSheet is available, create a new event
 	admin, adminChecker, adminPush := state.PopRandomAdministrator()
 	if admin == nil {
 		return nil, nil, nil
@@ -1332,8 +1331,8 @@ func popOrCreateEventSheetRank(ctx context.Context, state *State) (*EventSheetRa
 	event.CreatedAt = time.Now()
 	newEventPush()
 
-	eventSheetRank, eventSheetRankPush = state.PopEventSheetRank()
-	return eventSheetRank, eventSheetRankPush, nil
+	eventSheet, eventSheetPush = state.PopEventSheet()
+	return eventSheet, eventSheetPush, nil
 }
 
 func checkJsonReservedResponse(reserved *JsonReserved) func(res *http.Response, body *bytes.Buffer) error {
@@ -1354,11 +1353,11 @@ func checkJsonReservedResponse(reserved *JsonReserved) func(res *http.Response, 
 	}
 }
 
-func reserveSheet(ctx context.Context, state *State, checker *Checker, userID uint, eventSheetRank *EventSheetRank) (*JsonReserved, error) {
-	eventID := eventSheetRank.EventID
-	rank := eventSheetRank.Rank
+func reserveSheet(ctx context.Context, state *State, checker *Checker, userID uint, eventSheet *EventSheet) (*JsonReserved, error) {
+	eventID := eventSheet.EventID
+	rank := eventSheet.Rank
 
-	reserved := &JsonReserved{0, rank, 0}
+	reserved := &JsonReserved{ReservationID: 0, SheetRank: rank, SheetNum: 0}
 	reservation := &Reservation{ID: 0, EventID: eventID, UserID: userID, SheetRank: rank, SheetNum: 0}
 	logID := state.AppendReserveLog(reservation)
 	err := checker.Play(ctx, &CheckAction{
@@ -1377,16 +1376,15 @@ func reserveSheet(ctx context.Context, state *State, checker *Checker, userID ui
 	reservation.ID = reserved.ReservationID
 	reservation.SheetNum = reserved.SheetNum
 	state.DeleteReserveLog(logID, reservation)
-	eventSheetRank.Remains--
-	eventSheetRank.Reserved[reserved.SheetNum] = true
+	eventSheet.Num = reserved.SheetNum
 	state.AppendReservation(reservation)
 
 	return reserved, nil
 }
 
-func cancelSheet(ctx context.Context, state *State, checker *Checker, userID uint, eventSheetRank *EventSheetRank, reserved *JsonReserved) error {
-	eventID := eventSheetRank.EventID
-	rank := eventSheetRank.Rank
+func cancelSheet(ctx context.Context, state *State, checker *Checker, userID uint, eventSheet *EventSheet, reserved *JsonReserved) error {
+	eventID := eventSheet.EventID
+	rank := eventSheet.Rank
 	reservationID := reserved.ReservationID
 	sheetNum := reserved.SheetNum
 
@@ -1402,8 +1400,7 @@ func cancelSheet(ctx context.Context, state *State, checker *Checker, userID uin
 		return err
 	}
 	state.DeleteCancelLog(logID, reservation)
-	eventSheetRank.Remains++
-	eventSheetRank.Reserved[sheetNum] = false
+	eventSheet.Num = NonReservedNum
 	state.DeleteReservation(reservationID)
 
 	return nil
