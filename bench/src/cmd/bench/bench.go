@@ -409,7 +409,7 @@ func main() {
 		jobid      string
 		tempdir    string
 		test       bool
-		debug      bool
+		debugMode  bool
 		debugLog   bool
 		nolevelup  bool
 		duration   time.Duration
@@ -423,7 +423,7 @@ func main() {
 	flag.StringVar(&jobid, "jobid", "", "job id")
 	flag.StringVar(&tempdir, "tempdir", "", "path to temp dir")
 	flag.BoolVar(&test, "test", false, "run pretest only")
-	flag.BoolVar(&debug, "debug", false, "add debugging info into request header")
+	flag.BoolVar(&debugMode, "debug-mode", false, "add debugging info into request header")
 	flag.BoolVar(&debugLog, "debug-log", false, "print debug log")
 	flag.DurationVar(&duration, "duration", time.Minute, "benchamrk duration")
 	flag.BoolVar(&nolevelup, "nolevelup", false, "dont increase load level")
@@ -432,7 +432,7 @@ func main() {
 	if debugLog {
 		colog.SetMinLevel(colog.LDebug)
 	}
-	bench.DebugMode = debug
+	bench.DebugMode = debugMode
 	bench.DataPath = dataPath
 	bench.PrepareDataSet()
 
