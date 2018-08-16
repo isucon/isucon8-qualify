@@ -246,7 +246,7 @@ func LoadTopPage(ctx context.Context, state *State) error {
 
 // 席は(rank 内で)ランダムに割り当てられるため、良い席に当たるまで予約連打して、キャンセルする悪質ユーザがいる
 func LoadReserveCancelSheet(ctx context.Context, state *State) error {
-	eventSheetRank, eventSheetRankPush := state.PopRandomEventSheetRank()
+	eventSheetRank, eventSheetRankPush := state.PopEventSheetRank()
 	if eventSheetRank == nil {
 		return nil
 	}
@@ -283,7 +283,7 @@ func LoadReserveCancelSheet(ctx context.Context, state *State) error {
 var remainsRatioThreshold = 0.2
 
 func LoadReserveSheet(ctx context.Context, state *State) error {
-	eventSheetRank, eventSheetRankPush := state.PopRandomEventSheetRank()
+	eventSheetRank, eventSheetRankPush := state.PopEventSheetRank()
 	if eventSheetRank == nil {
 		return nil
 	}
@@ -618,7 +618,7 @@ func CheckReserveSheet(ctx context.Context, state *State) error {
 		return err
 	}
 
-	eventSheetRank, eventSheetRankPush := state.PopRandomEventSheetRank()
+	eventSheetRank, eventSheetRankPush := state.PopEventSheetRank()
 	if eventSheetRank == nil {
 		return nil
 	}

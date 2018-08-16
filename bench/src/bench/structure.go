@@ -374,10 +374,13 @@ func (s *State) pushNewEventLocked(event *Event) {
 		eventSheetRank.Total = sheetKind.Total
 		eventSheetRank.Remains = sheetKind.Total
 		eventSheetRank.Reserved = map[uint]bool{}
+		// NOTE: Old events come back.
+		// Note that unshift (push front) is slower than push back, but we are doing
+		// intentionally to rather optimize PopEventSheetRank() and PushEventSheetRank().
 		if event.PublicFg {
-			s.eventSheetRanks = append(s.eventSheetRanks, eventSheetRank)
+			s.eventSheetRanks = append([]*EventSheetRank{eventSheetRank}, s.eventSheetRanks...)
 		} else {
-			s.privateEventSheetRanks = append(s.privateEventSheetRanks, eventSheetRank)
+			s.privateEventSheetRanks = append([]*EventSheetRank{eventSheetRank}, s.privateEventSheetRanks...)
 		}
 	}
 }
@@ -400,7 +403,8 @@ func (s *State) GetEventSheetRanksByEventID(eventID uint) []*EventSheetRank {
 	return eventSheetRanks
 }
 
-func (s *State) PopRandomEventSheetRank() (*EventSheetRank, func()) {
+// NOTE: Old events come back.
+func (s *State) PopEventSheetRank() (*EventSheetRank, func()) {
 	s.mtx.Lock()
 	defer s.mtx.Unlock()
 
@@ -409,14 +413,10 @@ func (s *State) PopRandomEventSheetRank() (*EventSheetRank, func()) {
 		return nil, nil
 	}
 
-	i := rand.Intn(n)
-	rs := s.eventSheetRanks[i]
-
-	s.eventSheetRanks[i] = s.eventSheetRanks[n-1]
-	s.eventSheetRanks[n-1] = nil
+	esr := s.eventSheetRanks[n-1]
 	s.eventSheetRanks = s.eventSheetRanks[:n-1]
 
-	return rs, func() { s.PushEventSheetRank(rs) }
+	return esr, func() { s.PushEventSheetRank(esr) }
 }
 
 func (s *State) PushEventSheetRank(eventSheetRank *EventSheetRank) {
