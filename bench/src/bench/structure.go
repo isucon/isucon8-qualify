@@ -144,6 +144,7 @@ type State struct {
 
 	eventSheetRanks        []*EventSheetRank
 	privateEventSheetRanks []*EventSheetRank
+	soldOutEventSheetRanks []*EventSheetRank
 
 	reservationsMtx sync.Mutex
 	reservations    map[uint]*Reservation // key: reservation id
@@ -422,7 +423,11 @@ func (s *State) PushEventSheetRank(eventSheetRank *EventSheetRank) {
 	s.mtx.Lock()
 	defer s.mtx.Unlock()
 
-	s.eventSheetRanks = append(s.eventSheetRanks, eventSheetRank)
+	if eventSheetRank.Remains > 0 {
+		s.eventSheetRanks = append(s.eventSheetRanks, eventSheetRank)
+	} else {
+		s.soldOutEventSheetRanks = append(s.soldOutEventSheetRanks, eventSheetRank)
+	}
 }
 
 func GetRandomSheetRank() string {
