@@ -70,6 +70,28 @@ func prepareAdministratorDataSet() {
 	}
 
 	DataSet.Administrators = append(DataSet.Administrators, administrator)
+
+	file, err := os.Open(filepath.Join(DataPath, "admin.tsv"))
+	must(err)
+	defer file.Close()
+
+	nextID := uint(2)
+	s := bufio.NewScanner(file)
+	for i := 0; s.Scan(); i++ {
+		line := strings.Split(s.Text(), "\t")
+		nickname := line[0]
+		addr := line[1]
+		loginName := strings.Split(addr, "@")[0]
+
+		administrator := &Administrator{
+			ID:        nextID,
+			LoginName: loginName,
+			Password:  loginName + reverse(loginName),
+			Nickname:  nickname,
+		}
+		nextID++
+		DataSet.Administrators = append(DataSet.Administrators, administrator)
+	}
 }
 
 func prepareEventDataSet() {
