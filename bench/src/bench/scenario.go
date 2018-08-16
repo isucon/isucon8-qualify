@@ -279,18 +279,12 @@ func LoadReserveCancelSheet(ctx context.Context, state *State) error {
 	return nil
 }
 
-// 空きがなくなるとベンチを回し続けられなくなるので、残り20%より先は予約しない
-var remainsRatioThreshold = 0.2
-
 func LoadReserveSheet(ctx context.Context, state *State) error {
 	eventSheetRank, eventSheetRankPush := state.PopEventSheetRank()
 	if eventSheetRank == nil {
 		return nil
 	}
 	defer eventSheetRankPush()
-	if float64(eventSheetRank.Remains)/float64(eventSheetRank.Total) <= remainsRatioThreshold {
-		return nil
-	}
 
 	user, userChecker, userPush := state.PopRandomUser()
 	if user == nil {
