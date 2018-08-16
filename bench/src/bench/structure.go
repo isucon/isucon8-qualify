@@ -5,6 +5,8 @@ import (
 	"math/rand"
 	"sync"
 	"time"
+
+	"github.com/LK4D4/trylock"
 )
 
 // {"nickname":"sonots","id":1001};
@@ -130,7 +132,8 @@ type EventSheet struct {
 }
 
 type State struct {
-	mtx sync.Mutex
+	mtx         sync.Mutex
+	newEventMtx trylock.Mutex
 
 	users      []*AppUser
 	newUsers   []*AppUser

@@ -1304,7 +1304,17 @@ func popOrCreateEventSheet(ctx context.Context, state *State) (*EventSheet, func
 		return eventSheet, eventSheetPush, nil
 	}
 
-	// If no EventSheet is available, create a new event
+	// Create a new event if not sheet is available
+
+	ok := state.newEventMtx.TryLock()
+	defer state.newEventMtx.Unlock()
+	if !ok {
+		log.Println("debug: Somebody else is trying to create a new event. Exit.")
+		// NOTE: We immediately exit rather than waiting somebody else creates a new event
+		// based on assumption that the former makes benchmarker work faster.
+		return nil, nil, nil
+	}
+
 	admin, adminChecker, adminPush := state.PopRandomAdministrator()
 	if admin == nil {
 		return nil, nil, nil
