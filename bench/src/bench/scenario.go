@@ -985,7 +985,6 @@ func CheckCreateEvent(ctx context.Context, state *State) error {
 	if err != nil {
 		return err
 	}
-	event.CreatedAt = time.Now()
 	newEventPush("CheckCreateEvent")
 
 	err = checker.Play(ctx, &CheckAction{
@@ -1338,7 +1337,6 @@ func popOrCreateEventSheet(ctx context.Context, state *State) (*EventSheet, func
 	if err != nil {
 		return nil, nil, err
 	}
-	event.CreatedAt = time.Now()
 	newEventPush("popOrCreateEventSheet")
 
 	eventSheet, eventSheetPush = state.PopEventSheet()
