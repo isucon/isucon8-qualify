@@ -106,6 +106,7 @@ type Reservation struct {
 	UserID    uint
 	SheetRank string
 	SheetNum  uint
+	Deleted   bool
 	// ReservedAt uint // No way to obtain now
 }
 
@@ -342,6 +343,15 @@ func (s *State) GetEvents() (events []*Event) {
 	return
 }
 
+func (s *State) FindEventByID(id uint) *Event {
+	for _, event := range s.events {
+		if event.ID == id {
+			return event
+		}
+	}
+	return nil
+}
+
 func (s *State) PushEvent(event *Event) {
 	s.mtx.Lock()
 	defer s.mtx.Unlock()
@@ -442,6 +452,16 @@ func GetRandomSheetRank() string {
 	return DataSet.SheetKinds[rand.Intn(len(DataSet.SheetKinds))].Rank
 }
 
+func GetSheetKindByRank(rank string) *SheetKind {
+	for _, sheetKind := range DataSet.SheetKinds {
+		if sheetKind.Rank == rank {
+			return sheetKind
+		}
+	}
+
+	return nil
+}
+
 func GetRandomSheetNum(sheetRank string) uint {
 	total := uint(0)
 	for _, sheetKind := range DataSet.SheetKinds {
@@ -475,14 +495,14 @@ func (s *State) DeleteReservation(reservationID uint) {
 	s.reservationsMtx.Lock()
 	defer s.reservationsMtx.Unlock()
 
-	delete(s.reservations, reservationID)
+	s.reservations[reservationID].Deleted = true
 }
 
 func (s *State) AppendReserveLog(reservation *Reservation) uint64 {
 	s.reserveLogMtx.Lock()
 	defer s.reserveLogMtx.Unlock()
 
-	s.reserveLogID += 1
+	s.reserveLogID++
 	s.reserveLog[s.reserveLogID] = reservation
 
 	log.Printf("debug: appendReserveLog LogID:%2d EventID:%2d UserID:%3d SheetRank:%s\n", s.reserveLogID, reservation.EventID, reservation.UserID, reservation.SheetRank)
@@ -501,7 +521,7 @@ func (s *State) AppendCancelLog(reservation *Reservation) uint64 {
 	s.cancelLogMtx.Lock()
 	defer s.cancelLogMtx.Unlock()
 
-	s.cancelLogID += 1
+	s.cancelLogID++
 	s.cancelLog[s.cancelLogID] = reservation
 
 	log.Printf("debug: appendCancelLog  LogID:%2d EventID:%2d UserID:%3d SheetRank:%s SheetNum:%d ReservationID:%d\n", s.cancelLogID, reservation.EventID, reservation.UserID, reservation.SheetRank, reservation.SheetNum, reservation.ID)

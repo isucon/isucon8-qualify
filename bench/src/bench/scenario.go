@@ -1116,23 +1116,28 @@ func checkReportResponse(s *State) func(res *http.Response, body *bytes.Buffer) 
 		s.cancelLogMtx.Lock()
 		defer s.cancelLogMtx.Unlock()
 
-		// reservation_id,event_id,user_id,rank,price,sold_at
-		// 5,1,830,A,6000,2018-08-02T05:04:07Z
-		// 7,1,854,S,8000,2018-08-02T05:04:10Z
-		// 8,1,484,A,6000,2018-08-02T05:04:10Z
-		// 9,1,377,B,4000,2018-08-02T05:04:12Z
+		// reservation_id,event_id,rank,num,price,user_id,sold_at,canceled_at
+		// 1,1,S,36,8000,1002,2018-08-17T04:55:30Z,2018-08-17T04:58:31Z
+		// 2,1,A,94,6000,1002,2018-08-17T04:55:31Z,
+		// 3,1,B,149,4000,1002,2018-08-17T04:55:33Z,
+		// 4,1,C,317,3000,1002,2018-08-17T04:55:34Z,
+		// 5,1,B,27,4000,1002,2018-08-17T04:55:36Z,
+		// 6,1,A,15,6000,1002,2018-08-17T04:55:38Z,
+		// 7,1,S,10,8000,1002,2018-08-17T04:55:41Z,2018-08-17T04:58:29Z
 
 		log.Println("debug:", body)
 		r := csv.NewReader(body)
 		record, err := r.Read()
 		if err == io.EOF ||
-			len(record) != 6 ||
+			len(record) != 8 ||
 			record[0] != "reservation_id" ||
 			record[1] != "event_id" ||
-			record[2] != "user_id" ||
-			record[3] != "rank" ||
+			record[2] != "rank" ||
+			record[3] != "num" ||
 			record[4] != "price" ||
-			record[5] != "sold_at" {
+			record[5] != "user_id" ||
+			record[6] != "sold_at" ||
+			record[7] != "canceled_at" {
 			return fatalErrorf("正しいCSVヘッダを取得できません")
 		}
 
@@ -1143,21 +1148,47 @@ func checkReportResponse(s *State) func(res *http.Response, body *bytes.Buffer) 
 			if err == io.EOF {
 				break
 			}
-			reportCount += 1
+			reportCount++
 
 			reservationID, err := strconv.Atoi(record[0])
 			if err != nil {
+				log.Printf("debug: invalid reservationID (line:%d) error:%v\n", reportCount, err)
 				return fatalErrorf(msg)
 			}
 			eventID, err := strconv.Atoi(record[1])
 			if err != nil {
+				log.Printf("debug: invalid eventID (line:%d) error:%v\n", reportCount, err)
 				return fatalErrorf(msg)
 			}
-			userID, err := strconv.Atoi(record[2])
+			sheetRank := record[2]
+
+			sheetNum, err := strconv.Atoi(record[3])
 			if err != nil {
+				log.Printf("debug: invalid sheetNum (line:%d) error:%v\n", reportCount, err)
 				return fatalErrorf(msg)
 			}
-			sheetRank := record[3]
+
+			price, err := strconv.Atoi(record[4])
+			if err != nil {
+				log.Printf("debug: invalid price (line:%d) error:%v\n", reportCount, err)
+				return fatalErrorf(msg)
+			}
+
+			userID, err := strconv.Atoi(record[5])
+			if err != nil {
+				log.Printf("debug: invalid userID (line:%d) error:%v\n", reportCount, err)
+				return fatalErrorf(msg)
+			}
+
+			event := s.FindEventByID(uint(eventID))
+			if event == nil {
+				log.Printf("debug: event id=%d is not found (line:%d)\n", eventID, reportCount)
+				return fatalErrorf(msg)
+			}
+			if expected := event.Price + GetSheetKindByRank(sheetRank).Price; uint(price) != expected {
+				log.Printf("debug: price:%d is not expected:%d (line:%d)\n", price, expected, reportCount)
+				return fatalErrorf(msg)
+			}
 
 			reservation, ok := s.reservations[uint(reservationID)]
 			if !ok {
@@ -1167,7 +1198,9 @@ func checkReportResponse(s *State) func(res *http.Response, body *bytes.Buffer) 
 			if reservation.ID != uint(reservationID) ||
 				reservation.EventID != uint(eventID) ||
 				reservation.UserID != uint(userID) ||
-				reservation.SheetRank != sheetRank {
+				reservation.SheetRank != sheetRank ||
+				reservation.SheetNum != uint(sheetNum) {
+				log.Printf("debug: unexpected data (line:%d)\n", reportCount)
 				return fatalErrorf(msg)
 			}
 		}
@@ -1176,7 +1209,7 @@ func checkReportResponse(s *State) func(res *http.Response, body *bytes.Buffer) 
 		maybeCanceledCount := len(s.cancelLog)
 		maybeReservedCount := len(s.reserveLog)
 		log.Printf("debug: reservationsCount:%d - maybeCanceldCount:%d <= reportCount:%d <= reservationsCount:%d + maybeReservedCount%d\n", reservationsCount, maybeCanceledCount, reportCount, reservationsCount, maybeReservedCount)
-		if reservationsCount-maybeCanceledCount <= reportCount && reportCount <= reservationsCount+maybeReservedCount {
+		if reservationsCount-maybeCanceledCount-maybeReservedCount <= reportCount && reportCount <= reservationsCount+maybeReservedCount+maybeReservedCount {
 		} else {
 			return fatalErrorf(msg)
 		}
@@ -1396,7 +1429,7 @@ func cancelSheet(ctx context.Context, state *State, checker *Checker, userID uin
 	reservationID := reserved.ReservationID
 	sheetNum := reserved.SheetNum
 
-	reservation := &Reservation{reservationID, eventID, userID, rank, sheetNum}
+	reservation := &Reservation{reservationID, eventID, userID, rank, sheetNum, false}
 	logID := state.AppendCancelLog(reservation)
 	err := checker.Play(ctx, &CheckAction{
 		Method:             "DELETE",
