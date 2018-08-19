@@ -18,11 +18,8 @@ import (
 	"time"
 
 	"bench"
-<<<<<<< HEAD
-=======
 	"bench/counter"
 	"bench/parameter"
->>>>>>> master
 
 	"github.com/comail/colog"
 )
