@@ -173,6 +173,20 @@ func (e *CheckerError) IsTimeout() bool {
 	return e.err == RequestTimeoutError
 }
 
+func errorIsCheckerFatal(err error) bool {
+	if cerr, ok := err.(*CheckerError); ok {
+		return cerr.IsFatal()
+	}
+	return false
+}
+
+func errorIsCheckerTimeout(err error) bool {
+	if cerr, ok := err.(*CheckerError); ok {
+		return cerr.IsTimeout()
+	}
+	return false
+}
+
 func appendError(err *CheckerError) {
 	checkerMtx.Lock()
 	if !checkerErrorGuard {
@@ -480,14 +494,4 @@ func (c *Checker) Play(ctx context.Context, a *CheckAction) error {
 
 	counter.IncKey(a.Method + "|" + a.Path)
 	return nil
-}
-
-func errorIsCheckerTimeout(err error) bool {
-	if cerr, ok := err.(*CheckerError); ok {
-		if cerr.err == RequestTimeoutError {
-			return true
-		}
-	}
-
-	return false
 }
