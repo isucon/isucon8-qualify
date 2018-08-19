@@ -56,6 +56,14 @@ sub dbh {
         DBIx::Sunny->connect($dsn, $ENV{DB_USER}, $ENV{DB_PASS}, {
             mysql_enable_utf8mb4 => 1,
             mysql_auto_reconnect => 1,
+            # TODO: replace mysqld's sql_mode setting and remove following codes
+            Callbacks => {
+                connected => sub {
+                    my $dbh = shift;
+                    $dbh->do('SET SESSION sql_mode="STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION"');
+                    return;
+                },
+            },
         });
     };
 }
@@ -239,11 +247,11 @@ sub get_event {
         $event->{total} += 1;
         $event->{sheets}->{$sheet->{rank}}->{total} += 1;
 
-        my $reservation = $self->dbh->select_row('SELECT * FROM reservations WHERE event_id = ? AND sheet_id = ?', $event->{id}, $sheet->{id});
+        my $reservation = $self->dbh->select_row('SELECT * FROM reservations WHERE event_id = ? AND sheet_id = ? AND canceled_at IS NULL GROUP BY event_id, sheet_id HAVING reserved_at = MAX(reserved_at)', $event->{id}, $sheet->{id});
         if ($reservation) {
             $sheet->{mine}        = JSON::XS::true if $login_user_id && $reservation->{user_id} == $login_user_id;
             $sheet->{reserved}    = JSON::XS::true;
-            $sheet->{reserved_at} = $reservation->{reserved_at};
+            $sheet->{reserved_at} = Time::Moment->from_string($reservation->{reserved_at}.'Z', lenient => 1)->epoch;
         } else {
             $event->{remains} += 1;
             $event->{sheets}->{$sheet->{rank}}->{remains} += 1;
@@ -293,7 +301,7 @@ post '/api/events/{id}/actions/reserve' => [qw/allow_json_request login_required
     my $sheet;
     my $reservation_id;
     while (1) {
-        $sheet = $self->dbh->select_row('SELECT * FROM sheets WHERE id NOT IN (SELECT sheet_id FROM reservations WHERE event_id = ? FOR UPDATE) AND `rank` = ? ORDER BY RAND() LIMIT 1', $event->{id}, $rank);
+        $sheet = $self->dbh->select_row('SELECT * FROM sheets WHERE id NOT IN (SELECT sheet_id FROM reservations WHERE event_id = ? AND canceled_at IS NULL FOR UPDATE) AND `rank` = ? ORDER BY RAND() LIMIT 1', $event->{id}, $rank);
         unless ($sheet) {
             my $res = $c->render_json({
                 error => 'sold_out',
@@ -304,7 +312,7 @@ post '/api/events/{id}/actions/reserve' => [qw/allow_json_request login_required
 
         my $txn = $self->dbh->txn_scope();
         eval {
-            $self->dbh->query('INSERT INTO reservations (event_id, sheet_id, user_id, reserved_at) VALUES (?, ?, ?, UNIX_TIMESTAMP())', $event->{id}, $sheet->{id}, $user->{id});
+            $self->dbh->query('INSERT INTO reservations (event_id, sheet_id, user_id, reserved_at) VALUES (?, ?, ?, ?)', $event->{id}, $sheet->{id}, $user->{id}, Time::Moment->now_utc->strftime('%F %T%f'));
             $reservation_id = $self->dbh->last_insert_id() + 0;
             $txn->commit();
         };
@@ -363,7 +371,7 @@ router ['DELETE'] => '/api/events/{id}/sheets/{rank}/{num}/reservation' => [qw/l
 
     my $txn = $self->dbh->txn_scope();
     eval {
-        my $reservation = $self->dbh->select_row('SELECT * FROM reservations WHERE event_id = ? AND sheet_id = ? FOR UPDATE', $event->{id}, $sheet->{id});
+        my $reservation = $self->dbh->select_row('SELECT * FROM reservations WHERE event_id = ? AND sheet_id = ? AND canceled_at IS NULL GROUP BY event_id HAVING reserved_at = MAX(reserved_at) FOR UPDATE', $event->{id}, $sheet->{id});
         unless ($reservation) {
             $error = 'not_reserved';
             $txn->rollback();
@@ -375,7 +383,7 @@ router ['DELETE'] => '/api/events/{id}/sheets/{rank}/{num}/reservation' => [qw/l
             return;
         }
 
-        $self->dbh->query('DELETE FROM reservations WHERE event_id = ? AND sheet_id = ? AND user_id = ?', $event->{id}, $sheet->{id}, $user->{id});
+        $self->dbh->query('UPDATE reservations SET canceled_at = ? WHERE id = ?', Time::Moment->now_utc->strftime('%F %T%f'), $reservation->{id});
         $txn->commit();
     };
     if ($@) {
@@ -616,22 +624,20 @@ get '/admin/api/reports/events/{id}/sales' => [qw/admin_login_required/] => sub 
 
     my @reports;
 
-    for my $rank (keys %{ $event->{sheets} }) {
-        for my $i (keys @{ $event->{sheets}->{$rank}->{detail} }) {
-            my $sheet = $event->{sheets}->{$rank}->{detail}->[$i];
-            next unless $sheet->{reserved};
+    my $reservations = $self->dbh->select_all('SELECT r.*, s.rank AS sheet_rank, s.num AS sheet_num, s.price AS sheet_price, e.price AS event_price FROM reservations r INNER JOIN sheets s ON s.id = r.sheet_id INNER JOIN events e ON e.id = r.event_id WHERE r.event_id = ? ORDER BY reserved_at ASC FOR UPDATE', $event->{id});
+    for my $reservation (@$reservations) {
+        my $report = {
+            reservation_id => $reservation->{id},
+            event_id       => $event->{id},
+            rank           => $reservation->{sheet_rank},
+            num            => $reservation->{sheet_num},
+            user_id        => $reservation->{user_id},
+            sold_at        => Time::Moment->from_string("$reservation->{reserved_at}Z", lenient => 1)->to_string(),
+            canceled_at    => $reservation->{canceled_at} ? Time::Moment->from_string("$reservation->{canceled_at}Z", lenient => 1)->to_string() : '',
+            price          => $reservation->{event_price} + $reservation->{sheet_price},
+        };
 
-            my $reservation = $self->dbh->select_row('SELECT r.id as id, r.user_id as user_id FROM reservations r INNER JOIN sheets s ON s.id = r.sheet_id WHERE r.event_id = ? AND s.rank = ? AND s.num = ?', $event->{id}, $rank, $i+1);
-            my $report = {
-                reservation_id => $reservation->{id},
-                event_id       => $event->{id},
-                rank           => $rank,
-                user_id        => $reservation->{user_id},
-                sold_at        => Time::Moment->from_epoch($sheet->{reserved_at}, 0)->to_string,
-                price          => $event->{sheets}->{$rank}->{price},
-            };
-            push @reports => $report;
-        }
+        push @reports => $report;
     }
 
     return $self->render_report_csv($c, \@reports);
@@ -639,31 +645,23 @@ get '/admin/api/reports/events/{id}/sales' => [qw/admin_login_required/] => sub 
 
 get '/admin/api/reports/sales' => [qw/admin_login_required/] => sub {
     my ($self, $c) = @_;
-    my $event_id = $c->args->{id};
-    my $event = $self->get_event($event_id);
 
     my @reports;
 
-    my @event_ids = map { $_->{id} } @{ $self->dbh->select_all('SELECT id FROM events') };
-    for my $event_id (@event_ids) {
-        my $event = $self->get_event($event_id);
-        for my $rank (keys %{ $event->{sheets} }) {
-            for my $i (keys @{ $event->{sheets}->{$rank}->{detail} }) {
-                my $sheet = $event->{sheets}->{$rank}->{detail}->[$i];
-                next unless $sheet->{reserved};
+    my $reservations = $self->dbh->select_all('SELECT r.*, s.rank AS sheet_rank, s.num AS sheet_num, s.price AS sheet_price, e.id AS event_id, e.price AS event_price FROM reservations r INNER JOIN sheets s ON s.id = r.sheet_id INNER JOIN events e ON e.id = r.event_id ORDER BY reserved_at ASC FOR UPDATE');
+    for my $reservation (@$reservations) {
+        my $report = {
+            reservation_id => $reservation->{id},
+            event_id       => $reservation->{event_id},
+            rank           => $reservation->{sheet_rank},
+            num            => $reservation->{sheet_num},
+            user_id        => $reservation->{user_id},
+            sold_at        => Time::Moment->from_string("$reservation->{reserved_at}Z", lenient => 1)->to_string(),
+            canceled_at    => $reservation->{canceled_at} ? Time::Moment->from_string("$reservation->{canceled_at}Z", lenient => 1)->to_string() : '',
+            price          => $reservation->{event_price} + $reservation->{sheet_price},
+        };
 
-                my $reservation = $self->dbh->select_row('SELECT r.id as id, r.user_id as user_id FROM reservations r INNER JOIN sheets s ON s.id = r.sheet_id WHERE r.event_id = ? AND s.rank = ? AND s.num = ?', $event->{id}, $rank, $i+1);
-                my $report = {
-                    reservation_id => $reservation->{id},
-                    event_id       => $event->{id},
-                    rank           => $rank,
-                    user_id        => $reservation->{user_id},
-                    sold_at        => Time::Moment->from_epoch($sheet->{reserved_at}, 0)->to_string,
-                    price          => $event->{sheets}->{$rank}->{price},
-                };
-                push @reports => $report;
-            }
-        }
+        push @reports => $report;
     }
 
     return $self->render_report_csv($c, \@reports);
@@ -673,7 +671,7 @@ sub render_report_csv {
     my ($self, $c, $reports) = @_;
     my @reports = sort { $a->{sold_at} cmp $b->{sold_at} } @$reports;
 
-    my @keys = qw/reservation_id event_id user_id rank price sold_at/;
+    my @keys = qw/reservation_id event_id rank num price user_id sold_at canceled_at/;
     my $body = join ',', @keys;
     $body .= "\n";
     for my $report (@reports) {

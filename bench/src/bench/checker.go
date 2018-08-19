@@ -481,3 +481,13 @@ func (c *Checker) Play(ctx context.Context, a *CheckAction) error {
 	counter.IncKey(a.Method + "|" + a.Path)
 	return nil
 }
+
+func errorIsCheckerTimeout(err error) bool {
+	if cerr, ok := err.(*CheckerError); ok {
+		if cerr.err == RequestTimeoutError {
+			return true
+		}
+	}
+
+	return false
+}
