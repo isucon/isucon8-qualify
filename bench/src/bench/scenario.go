@@ -1230,7 +1230,7 @@ func checkReportResponse(s *State) func(res *http.Response, body *bytes.Buffer) 
 
 		reservationsCount := len(s.reservations)
 		maybeReservedCount := len(s.reserveLog)
-		log.Printf("debug: reservationsCount:%d <= reportCount:%d <= reservationsCount:%d + maybeReservedCount%d\n", reservationsCount, reportCount, reservationsCount, maybeReservedCount)
+		log.Printf("debug: reservationsCount:%d <= reportCount:%d <= reservationsCount:%d + maybeReservedCount:%d\n", reservationsCount, reportCount, reservationsCount, maybeReservedCount)
 		if !(reservationsCount <= reportCount && reportCount <= reservationsCount+maybeReservedCount) {
 			return fatalErrorf(msg)
 		}
