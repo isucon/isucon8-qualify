@@ -13,6 +13,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"bench/parameter"
 )
 
 var (
@@ -40,7 +42,7 @@ func prepareUserDataSet() {
 		addr := line[1]
 		loginName := strings.Split(addr, "@")[0]
 
-		if i < 1000 {
+		if i < parameter.InitialNumUsers {
 			user := &AppUser{
 				ID:        uint(i + 1),
 				LoginName: loginName,

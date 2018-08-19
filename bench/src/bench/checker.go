@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"bench/counter"
+	"bench/parameter"
 	"bench/urlcache"
 )
 
@@ -30,11 +31,11 @@ var (
 	RedirectAttemptedError = fmt.Errorf("redirect attempted")
 	RequestTimeoutError    = fmt.Errorf("リクエストがタイムアウトしました")
 	UserAgent              = "isucon8q-benchmarker"
-	GetTimeout             = 10 * time.Second
-	PostTimeout            = 3 * time.Second
-	InitializeTimeout      = 10 * time.Second
-	SlowThreshold          = 1000 * time.Millisecond
-	MaxCheckerRequest      = 6
+	GetTimeout             = parameter.GetTimeout
+	PostTimeout            = parameter.PostTimeout
+	InitializeTimeout      = parameter.InitializeTimeout
+	SlowThreshold          = parameter.SlowThreshold
+	MaxCheckerRequest      = parameter.MaxCheckerRequest
 	DebugMode              = false
 )
 

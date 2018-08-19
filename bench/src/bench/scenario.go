@@ -78,7 +78,7 @@ func checkEventsList(state *State, events []JsonEvent) error {
 			missed = expected[i:]
 		}
 
-		threshold := time.Now().Add(-1 * time.Second)
+		threshold := time.Now().Add(-1 * paramter.AllowableDelay)
 		for _, e := range missed {
 			if e.CreatedAt.Before(threshold) {
 				return fatalErrorf("イベントの数が正しくありません")
