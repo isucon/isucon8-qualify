@@ -1434,9 +1434,6 @@ func reserveSheet(ctx context.Context, state *State, checker *Checker, userID ui
 		CheckFunc: checkJsonReservedResponse(reserved),
 	})
 	if err != nil {
-		if !errorIsCheckerTimeout(err) {
-			state.DeleteReserveLog(logID, reservation)
-		}
 		return nil, err
 	}
 
@@ -1464,10 +1461,6 @@ func cancelSheet(ctx context.Context, state *State, checker *Checker, userID uin
 		Description:        "キャンセルができること",
 	})
 	if err != nil {
-		if !errorIsCheckerTimeout(err) {
-			state.RevertCancelReservation(reservation)
-			state.DeleteCancelLog(logID, reservation)
-		}
 		return err
 	}
 
