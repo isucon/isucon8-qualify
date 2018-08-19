@@ -343,31 +343,6 @@ func (s *State) getAdminCheckerLocked(u *Administrator) *Checker {
 	return checker
 }
 
-func (s *State) GetEvents() (events []*Event) {
-	s.mtx.Lock()
-	defer s.mtx.Unlock()
-
-	events = make([]*Event, len(s.events))
-	copy(events, s.events)
-	return
-}
-
-func (s *State) FindEventByID(id uint) *Event {
-	for _, event := range s.events {
-		if event.ID == id {
-			return event
-		}
-	}
-	return nil
-}
-
-func (s *State) PushEvent(event *Event) {
-	s.mtx.Lock()
-	defer s.mtx.Unlock()
-
-	s.events = append(s.events, event)
-}
-
 func (s *State) CreateNewEvent() (*Event, func(caller string)) {
 	event := &Event{
 		ID:       0, // auto increment
@@ -412,23 +387,40 @@ func (s *State) pushNewEventLocked(event *Event, caller string) {
 	}
 }
 
-// func (s *State) GetEventSheetRanksByEventID(eventID uint) []*EventSheetRank {
-// 	s.mtx.Lock()
-// 	defer s.mtx.Unlock()
-//
-// 	eventSheetRanks := make([]*EventSheetRank, 0, len(DataSet.SheetKinds))
-// 	for _, eventSheetRank := range s.eventSheetRanks {
-// 		if eventSheetRank.EventID != eventID {
-// 			continue
-// 		}
-// 		eventSheetRanks = append(eventSheetRanks, eventSheetRank)
-// 		if len(eventSheetRanks) == len(DataSet.SheetKinds) {
-// 			break
-// 		}
-// 	}
-//
-// 	return eventSheetRanks
-// }
+// ASSUMPTION: No event is popped from s.events, thus, s.events represents all events.
+func (s *State) FindEventByID(id uint) *Event {
+	s.mtx.Lock()
+	defer s.mtx.Unlock()
+
+	for _, event := range s.events {
+		if event.ID == id {
+			return event
+		}
+	}
+	return nil
+}
+
+func (s *State) GetEvents() (events []*Event) {
+	s.mtx.Lock()
+	defer s.mtx.Unlock()
+
+	events = make([]*Event, len(s.events))
+	copy(events, s.events)
+	return
+}
+
+// ASSUMPTION: No event is popped from s.events, thus, s.events represents all events.
+func FilterPublicEvents(src []*Event) (filtered []*Event) {
+	filtered = make([]*Event, 0, len(src))
+	for _, e := range src {
+		if !e.PublicFg {
+			continue
+		}
+
+		filtered = append(filtered, e)
+	}
+	return
+}
 
 func (s *State) PopEventSheet() (*EventSheet, func()) {
 	s.mtx.Lock()
@@ -479,18 +471,6 @@ func GetRandomSheetNum(sheetRank string) uint {
 		}
 	}
 	return uint(rand.Intn(int(total)))
-}
-
-func FilterPublicEvents(src []*Event) (filtered []*Event) {
-	filtered = make([]*Event, 0, len(src))
-	for _, e := range src {
-		if !e.PublicFg {
-			continue
-		}
-
-		filtered = append(filtered, e)
-	}
-	return
 }
 
 func (s *State) AppendReservation(reservation *Reservation) {
