@@ -183,14 +183,14 @@ func (s *State) Init() {
 	s.userMap = map[string]*AppUser{}
 	s.checkerMap = map[*AppUser]*Checker{}
 	for _, u := range DataSet.Users {
-		s.pushNewUserLocked(u)
+		s.pushInitialUserLocked(u)
 	}
 	s.newUsers = append(s.newUsers, DataSet.NewUsers...)
 
 	s.adminMap = map[string]*Administrator{}
 	s.adminCheckerMap = map[*Administrator]*Checker{}
 	for _, u := range DataSet.Administrators {
-		s.pushNewAdministratorLocked(u)
+		s.pushInitialAdministratorLocked(u)
 	}
 
 	for _, event := range DataSet.Events {
@@ -266,6 +266,11 @@ func (s *State) pushNewUserLocked(u *AppUser) {
 	s.users = append(s.users, u)
 }
 
+func (s *State) pushInitialUserLocked(u *AppUser) {
+	s.userMap[u.LoginName] = u
+	s.users = append(s.users, u)
+}
+
 func (s *State) GetChecker(u *AppUser) *Checker {
 	s.mtx.Lock()
 	defer s.mtx.Unlock()
@@ -312,14 +317,7 @@ func (s *State) PushAdministrator(u *Administrator) {
 	s.admins = append(s.admins, u)
 }
 
-func (s *State) PushNewAdministrator(u *Administrator) {
-	s.mtx.Lock()
-	defer s.mtx.Unlock()
-
-	s.pushNewAdministratorLocked(u)
-}
-
-func (s *State) pushNewAdministratorLocked(u *Administrator) {
+func (s *State) pushInitialAdministratorLocked(u *Administrator) {
 	s.adminMap[u.LoginName] = u
 	s.admins = append(s.admins, u)
 }
