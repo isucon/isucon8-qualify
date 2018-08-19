@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bench/counter"
 	"context"
 	"encoding/json"
 	"flag"
@@ -19,6 +18,9 @@ import (
 	"time"
 
 	"bench"
+	"bench/counter"
+	"bench/parameter"
+
 	"github.com/comail/colog"
 )
 
@@ -144,7 +146,7 @@ func checkMain(ctx context.Context, state *bench.State) error {
 
 		if err != nil {
 			// バリデーションシナリオを悪用してスコアブーストさせないためエラーのときは少し待つ
-			time.Sleep(500 * time.Millisecond)
+			time.Sleep(parameter.WaitOnError)
 		}
 	}
 	return nil
@@ -159,7 +161,14 @@ func goLoadFuncs(ctx context.Context, state *bench.State, n int) {
 				}
 
 				loadFunc := loadFuncs[rand.Intn(len(loadFuncs))]
-				loadFunc.Func(ctx, state) // no fail
+				err := loadFunc.Func(ctx, state)
+
+				if err != nil {
+					// バリデーションシナリオを悪用してスコアブーストさせないためエラーのときは少し待つ
+					time.Sleep(parameter.WaitOnError)
+				}
+
+				// no fail
 			}
 		}()
 	}
@@ -174,19 +183,26 @@ func goLoadLevelUpFuncs(ctx context.Context, state *bench.State, n int) {
 				}
 
 				loadFunc := loadLevelUpFuncs[rand.Intn(len(loadLevelUpFuncs))]
-				loadFunc.Func(ctx, state) // no fail
+				err := loadFunc.Func(ctx, state)
+
+				if err != nil {
+					// バリデーションシナリオを悪用してスコアブーストさせないためエラーのときは少し待つ
+					time.Sleep(parameter.WaitOnError)
+				}
+
+				// no fail
 			}
 		}()
 	}
 }
 
 func loadMain(ctx context.Context, state *bench.State) {
-	levelUpRatio := 1.5
-	numGoroutines := 5.0
+	levelUpRatio := parameter.LoadLevelUpRatio
+	numGoroutines := parameter.LoadInitialNumGoroutines
 
 	goLoadFuncs(ctx, state, int(numGoroutines))
 
-	beat := time.NewTicker(time.Second)
+	beat := time.NewTicker(parameter.LoadTickerInterval)
 	defer beat.Stop()
 
 	for {
@@ -356,7 +372,7 @@ func startBenchmark(remoteAddrs []string) *BenchResult {
 	}
 	log.Println("checkMain() Done")
 
-	time.Sleep(time.Second) // allow 1 sec delay
+	time.Sleep(parameter.AllowableDelay)
 
 	log.Println("postTest()")
 	err = postTest(context.Background(), state)
@@ -378,8 +394,8 @@ func startBenchmark(remoteAddrs []string) *BenchResult {
 	postCount := counter.SumPrefix(`POST|/`)
 	deleteCount := counter.SumPrefix(`DELETE|/`) // == cancelCount
 	s304Count := counter.GetKey("staticfile-304")
-	// TODO(sonots): Determine
-	score := 1*(getCount-s304Count-topCount) + 1*(postCount-reserveCount) + 3*(topCount+reserveCount+cancelCount) + s304Count/100
+
+	score := parameter.Score(getCount, postCount, deleteCount, s304Count, reserveCount, cancelCount, topCount)
 
 	log.Println("get", getCount)
 	log.Println("post", postCount)
