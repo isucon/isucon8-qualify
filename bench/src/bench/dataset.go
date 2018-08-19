@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"math/rand"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -96,6 +97,9 @@ func prepareAdministratorDataSet() {
 }
 
 func prepareEventDataSet() {
+	nextID := uint(1)
+
+	// Events from event.tsv which are not closed yet
 	file, err := os.Open(filepath.Join(DataPath, "event.tsv"))
 	must(err)
 	defer file.Close()
@@ -109,7 +113,7 @@ func prepareEventDataSet() {
 		price, _ := strconv.Atoi(line[3])
 
 		event := &Event{
-			ID:       uint(i + 1),
+			ID:       nextID,
 			Title:    title,
 			PublicFg: publicFg,
 			ClosedFg: closedFg,
@@ -117,6 +121,22 @@ func prepareEventDataSet() {
 		}
 
 		DataSet.Events = append(DataSet.Events, event)
+		nextID += 1
+	}
+
+	// Old events which are already closed
+	numClosedEvents := parameter.InitialNumClosedEvents
+	priceStrides := numClosedEvents/10 + 1
+	for i := 0; i < numClosedEvents; i++ {
+		event := &Event{
+			ID:       nextID,
+			Title:    fmt.Sprintf("Event%04d", nextID),
+			PublicFg: false,
+			ClosedFg: true,
+			Price:    uint(1000 + i/priceStrides*1000),
+		}
+		DataSet.ClosedEvents = append(DataSet.ClosedEvents, event)
+		nextID += 1
 	}
 }
 
@@ -143,12 +163,35 @@ func prepareSheetDataSet() {
 	}
 }
 
+func prepareReservationsDataSet() {
+	nextID := uint(1)
+	minUnixTimestamp := time.Date(2011, 8, 27, 10, 0, 0, 0, time.Local).Unix()
+	maxUnixTimestamp := time.Date(2017, 10, 21, 10, 0, 0, 0, time.Local).Unix()
+	for _, event := range DataSet.ClosedEvents {
+		for _, sheet := range DataSet.Sheets {
+			userID := uint(rand.Intn(len(DataSet.Users)) + 1)
+			reservation := &Reservation{
+				ID:         nextID,
+				EventID:    event.ID,
+				UserID:     userID,
+				SheetID:    sheet.ID,
+				SheetRank:  sheet.Rank,
+				SheetNum:   sheet.Num,
+				ReservedAt: int64(rand.Int63n(maxUnixTimestamp-minUnixTimestamp) + minUnixTimestamp), // TODO(sonots): randomize nsec
+			}
+			nextID++
+			DataSet.Reservations = append(DataSet.Reservations, reservation)
+		}
+	}
+}
+
 func PrepareDataSet() {
 	log.Println("datapath", DataPath)
 	prepareUserDataSet()
 	prepareAdministratorDataSet()
 	prepareEventDataSet()
 	prepareSheetDataSet()
+	prepareReservationsDataSet()
 }
 
 func fbadf(w io.Writer, f string, params ...interface{}) {
@@ -201,18 +244,27 @@ func GenerateInitialDataSetSQL(outputPath string) {
 	}
 
 	// event
-	for _, event := range DataSet.Events {
-		must(err)
+	for _, event := range append(DataSet.Events, DataSet.ClosedEvents...) {
 		fbadf(w, "INSERT INTO events (id, title, public_fg, closed_fg, price) VALUES (%s, %s, %s, %s, %s);",
 			event.ID, event.Title, event.PublicFg, event.ClosedFg, event.Price)
 	}
 
 	// sheet
 	for _, sheet := range DataSet.Sheets {
-		must(err)
 		fbadf(w, "INSERT INTO sheets (id, `rank`, num, price) VALUES (%s, %s, %s, %s);",
 			sheet.ID, sheet.Rank, sheet.Num, sheet.Price)
 	}
+
+	// reservation
+	for i, reservation := range DataSet.Reservations {
+		if i%1000 == 0 {
+			fbadf(w, ";INSERT INTO reservations (id, event_id, sheet_id, user_id, reserved_at) VALUES ")
+		} else {
+			fbadf(w, ", ")
+		}
+		fbadf(w, "(%s, %s, %s, %s, %s)", reservation.ID, reservation.EventID, reservation.SheetID, reservation.UserID, time.Unix(reservation.ReservedAt, 0).UTC().Format("2006-01-02 15:04:05"))
+	}
+	fbadf(w, ";")
 
 	fbadf(w, "COMMIT;")
 }

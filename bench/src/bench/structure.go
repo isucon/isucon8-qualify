@@ -104,11 +104,12 @@ type Reservation struct {
 	ID              uint
 	EventID         uint
 	UserID          uint
+	SheetID         uint // Used only in initial reservations. 0 is set for rest because reserve API does not return it
 	SheetRank       string
 	SheetNum        uint
 	CancelRequested bool
 	CancelCompleted bool
-	// ReservedAt uint // No way to obtain now
+	ReservedAt      int64 // Used only in initial reservations. 0 is set for rest because reserve API does not return it
 }
 
 func (r Reservation) Canceled() bool {
@@ -125,11 +126,13 @@ type BenchDataSet struct {
 
 	Administrators []*Administrator
 
-	Events    []*Event
-	NewEvents []*Event
+	Events       []*Event
+	ClosedEvents []*Event
 
 	SheetKinds []*SheetKind
 	Sheets     []*Sheet
+
+	Reservations []*Reservation
 }
 
 var NonReservedNum = uint(0)
@@ -154,13 +157,14 @@ type State struct {
 	adminMap        map[string]*Administrator
 	adminCheckerMap map[*Administrator]*Checker
 
-	events []*Event
+	events       []*Event
+	closedEvents []*Event
 
 	// public && closed does not happen
 	eventSheets         []*EventSheet // public && !closed
 	privateEventSheets  []*EventSheet // !public && !closed
 	closedEventSheets   []*EventSheet // !public && closed
-	reservedEventSheets []*EventSheet
+	reservedEventSheets []*EventSheet // flag does not matter, all reserved sheets come here
 
 	reservationsMtx sync.Mutex
 	reservations    map[uint]*Reservation // key: reservation id
@@ -196,8 +200,14 @@ func (s *State) Init() {
 	for _, event := range DataSet.Events {
 		s.pushNewEventLocked(event, "Init")
 	}
+	for _, event := range DataSet.ClosedEvents {
+		s.pushInitialClosedEventLocked(event)
+	}
 
 	s.reservations = map[uint]*Reservation{}
+	for _, reservation := range DataSet.Reservations {
+		s.reservations[reservation.ID] = reservation
+	}
 
 	s.reserveLogID = 0
 	s.reserveLog = map[uint64]*Reservation{}
@@ -385,12 +395,30 @@ func (s *State) pushNewEventLocked(event *Event, caller string) {
 	}
 }
 
+// Initial closed events are all reserved and closed
+func (s *State) pushInitialClosedEventLocked(event *Event) {
+	event.CreatedAt = time.Now()
+	s.closedEvents = append(s.closedEvents, event)
+
+	for _, sheetKind := range DataSet.SheetKinds {
+		for i := uint(0); i < sheetKind.Total; i++ {
+			eventSheet := &EventSheet{event.ID, sheetKind.Rank, i + 1}
+			s.reservedEventSheets = append(s.reservedEventSheets, eventSheet)
+		}
+	}
+}
+
 // ASSUMPTION: No event is popped from s.events, thus, s.events represents all events.
 func (s *State) FindEventByID(id uint) *Event {
 	s.mtx.Lock()
 	defer s.mtx.Unlock()
 
 	for _, event := range s.events {
+		if event.ID == id {
+			return event
+		}
+	}
+	for _, event := range s.closedEvents {
 		if event.ID == id {
 			return event
 		}
@@ -402,8 +430,7 @@ func (s *State) GetEvents() (events []*Event) {
 	s.mtx.Lock()
 	defer s.mtx.Unlock()
 
-	events = make([]*Event, len(s.events))
-	copy(events, s.events)
+	events = append(s.events, s.closedEvents...)
 	return
 }
 
