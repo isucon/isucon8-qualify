@@ -157,8 +157,7 @@ type State struct {
 	adminMap        map[string]*Administrator
 	adminCheckerMap map[*Administrator]*Checker
 
-	events       []*Event
-	closedEvents []*Event
+	events []*Event
 
 	// public && closed does not happen
 	eventSheets         []*EventSheet // public && !closed
@@ -398,7 +397,7 @@ func (s *State) pushNewEventLocked(event *Event, caller string) {
 // Initial closed events are all reserved and closed
 func (s *State) pushInitialClosedEventLocked(event *Event) {
 	event.CreatedAt = time.Now()
-	s.closedEvents = append(s.closedEvents, event)
+	s.events = append(s.events, event)
 
 	for _, sheetKind := range DataSet.SheetKinds {
 		for i := uint(0); i < sheetKind.Total; i++ {
@@ -418,11 +417,6 @@ func (s *State) FindEventByID(id uint) *Event {
 			return event
 		}
 	}
-	for _, event := range s.closedEvents {
-		if event.ID == id {
-			return event
-		}
-	}
 	return nil
 }
 
@@ -430,7 +424,8 @@ func (s *State) GetEvents() (events []*Event) {
 	s.mtx.Lock()
 	defer s.mtx.Unlock()
 
-	events = append(s.events, s.closedEvents...)
+	events = make([]*Event, len(s.events))
+	copy(events, s.events)
 	return
 }
 
