@@ -1180,6 +1180,21 @@ func checkReportResponse(s *State) func(res *http.Response, body *bytes.Buffer) 
 				return fatalErrorf(msg)
 			}
 
+			_, err = time.Parse(time.RFC3339, record[6])
+			if err != nil {
+				log.Printf("debug: invalid soldAt (line:%d) error:%v\n", reportCount, err)
+				return fatalErrorf(msg)
+			}
+
+			var canceledAt time.Time
+			if record[7] != "" {
+				canceledAt, err = time.Parse(time.RFC3339, record[7])
+				if err != nil {
+					log.Printf("debug: invalid canceledAt (line:%d) error:%v\n", reportCount, err)
+					return fatalErrorf(msg)
+				}
+			}
+
 			event := s.FindEventByID(uint(eventID))
 			if event == nil {
 				log.Printf("debug: event id=%d is not found (line:%d)\n", eventID, reportCount)
@@ -1203,14 +1218,28 @@ func checkReportResponse(s *State) func(res *http.Response, body *bytes.Buffer) 
 				log.Printf("debug: unexpected data (line:%d)\n", reportCount)
 				return fatalErrorf(msg)
 			}
+
+			if reservation.Canceled() {
+				if canceledAt.IsZero() {
+					log.Printf("debug: should have canceledAt (line:%d)\n", reportCount)
+					return fatalErrorf(msg)
+				}
+			} else if reservation.MaybeCanceled() {
+				if canceledAt.IsZero() {
+					log.Printf("warn: should have canceledAt (line:%d) but ignored (race condition)\n", reportCount)
+				}
+			} else {
+				if !canceledAt.IsZero() {
+					log.Printf("debug: should not have canceledAt (line:%d)\n", reportCount)
+					return fatalErrorf(msg)
+				}
+			}
 		}
 
 		reservationsCount := len(s.reservations)
-		maybeCanceledCount := len(s.cancelLog)
 		maybeReservedCount := len(s.reserveLog)
-		log.Printf("debug: reservationsCount:%d - maybeCanceldCount:%d <= reportCount:%d <= reservationsCount:%d + maybeReservedCount%d\n", reservationsCount, maybeCanceledCount, reportCount, reservationsCount, maybeReservedCount)
-		if reservationsCount-maybeCanceledCount-maybeReservedCount <= reportCount && reportCount <= reservationsCount+maybeReservedCount+maybeReservedCount {
-		} else {
+		log.Printf("debug: reservationsCount:%d <= reportCount:%d <= reservationsCount:%d + maybeReservedCount%d\n", reservationsCount, reportCount, reservationsCount, maybeReservedCount)
+		if !(reservationsCount <= reportCount && reportCount <= reservationsCount+maybeReservedCount) {
 			return fatalErrorf(msg)
 		}
 
@@ -1412,8 +1441,12 @@ func reserveSheet(ctx context.Context, state *State, checker *Checker, userID ui
 		CheckFunc: checkJsonReservedResponse(reserved),
 	})
 	if err != nil {
+		if !errorIsCheckerTimeout(err) {
+			state.DeleteReserveLog(logID, reservation)
+		}
 		return nil, err
 	}
+
 	reservation.ID = reserved.ReservationID
 	reservation.SheetNum = reserved.SheetNum
 	state.DeleteReserveLog(logID, reservation)
@@ -1429,7 +1462,7 @@ func cancelSheet(ctx context.Context, state *State, checker *Checker, userID uin
 	reservationID := reserved.ReservationID
 	sheetNum := reserved.SheetNum
 
-	reservation := &Reservation{reservationID, eventID, userID, rank, sheetNum, false}
+	reservation := state.BeginCancelReservation(reservationID)
 	logID := state.AppendCancelLog(reservation)
 	err := checker.Play(ctx, &CheckAction{
 		Method:             "DELETE",
@@ -1438,11 +1471,15 @@ func cancelSheet(ctx context.Context, state *State, checker *Checker, userID uin
 		Description:        "キャンセルができること",
 	})
 	if err != nil {
+		if !errorIsCheckerTimeout(err) {
+			state.RevertCancelReservation(reservation)
+			state.DeleteCancelLog(logID, reservation)
+		}
 		return err
 	}
+
+	state.CommitCancelReservation(reservation)
 	state.DeleteCancelLog(logID, reservation)
 	eventSheet.Num = NonReservedNum
-	state.DeleteReservation(reservationID)
-
 	return nil
 }

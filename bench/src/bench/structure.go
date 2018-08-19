@@ -101,13 +101,22 @@ type Sheet struct {
 }
 
 type Reservation struct {
-	ID        uint
-	EventID   uint
-	UserID    uint
-	SheetRank string
-	SheetNum  uint
-	Deleted   bool
+	ID              uint
+	EventID         uint
+	UserID          uint
+	SheetRank       string
+	SheetNum        uint
+	CancelRequested bool
+	CancelCompleted bool
 	// ReservedAt uint // No way to obtain now
+}
+
+func (r Reservation) Canceled() bool {
+	return r.CancelRequested && r.CancelCompleted
+}
+
+func (r Reservation) MaybeCanceled() bool {
+	return r.CancelRequested
 }
 
 type BenchDataSet struct {
@@ -491,11 +500,30 @@ func (s *State) AppendReservation(reservation *Reservation) {
 	s.reservations[reservation.ID] = reservation
 }
 
-func (s *State) DeleteReservation(reservationID uint) {
+func (s *State) BeginCancelReservation(reservationID uint) *Reservation {
 	s.reservationsMtx.Lock()
 	defer s.reservationsMtx.Unlock()
 
-	s.reservations[reservationID].Deleted = true
+	reservation := s.reservations[reservationID]
+
+	reservation.CancelRequested = true
+	return reservation
+}
+
+func (s *State) CommitCancelReservation(reservation *Reservation) {
+	s.reservationsMtx.Lock()
+	defer s.reservationsMtx.Unlock()
+
+	reservation.CancelCompleted = true
+	s.reservations[reservation.ID] = reservation
+}
+
+func (s *State) RevertCancelReservation(reservation *Reservation) {
+	s.reservationsMtx.Lock()
+	defer s.reservationsMtx.Unlock()
+
+	reservation.CancelRequested = false
+	s.reservations[reservation.ID] = reservation
 }
 
 func (s *State) AppendReserveLog(reservation *Reservation) uint64 {
