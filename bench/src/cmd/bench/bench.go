@@ -127,32 +127,75 @@ func postTest(ctx context.Context, state *bench.State) error {
 }
 
 func checkMain(ctx context.Context, state *bench.State) error {
-	for r := range rand.Perm(len(checkFuncs)) {
-		if ctx.Err() != nil {
+	checkReportTicker := time.NewTicker(parameter.CheckReportTickerInterval)
+	defer checkReportTicker.Stop()
+
+	randCheckFuncIndices := []int{}
+	popRandomPermCheckFunc := func() benchFunc {
+		n := len(randCheckFuncIndices)
+		if n == 0 {
+			randCheckFuncIndices = rand.Perm(len(checkFuncs))
+			n = len(randCheckFuncIndices)
+		}
+		i := randCheckFuncIndices[n-1]
+		randCheckFuncIndices = randCheckFuncIndices[:n-1]
+		return checkFuncs[i]
+	}
+
+	for {
+		select {
+		case <-checkReportTicker.C:
+			if ctx.Err() != nil {
+				return nil
+			}
+
+			// Inserts CheckEventReport on every CheckReportTickerInterval
+
+			log.Println("debug: checkReportTicker is fired.")
+			t := time.Now()
+			err := bench.CheckEventReport(ctx, state)
+			log.Println("CheckEventReport", time.Since(t))
+
+			isFatalError := false
+			if cerr, ok := err.(*bench.CheckerError); ok {
+				isFatalError = cerr.IsFatal()
+			}
+
+			// fatalError以外は見逃してあげる
+			if err != nil && isFatalError {
+				return err
+			}
+		case <-ctx.Done():
+			// benchmarker timeout
 			return nil
-		}
+		default:
+			if ctx.Err() != nil {
+				return nil
+			}
 
-		checkFunc := checkFuncs[r]
-		t := time.Now()
-		err := checkFunc.Func(ctx, state)
-		log.Println("checkMain:", checkFunc.Name, time.Since(t))
+			// Sequentially runs the check functions in random order
 
-		isFatalError := false
-		if cerr, ok := err.(*bench.CheckerError); ok {
-			isFatalError = cerr.IsFatal()
-		}
+			checkFunc := popRandomPermCheckFunc()
+			t := time.Now()
+			err := checkFunc.Func(ctx, state)
+			log.Println("checkMain:", checkFunc.Name, time.Since(t))
 
-		// fatalError以外は見逃してあげる
-		if err != nil && isFatalError {
-			return err
-		}
+			isFatalError := false
+			if cerr, ok := err.(*bench.CheckerError); ok {
+				isFatalError = cerr.IsFatal()
+			}
 
-		if err != nil {
-			// バリデーションシナリオを悪用してスコアブーストさせないためエラーのときは少し待つ
-			time.Sleep(parameter.WaitOnError)
+			// fatalError以外は見逃してあげる
+			if err != nil && isFatalError {
+				return err
+			}
+
+			if err != nil {
+				// バリデーションシナリオを悪用してスコアブーストさせないためエラーのときは少し待つ
+				time.Sleep(parameter.WaitOnError)
+			}
 		}
 	}
-	return nil
 }
 
 func goLoadFuncs(ctx context.Context, state *bench.State, n int) {
@@ -315,7 +358,6 @@ func startBenchmark(remoteAddrs []string) *BenchResult {
 	addCheckFunc(benchFunc{"CheckAdminLogin", bench.CheckAdminLogin})
 	addCheckFunc(benchFunc{"CheckCreateEvent", bench.CheckCreateEvent})
 	addCheckFunc(benchFunc{"CheckMyPage", bench.CheckMyPage})
-	addCheckFunc(benchFunc{"CheckEventReport", bench.CheckEventReport})
 
 	addPostTestFunc(benchFunc{"CheckReport", bench.CheckReport})
 
@@ -369,19 +411,14 @@ func startBenchmark(remoteAddrs []string) *BenchResult {
 		return result
 	}
 
-	log.Println("checkMain()")
 	go loadMain(ctx, state)
-	for {
-		err = checkMain(ctx, state)
-		if ctx.Err() != nil {
-			break
-		}
-		if err != nil {
-			result.Score = 0
-			result.Errors = getErrorsString()
-			result.Message = fmt.Sprint("負荷走行中のバリデーションに失敗しました。", err)
-			return result
-		}
+	log.Println("checkMain()")
+	err = checkMain(ctx, state)
+	if err != nil {
+		result.Score = 0
+		result.Errors = getErrorsString()
+		result.Message = fmt.Sprint("負荷走行中のバリデーションに失敗しました。", err)
+		return result
 	}
 	log.Println("checkMain() Done")
 

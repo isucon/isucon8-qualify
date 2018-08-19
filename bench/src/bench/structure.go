@@ -119,6 +119,15 @@ type Sheet struct {
 	Price uint
 }
 
+type ReportRecord struct {
+	ReservationID uint
+	EventID       uint
+	SheetRank     string
+	SheetNum      uint
+	UserID        uint
+	CanceledAt    time.Time
+}
+
 type Reservation struct {
 	ID              uint
 	EventID         uint
