@@ -85,7 +85,8 @@ get '/initialize' => sub {
     $self->dbh->query('DELETE FROM users WHERE id > 1000');
     $self->dbh->query('DELETE FROM reservations');
     $self->dbh->query('DELETE FROM events WHERE id > 2');
-    $self->dbh->query('UPDATE events SET public_fg = 0 WHERE id = 2');
+    $self->dbh->query('UPDATE events SET public_fg = 1, closed_fg = 0 WHERE id = 1');
+    $self->dbh->query('UPDATE events SET public_fg = 0, closed_fg = 0 WHERE id = 2');
     $txn->commit();
 
     return $c->req->new_response(204, [], '');
