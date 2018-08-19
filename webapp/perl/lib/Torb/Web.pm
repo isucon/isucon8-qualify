@@ -83,8 +83,9 @@ get '/initialize' => sub {
 
     my $txn = $self->dbh->txn_scope();
     $self->dbh->query('DELETE FROM users WHERE id > 1000');
-    $self->dbh->query('DELETE FROM reservations');
-    $self->dbh->query('DELETE FROM events WHERE id > 2');
+    $self->dbh->query('DELETE FROM reservations WHERE id > 1000');
+    $self->dbh->query('DELETE FROM events WHERE id > 3');
+    $self->dbh->query('UPDATE events SET public_fg = 0, closed_fg = 1');
     $self->dbh->query('UPDATE events SET public_fg = 1, closed_fg = 0 WHERE id = 1');
     $self->dbh->query('UPDATE events SET public_fg = 0, closed_fg = 0 WHERE id = 2');
     $txn->commit();
@@ -213,10 +214,9 @@ sub get_events {
     my $txn = $self->dbh->txn_scope();
 
     my @events;
-    my @event_ids = map { $_->{id} } @{ $self->dbh->select_all('SELECT id FROM events ORDER BY id ASC') };
+    my @event_ids = map { $_->{id} } @{ $self->dbh->select_all('SELECT id FROM events WHERE public_fg = 1 ORDER BY id ASC') };
     for my $event_id (@event_ids) {
         my $event = $self->get_event($event_id);
-        next unless $event->{public_fg};
 
         delete $event->{sheets}->{$_}->{detail} for keys %{ $event->{sheets} };
         push @events => $event;

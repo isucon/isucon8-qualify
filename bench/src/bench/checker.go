@@ -35,6 +35,8 @@ var (
 	PostTimeout            = parameter.PostTimeout
 	InitializeTimeout      = parameter.InitializeTimeout
 	SlowThreshold          = parameter.SlowThreshold
+	ReportTimeout          = parameter.ReportTimeout
+	ReportPath             = "/admin/api/reports/sales"
 	MaxCheckerRequest      = parameter.MaxCheckerRequest
 	DebugMode              = false
 )
@@ -401,6 +403,9 @@ func (c *Checker) Play(ctx context.Context, a *CheckAction) error {
 	timeout := GetTimeout
 	if req.Method == http.MethodPost {
 		timeout = PostTimeout
+	}
+	if a.Path == ReportPath {
+		timeout = ReportTimeout
 	}
 	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()

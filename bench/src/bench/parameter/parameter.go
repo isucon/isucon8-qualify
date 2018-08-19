@@ -6,15 +6,16 @@ import (
 
 // Benchmarker tuning parameters
 var (
+	// NOTE: DO NOT FORGET TO FIX /initialze OF Web.pm TOGETHER
 	InitialNumUsers = 1000
 	// NumUsers = 5000 // amount of user.tsv
 	// NumAdministrators = 100 // amount of admin.tsv
-	// InitialNumEvents
-	// InitialNumReservations
+	InitialNumClosedEvents = 1 // # of reservations = # of events * 1000
 
 	GetTimeout        = 10 * time.Second
 	PostTimeout       = 3 * time.Second
 	InitializeTimeout = 10 * time.Second
+	ReportTimeout     = 60 * time.Second
 	SlowThreshold     = 1000 * time.Millisecond
 	MaxCheckerRequest = 6
 
