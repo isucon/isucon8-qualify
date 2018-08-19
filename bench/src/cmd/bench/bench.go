@@ -50,8 +50,9 @@ func addLoadFunc(weight int, f benchFunc) {
 	}
 }
 
-func addLoadLevelUpFunc(weight int, f benchFunc) {
+func addLoadAndLevelUpFunc(weight int, f benchFunc) {
 	for i := 0; i < weight; i++ {
+		loadFuncs = append(loadFuncs, f)
 		loadLevelUpFuncs = append(loadLevelUpFuncs, f)
 	}
 }
@@ -158,10 +159,7 @@ func goLoadFuncs(ctx context.Context, state *bench.State, n int) {
 				}
 
 				loadFunc := loadFuncs[rand.Intn(len(loadFuncs))]
-				err := loadFunc.Func(ctx, state)
-				if err != nil {
-					return
-				}
+				loadFunc.Func(ctx, state) // no fail
 			}
 		}()
 	}
@@ -169,18 +167,24 @@ func goLoadFuncs(ctx context.Context, state *bench.State, n int) {
 
 func goLoadLevelUpFuncs(ctx context.Context, state *bench.State, n int) {
 	for i := 0; i < n; i++ {
-		for _, loadFunc := range loadLevelUpFuncs {
-			go loadFunc.Func(ctx, state)
-		}
+		go func() {
+			for {
+				if ctx.Err() != nil {
+					return
+				}
+
+				loadFunc := loadLevelUpFuncs[rand.Intn(len(loadLevelUpFuncs))]
+				loadFunc.Func(ctx, state) // no fail
+			}
+		}()
 	}
 }
 
 func loadMain(ctx context.Context, state *bench.State) {
-	levelUpRatio := 1.2
-	loadLevel := 10.0
+	levelUpRatio := 1.5
+	numGoroutines := 5.0
 
-	goLoadFuncs(ctx, state, 10)
-	goLoadLevelUpFuncs(ctx, state, int(loadLevel))
+	goLoadFuncs(ctx, state, int(numGoroutines))
 
 	beat := time.NewTicker(time.Second)
 	defer beat.Stop()
@@ -188,7 +192,7 @@ func loadMain(ctx context.Context, state *bench.State) {
 	for {
 		select {
 		case <-beat.C:
-			log.Printf("debug: # of goroutines:%d\n", runtime.NumGoroutine())
+			log.Printf("debug: loadLevel:%d numGoroutines:%d runtime.NumGoroutines():%d\n", counter.GetKey("load-level-up"), int(numGoroutines), runtime.NumGoroutine())
 			if noLevelup {
 				continue
 			}
@@ -210,10 +214,10 @@ func loadMain(ctx context.Context, state *bench.State) {
 			} else {
 				loadLogs = append(loadLogs, fmt.Sprintf("%v 負荷レベルが上昇しました。", now))
 				counter.IncKey("load-level-up")
-				nextLoadLevel := loadLevel * levelUpRatio
+				nextNumGoroutines := numGoroutines * levelUpRatio
 				log.Println("Increase Load Level", counter.GetKey("load-level-up"))
-				goLoadLevelUpFuncs(ctx, state, int(nextLoadLevel-loadLevel))
-				loadLevel = nextLoadLevel
+				goLoadLevelUpFuncs(ctx, state, int(nextNumGoroutines-numGoroutines))
+				numGoroutines = nextNumGoroutines
 			}
 		case <-ctx.Done():
 			// ベンチ終了、このタイミングでエラーの収集をやめる。
@@ -272,10 +276,9 @@ func printCounterSummary() {
 
 func startBenchmark(remoteAddrs []string) *BenchResult {
 	addLoadFunc(1, benchFunc{"LoadCreateUser", bench.LoadCreateUser})
-
-	addLoadLevelUpFunc(1, benchFunc{"LoadTopPage", bench.LoadTopPage})
-	addLoadLevelUpFunc(1, benchFunc{"LoadReserveCancelSheet", bench.LoadReserveCancelSheet})
-	addLoadLevelUpFunc(1, benchFunc{"LoadReserveSheet", bench.LoadReserveSheet})
+	addLoadAndLevelUpFunc(1, benchFunc{"LoadTopPage", bench.LoadTopPage})
+	addLoadAndLevelUpFunc(1, benchFunc{"LoadReserveCancelSheet", bench.LoadReserveCancelSheet})
+	addLoadAndLevelUpFunc(1, benchFunc{"LoadReserveSheet", bench.LoadReserveSheet})
 
 	addCheckFunc(benchFunc{"CheckStaticFiles", bench.CheckStaticFiles})
 	addCheckFunc(benchFunc{"CheckCreateUser", bench.CheckCreateUser})
