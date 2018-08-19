@@ -48,3 +48,7 @@ func PutBuffer(buf *bytes.Buffer) {
 	buf.Reset()
 	bytesBufferPool.Put(buf)
 }
+
+func JoinCrc32(crcSum []byte) uint32 {
+	return uint32(crcSum[0])<<24 | uint32(crcSum[1])<<16 | uint32(crcSum[2])<<8 | uint32(crcSum[3])
+}
