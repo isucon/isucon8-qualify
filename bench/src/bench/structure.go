@@ -15,6 +15,15 @@ type JsonUser struct {
 	Nickname string `json:"nickname"`
 }
 
+// {"nickname":"sonots","id":1001};
+type JsonFullUser struct {
+	JsonUser
+
+	TotalPrice         uint                   `json:"total_price"`
+	RecentEvents       []*JsonEvent           `json:"recent_events"`
+	RecentReservations []*JsonFullReservation `json:"recent_reservations"`
+}
+
 type JsonAdministrator struct {
 	ID       uint   `json:"id"`
 	Nickname string `json:"nickname"`
@@ -36,20 +45,27 @@ type JsonEvent struct {
 	Sheets  map[string]JsonSheet `json:"sheets"`
 }
 
-type JsonAdminEvent struct {
-	ID      uint                 `json:"id"`
-	Title   string               `json:"title"`
-	Public  bool                 `json:"public"`
-	Closed  bool                 `json:"closed"`
-	Price   uint                 `json:"price"`
-	Remains uint                 `json:"remains"`
-	Sheets  map[string]JsonSheet `json:"sheets"`
+type JsonFullEvent struct {
+	JsonEvent
+
+	Price  uint `json:"price"`
+	Public bool `json:"public"`
+	Closed bool `json:"closed"`
 }
 
-type JsonReserved struct {
+type JsonReservation struct {
 	ReservationID uint   `json:"reservation_id"`
 	SheetRank     string `json:"sheet_rank"`
 	SheetNum      uint   `json:"sheet_num"`
+}
+
+type JsonFullReservation struct {
+	JsonReservation
+
+	Event      *JsonFullEvent `json:"event"`
+	Price      uint           `json:"price"`
+	ReservedAt uint           `json:"reserved_at"`
+	CanceledAt uint           `json:"canceled_at"`
 }
 
 type JsonError struct {

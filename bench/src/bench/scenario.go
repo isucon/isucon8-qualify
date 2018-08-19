@@ -135,6 +135,20 @@ func checkEventsList(state *State, events []JsonEvent) error {
 	return nil
 }
 
+func checkJsonFullUserResponse(check func(*JsonFullUser) error) func(res *http.Response, body *bytes.Buffer) error {
+	return func(res *http.Response, body *bytes.Buffer) error {
+		dec := json.NewDecoder(body)
+
+		var v JsonFullUser
+		err := dec.Decode(&v)
+		if err != nil {
+			return fatalErrorf("Jsonのデコードに失敗 %v", err)
+		}
+
+		return check(&v)
+	}
+}
+
 func loadStaticFile(ctx context.Context, checker *Checker, path string) error {
 	return checker.Play(ctx, &CheckAction{
 		EnableCache:          true,
@@ -228,6 +242,32 @@ func LoadTopPage(ctx context.Context, state *State) error {
 		Path:               "/",
 		ExpectedStatusCode: 200,
 		Description:        "ページが表示されること",
+	})
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func LoadMyPage(ctx context.Context, state *State) error {
+	user, userChecker, userPush := state.PopRandomUser()
+	if user == nil {
+		return nil
+	}
+	defer userPush()
+
+	err := loginAppUser(ctx, userChecker, user)
+	if err != nil {
+		return err
+	}
+
+	// CheckMyPageでがっつり見る代わりにこっちではチェックを頑張らない
+	err = userChecker.Play(ctx, &CheckAction{
+		Method:             "GET",
+		Path:               fmt.Sprintf("/api/users/%d", user.ID),
+		ExpectedStatusCode: 200,
+		Description:        "ユーザー情報が取得できること",
 	})
 	if err != nil {
 		return err
@@ -595,6 +635,35 @@ func CheckTopPage(ctx context.Context, state *State) error {
 	return nil
 }
 
+func CheckMyPage(ctx context.Context, state *State) error {
+	user, checker, push := state.PopRandomUser()
+	if user == nil {
+		return nil
+	}
+	defer push()
+
+	err := loginAppUser(ctx, checker, user)
+	if err != nil {
+		return err
+	}
+
+	err = checker.Play(ctx, &CheckAction{
+		Method:             "GET",
+		Path:               fmt.Sprintf("/api/users/%d", user.ID),
+		ExpectedStatusCode: 200,
+		Description:        "ページが表示されること",
+		CheckFunc: checkJsonFullUserResponse(func(user *JsonFullUser) error {
+			// TODO
+			return nil
+		}),
+	})
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func CheckReserveSheet(ctx context.Context, state *State) error {
 	user, userChecker, userPush := state.PopRandomUser()
 	if user == nil {
@@ -862,10 +931,10 @@ func CheckAdminLogin(ctx context.Context, state *State) error {
 	return nil
 }
 
-func checkJsonAdminEventCreateResponse(event *Event) func(res *http.Response, body *bytes.Buffer) error {
+func checkJsonFullEventCreateResponse(event *Event) func(res *http.Response, body *bytes.Buffer) error {
 	return func(res *http.Response, body *bytes.Buffer) error {
 		dec := json.NewDecoder(body)
-		jsonEvent := JsonAdminEvent{}
+		jsonEvent := JsonFullEvent{}
 		err := dec.Decode(&jsonEvent)
 		if err != nil {
 			return fatalErrorf("Jsonのデコードに失敗 %v", err)
@@ -880,10 +949,10 @@ func checkJsonAdminEventCreateResponse(event *Event) func(res *http.Response, bo
 	}
 }
 
-func checkJsonAdminEventResponse(event *Event) func(res *http.Response, body *bytes.Buffer) error {
+func checkJsonFullEventResponse(event *Event) func(res *http.Response, body *bytes.Buffer) error {
 	return func(res *http.Response, body *bytes.Buffer) error {
 		dec := json.NewDecoder(body)
-		jsonEvent := JsonAdminEvent{}
+		jsonEvent := JsonFullEvent{}
 		err := dec.Decode(&jsonEvent)
 		if err != nil {
 			return fatalErrorf("Jsonのデコードに失敗 %v", err)
@@ -972,7 +1041,7 @@ func CheckCreateEvent(ctx context.Context, state *State) error {
 		ExpectedStatusCode: 200,
 		Description:        "管理者がイベントを作成できること",
 		PostJSON:           eventPostJSON(event),
-		CheckFunc:          checkJsonAdminEventCreateResponse(event),
+		CheckFunc:          checkJsonFullEventCreateResponse(event),
 	})
 	if err != nil {
 		return err
@@ -1006,7 +1075,7 @@ func CheckCreateEvent(ctx context.Context, state *State) error {
 		Path:               fmt.Sprintf("/admin/api/events/%d", event.ID),
 		ExpectedStatusCode: 200,
 		Description:        "管理者が非公開イベントを取得できること",
-		CheckFunc:          checkJsonAdminEventResponse(event),
+		CheckFunc:          checkJsonFullEventResponse(event),
 	})
 	if err != nil {
 		return err
@@ -1033,7 +1102,7 @@ func CheckCreateEvent(ctx context.Context, state *State) error {
 		ExpectedStatusCode: 200,
 		Description:        "管理者がイベントを編集できること",
 		PostJSON:           eventEditJSON(event),
-		CheckFunc:          checkJsonAdminEventResponse(event),
+		CheckFunc:          checkJsonFullEventResponse(event),
 	})
 	if err != nil {
 		return err
@@ -1055,7 +1124,7 @@ func CheckCreateEvent(ctx context.Context, state *State) error {
 		Path:               fmt.Sprintf("/admin/api/events/%d", event.ID),
 		ExpectedStatusCode: 200,
 		Description:        "管理者が公開イベントを取得できること",
-		CheckFunc:          checkJsonAdminEventResponse(event),
+		CheckFunc:          checkJsonFullEventResponse(event),
 	})
 	if err != nil {
 		return err
@@ -1386,7 +1455,7 @@ func popOrCreateEventSheet(ctx context.Context, state *State) (*EventSheet, func
 		ExpectedStatusCode: 200,
 		Description:        "管理者がイベントを作成できること",
 		PostJSON:           eventPostJSON(event),
-		CheckFunc:          checkJsonAdminEventCreateResponse(event),
+		CheckFunc:          checkJsonFullEventCreateResponse(event),
 	})
 	if err != nil {
 		return nil, nil, err
@@ -1397,10 +1466,10 @@ func popOrCreateEventSheet(ctx context.Context, state *State) (*EventSheet, func
 	return eventSheet, eventSheetPush, nil
 }
 
-func checkJsonReservedResponse(reserved *JsonReserved) func(res *http.Response, body *bytes.Buffer) error {
+func checkJsonReservationResponse(reserved *JsonReservation) func(res *http.Response, body *bytes.Buffer) error {
 	return func(res *http.Response, body *bytes.Buffer) error {
 		dec := json.NewDecoder(body)
-		resReserved := JsonReserved{}
+		resReserved := JsonReservation{}
 		err := dec.Decode(&resReserved)
 		if err != nil {
 			return fatalErrorf("Jsonのデコードに失敗 %v", err)
@@ -1415,11 +1484,11 @@ func checkJsonReservedResponse(reserved *JsonReserved) func(res *http.Response, 
 	}
 }
 
-func reserveSheet(ctx context.Context, state *State, checker *Checker, userID uint, eventSheet *EventSheet) (*JsonReserved, error) {
+func reserveSheet(ctx context.Context, state *State, checker *Checker, userID uint, eventSheet *EventSheet) (*JsonReservation, error) {
 	eventID := eventSheet.EventID
 	rank := eventSheet.Rank
 
-	reserved := &JsonReserved{ReservationID: 0, SheetRank: rank, SheetNum: 0}
+	reserved := &JsonReservation{ReservationID: 0, SheetRank: rank, SheetNum: 0}
 	reservation := &Reservation{ID: 0, EventID: eventID, UserID: userID, SheetRank: rank, SheetNum: 0}
 	logID := state.AppendReserveLog(reservation)
 	err := checker.Play(ctx, &CheckAction{
@@ -1430,7 +1499,7 @@ func reserveSheet(ctx context.Context, state *State, checker *Checker, userID ui
 		PostJSON: map[string]interface{}{
 			"sheet_rank": rank,
 		},
-		CheckFunc: checkJsonReservedResponse(reserved),
+		CheckFunc: checkJsonReservationResponse(reserved),
 	})
 	if err != nil {
 		if !errorIsCheckerTimeout(err) {
@@ -1448,7 +1517,7 @@ func reserveSheet(ctx context.Context, state *State, checker *Checker, userID ui
 	return reserved, nil
 }
 
-func cancelSheet(ctx context.Context, state *State, checker *Checker, userID uint, eventSheet *EventSheet, reserved *JsonReserved) error {
+func cancelSheet(ctx context.Context, state *State, checker *Checker, userID uint, eventSheet *EventSheet, reserved *JsonReservation) error {
 	eventID := eventSheet.EventID
 	rank := eventSheet.Rank
 	reservationID := reserved.ReservationID
