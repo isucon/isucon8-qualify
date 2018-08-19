@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bench/counter"
 	"context"
 	"encoding/json"
 	"flag"
@@ -13,11 +12,17 @@ import (
 	"net/http"
 	_ "net/http/pprof"
 	"net/url"
+	"runtime"
 	"sort"
 	"strings"
 	"time"
 
 	"bench"
+<<<<<<< HEAD
+=======
+	"bench/counter"
+	"bench/parameter"
+>>>>>>> master
 
 	"github.com/comail/colog"
 )
@@ -50,8 +55,9 @@ func addLoadFunc(weight int, f benchFunc) {
 	}
 }
 
-func addLoadLevelUpFunc(weight int, f benchFunc) {
+func addLoadAndLevelUpFunc(weight int, f benchFunc) {
 	for i := 0; i < weight; i++ {
+		loadFuncs = append(loadFuncs, f)
 		loadLevelUpFuncs = append(loadLevelUpFuncs, f)
 	}
 }
@@ -143,7 +149,7 @@ func checkMain(ctx context.Context, state *bench.State) error {
 
 		if err != nil {
 			// バリデーションシナリオを悪用してスコアブーストさせないためエラーのときは少し待つ
-			time.Sleep(500 * time.Millisecond)
+			time.Sleep(parameter.WaitOnError)
 		}
 	}
 	return nil
@@ -159,9 +165,13 @@ func goLoadFuncs(ctx context.Context, state *bench.State, n int) {
 
 				loadFunc := loadFuncs[rand.Intn(len(loadFuncs))]
 				err := loadFunc.Func(ctx, state)
+
 				if err != nil {
-					return
+					// バリデーションシナリオを悪用してスコアブーストさせないためエラーのときは少し待つ
+					time.Sleep(parameter.WaitOnError)
 				}
+
+				// no fail
 			}
 		}()
 	}
@@ -169,25 +179,39 @@ func goLoadFuncs(ctx context.Context, state *bench.State, n int) {
 
 func goLoadLevelUpFuncs(ctx context.Context, state *bench.State, n int) {
 	for i := 0; i < n; i++ {
-		for _, loadFunc := range loadLevelUpFuncs {
-			go loadFunc.Func(ctx, state)
-		}
+		go func() {
+			for {
+				if ctx.Err() != nil {
+					return
+				}
+
+				loadFunc := loadLevelUpFuncs[rand.Intn(len(loadLevelUpFuncs))]
+				err := loadFunc.Func(ctx, state)
+
+				if err != nil {
+					// バリデーションシナリオを悪用してスコアブーストさせないためエラーのときは少し待つ
+					time.Sleep(parameter.WaitOnError)
+				}
+
+				// no fail
+			}
+		}()
 	}
 }
 
 func loadMain(ctx context.Context, state *bench.State) {
-	levelUpRatio := 1.2
-	loadLevel := 10.0
+	levelUpRatio := parameter.LoadLevelUpRatio
+	numGoroutines := parameter.LoadInitialNumGoroutines
 
-	goLoadFuncs(ctx, state, 10)
-	goLoadLevelUpFuncs(ctx, state, int(loadLevel))
+	goLoadFuncs(ctx, state, int(numGoroutines))
 
-	beat := time.NewTicker(time.Second)
+	beat := time.NewTicker(parameter.LoadTickerInterval)
 	defer beat.Stop()
 
 	for {
 		select {
 		case <-beat.C:
+			log.Printf("debug: loadLevel:%d numGoroutines:%d runtime.NumGoroutines():%d\n", counter.GetKey("load-level-up"), int(numGoroutines), runtime.NumGoroutine())
 			if noLevelup {
 				continue
 			}
@@ -209,10 +233,10 @@ func loadMain(ctx context.Context, state *bench.State) {
 			} else {
 				loadLogs = append(loadLogs, fmt.Sprintf("%v 負荷レベルが上昇しました。", now))
 				counter.IncKey("load-level-up")
-				nextLoadLevel := loadLevel * levelUpRatio
+				nextNumGoroutines := numGoroutines * levelUpRatio
 				log.Println("Increase Load Level", counter.GetKey("load-level-up"))
-				goLoadLevelUpFuncs(ctx, state, int(nextLoadLevel-loadLevel))
-				loadLevel = nextLoadLevel
+				goLoadLevelUpFuncs(ctx, state, int(nextNumGoroutines-numGoroutines))
+				numGoroutines = nextNumGoroutines
 			}
 		case <-ctx.Done():
 			// ベンチ終了、このタイミングでエラーの収集をやめる。
@@ -274,10 +298,9 @@ func printCounterSummary() {
 func startBenchmark(remoteAddrs []string) *BenchResult {
 	addLoadFunc(1, benchFunc{"LoadCreateUser", bench.LoadCreateUser})
 	addLoadFunc(1, benchFunc{"LoadMyPage", bench.LoadMyPage})
-
-	addLoadLevelUpFunc(1, benchFunc{"LoadTopPage", bench.LoadTopPage})
-	addLoadLevelUpFunc(1, benchFunc{"LoadReserveCancelSheet", bench.LoadReserveCancelSheet})
-	addLoadLevelUpFunc(1, benchFunc{"LoadReserveSheet", bench.LoadReserveSheet})
+	addLoadAndLevelUpFunc(1, benchFunc{"LoadTopPage", bench.LoadTopPage})
+	addLoadAndLevelUpFunc(1, benchFunc{"LoadReserveCancelSheet", bench.LoadReserveCancelSheet})
+	addLoadAndLevelUpFunc(1, benchFunc{"LoadReserveSheet", bench.LoadReserveSheet})
 
 	addCheckFunc(benchFunc{"CheckStaticFiles", bench.CheckStaticFiles})
 	addCheckFunc(benchFunc{"CheckCreateUser", bench.CheckCreateUser})
@@ -356,7 +379,7 @@ func startBenchmark(remoteAddrs []string) *BenchResult {
 	}
 	log.Println("checkMain() Done")
 
-	time.Sleep(time.Second) // allow 1 sec delay
+	time.Sleep(parameter.AllowableDelay)
 
 	log.Println("postTest()")
 	err = postTest(context.Background(), state)
@@ -378,8 +401,8 @@ func startBenchmark(remoteAddrs []string) *BenchResult {
 	postCount := counter.SumPrefix(`POST|/`)
 	deleteCount := counter.SumPrefix(`DELETE|/`) // == cancelCount
 	s304Count := counter.GetKey("staticfile-304")
-	// TODO(sonots): Determine
-	score := 1*(getCount-s304Count-topCount) + 1*(postCount-reserveCount) + 3*(topCount+reserveCount+cancelCount) + s304Count/100
+
+	score := parameter.Score(getCount, postCount, deleteCount, s304Count, reserveCount, cancelCount, topCount)
 
 	log.Println("get", getCount)
 	log.Println("post", postCount)

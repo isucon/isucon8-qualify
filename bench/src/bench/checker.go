@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"bench/counter"
+	"bench/parameter"
 	"bench/urlcache"
 )
 
@@ -30,11 +31,11 @@ var (
 	RedirectAttemptedError = fmt.Errorf("redirect attempted")
 	RequestTimeoutError    = fmt.Errorf("リクエストがタイムアウトしました")
 	UserAgent              = "isucon8q-benchmarker"
-	GetTimeout             = 10 * time.Second
-	PostTimeout            = 3 * time.Second
-	InitializeTimeout      = 10 * time.Second
-	SlowThreshold          = 1000 * time.Millisecond
-	MaxCheckerRequest      = 6
+	GetTimeout             = parameter.GetTimeout
+	PostTimeout            = parameter.PostTimeout
+	InitializeTimeout      = parameter.InitializeTimeout
+	SlowThreshold          = parameter.SlowThreshold
+	MaxCheckerRequest      = parameter.MaxCheckerRequest
 	DebugMode              = false
 )
 
@@ -171,6 +172,20 @@ func (e *CheckerError) IsFatal() bool {
 
 func (e *CheckerError) IsTimeout() bool {
 	return e.err == RequestTimeoutError
+}
+
+func errorIsCheckerFatal(err error) bool {
+	if cerr, ok := err.(*CheckerError); ok {
+		return cerr.IsFatal()
+	}
+	return false
+}
+
+func errorIsCheckerTimeout(err error) bool {
+	if cerr, ok := err.(*CheckerError); ok {
+		return cerr.IsTimeout()
+	}
+	return false
 }
 
 func appendError(err *CheckerError) {
@@ -480,14 +495,4 @@ func (c *Checker) Play(ctx context.Context, a *CheckAction) error {
 
 	counter.IncKey(a.Method + "|" + a.Path)
 	return nil
-}
-
-func errorIsCheckerTimeout(err error) bool {
-	if cerr, ok := err.(*CheckerError); ok {
-		if cerr.err == RequestTimeoutError {
-			return true
-		}
-	}
-
-	return false
 }

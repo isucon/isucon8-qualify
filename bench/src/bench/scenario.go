@@ -2,6 +2,7 @@ package bench
 
 import (
 	"bench/counter"
+	"bench/parameter"
 	"bytes"
 	"context"
 	"crypto/md5"
@@ -78,7 +79,7 @@ func checkEventsList(state *State, events []JsonEvent) error {
 			missed = expected[i:]
 		}
 
-		threshold := time.Now().Add(-1 * time.Second)
+		threshold := time.Now().Add(-1 * parameter.AllowableDelay)
 		for _, e := range missed {
 			if e.CreatedAt.Before(threshold) {
 				return fatalErrorf("イベントの数が正しくありません")
@@ -1299,7 +1300,7 @@ func checkReportResponse(s *State) func(res *http.Response, body *bytes.Buffer) 
 
 		reservationsCount := len(s.reservations)
 		maybeReservedCount := len(s.reserveLog)
-		log.Printf("debug: reservationsCount:%d <= reportCount:%d <= reservationsCount:%d + maybeReservedCount%d\n", reservationsCount, reportCount, reservationsCount, maybeReservedCount)
+		log.Printf("debug: reservationsCount:%d <= reportCount:%d <= reservationsCount:%d + maybeReservedCount:%d\n", reservationsCount, reportCount, reservationsCount, maybeReservedCount)
 		if !(reservationsCount <= reportCount && reportCount <= reservationsCount+maybeReservedCount) {
 			return fatalErrorf(msg)
 		}
@@ -1502,9 +1503,6 @@ func reserveSheet(ctx context.Context, state *State, checker *Checker, userID ui
 		CheckFunc: checkJsonReservationResponse(reserved),
 	})
 	if err != nil {
-		if !errorIsCheckerTimeout(err) {
-			state.DeleteReserveLog(logID, reservation)
-		}
 		return nil, err
 	}
 
@@ -1532,10 +1530,6 @@ func cancelSheet(ctx context.Context, state *State, checker *Checker, userID uin
 		Description:        "キャンセルができること",
 	})
 	if err != nil {
-		if !errorIsCheckerTimeout(err) {
-			state.RevertCancelReservation(reservation)
-			state.DeleteCancelLog(logID, reservation)
-		}
 		return err
 	}
 
