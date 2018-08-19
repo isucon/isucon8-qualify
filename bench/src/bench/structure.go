@@ -454,14 +454,13 @@ func (s *State) GetEvents() (events []*Event) {
 	return
 }
 
-// ASSUMPTION: No event is popped from s.events, thus, s.events represents all events.
 func FilterPublicEvents(src []*Event) (filtered []*Event) {
 	filtered = make([]*Event, 0, len(src))
 	for _, e := range src {
 		if !e.PublicFg {
 			continue
 		}
-
+		assert(!e.ClosedFg)
 		filtered = append(filtered, e)
 	}
 	return
@@ -476,6 +475,14 @@ func FilterSoldOutEvents(src []*Event) (filtered []*Event) {
 		filtered = append(filtered, e)
 	}
 	return
+}
+
+func (s *State) GetRandomPublicEvent() *Event {
+	events := FilterPublicEvents(s.GetEvents())
+	if len(events) == 0 {
+		return nil
+	}
+	return events[uint(rand.Intn(len(events)))]
 }
 
 func (s *State) GetRandomPublicSoldOutEvent() *Event {
@@ -570,6 +577,17 @@ func (s *State) RevertCancelReservation(reservation *Reservation) {
 	s.reservations[reservation.ID] = reservation
 }
 
+func (s *State) FilterReservationsByEventIDLocked(eventID uint) []*Reservation {
+	filtered := make([]*Reservation, 0, len(s.reservations))
+	for _, reservation := range s.reservations {
+		if reservation.EventID != eventID {
+			continue
+		}
+		filtered = append(filtered, reservation)
+	}
+	return filtered
+}
+
 func (s *State) AppendReserveLog(reservation *Reservation) uint64 {
 	s.reserveLogMtx.Lock()
 	defer s.reserveLogMtx.Unlock()
@@ -587,6 +605,17 @@ func (s *State) DeleteReserveLog(reserveLogID uint64, reservation *Reservation) 
 
 	log.Printf("debug: deleteReserveLog LogID:%2d EventID:%2d UserID:%3d SheetRank:%s SheetNum:%d ReservationID:%d (Reserved)\n", reserveLogID, reservation.EventID, reservation.UserID, reservation.SheetRank, reservation.SheetNum, reservation.ID)
 	delete(s.reserveLog, reserveLogID)
+}
+
+func (s *State) FilterReserveLogByEventIDLocked(eventID uint) []*Reservation {
+	filtered := make([]*Reservation, 0, len(s.reserveLog))
+	for _, reservation := range s.reserveLog {
+		if reservation.EventID != eventID {
+			continue
+		}
+		filtered = append(filtered, reservation)
+	}
+	return filtered
 }
 
 func (s *State) AppendCancelLog(reservation *Reservation) uint64 {

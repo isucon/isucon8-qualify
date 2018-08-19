@@ -1212,12 +1212,12 @@ func checkReportResponse(s *State) func(res *http.Response, body *bytes.Buffer) 
 
 		// reservation_id,event_id,rank,num,price,user_id,sold_at,canceled_at
 		// 1,1,S,36,8000,1002,2018-08-17T04:55:30Z,2018-08-17T04:58:31Z
-		// 2,1,A,94,6000,1002,2018-08-17T04:55:31Z,
+		// 2,1,S,36,8000,1002,2018-08-17T04:55:32Z,
 		// 3,1,B,149,4000,1002,2018-08-17T04:55:33Z,
 		// 4,1,C,317,3000,1002,2018-08-17T04:55:34Z,
 		// 5,1,B,27,4000,1002,2018-08-17T04:55:36Z,
-		// 6,1,A,15,6000,1002,2018-08-17T04:55:38Z,
-		// 7,1,S,10,8000,1002,2018-08-17T04:55:41Z,2018-08-17T04:58:29Z
+		// 6,3,A,15,6000,1002,2018-08-17T04:55:38Z,
+		// 7,3,S,10,8000,1002,2018-08-17T04:55:41Z,2018-08-17T04:58:29Z
 
 		log.Println("debug:", body)
 		r := csv.NewReader(body)
@@ -1341,6 +1341,146 @@ func checkReportResponse(s *State) func(res *http.Response, body *bytes.Buffer) 
 	}
 }
 
+func checkEventReportResponse(event *Event, s *State) func(res *http.Response, body *bytes.Buffer) error {
+	return func(res *http.Response, body *bytes.Buffer) error {
+		// TODO(sonots): Avoid global mutex lock if we need to run concurrently
+		s.reservationsMtx.Lock()
+		defer s.reservationsMtx.Unlock()
+		s.reserveLogMtx.Lock()
+		defer s.reserveLogMtx.Unlock()
+		s.cancelLogMtx.Lock()
+		defer s.cancelLogMtx.Unlock()
+
+		// reservation_id,event_id,rank,num,price,user_id,sold_at,canceled_at
+		// 1,1,S,36,8000,1002,2018-08-17T04:55:30Z,2018-08-17T04:58:31Z
+		// 2,1,A,94,6000,1002,2018-08-17T04:55:31Z,
+		// 3,1,B,149,4000,1002,2018-08-17T04:55:33Z,
+		// 4,1,C,317,3000,1002,2018-08-17T04:55:34Z,
+		// 5,1,B,27,4000,1002,2018-08-17T04:55:36Z,
+		// 6,1,A,15,6000,1002,2018-08-17T04:55:38Z,
+		// 7,1,S,10,8000,1002,2018-08-17T04:55:41Z,2018-08-17T04:58:29Z
+
+		log.Println("debug:", body)
+		r := csv.NewReader(body)
+		record, err := r.Read()
+		if err == io.EOF ||
+			len(record) != 8 ||
+			record[0] != "reservation_id" ||
+			record[1] != "event_id" ||
+			record[2] != "rank" ||
+			record[3] != "num" ||
+			record[4] != "price" ||
+			record[5] != "user_id" ||
+			record[6] != "sold_at" ||
+			record[7] != "canceled_at" {
+			return fatalErrorf("正しいCSVヘッダを取得できません")
+		}
+
+		msg := "正しいレポートを取得できません"
+		reportCount := 0
+		for {
+			record, err := r.Read()
+			if err == io.EOF {
+				break
+			}
+			reportCount++
+
+			reservationID, err := strconv.Atoi(record[0])
+			if err != nil {
+				log.Printf("debug: invalid reservationID (line:%d) error:%v\n", reportCount, err)
+				return fatalErrorf(msg)
+			}
+			eventID, err := strconv.Atoi(record[1])
+			if err != nil {
+				log.Printf("debug: invalid eventID (line:%d) error:%v\n", reportCount, err)
+				return fatalErrorf(msg)
+			}
+			sheetRank := record[2]
+
+			sheetNum, err := strconv.Atoi(record[3])
+			if err != nil {
+				log.Printf("debug: invalid sheetNum (line:%d) error:%v\n", reportCount, err)
+				return fatalErrorf(msg)
+			}
+
+			price, err := strconv.Atoi(record[4])
+			if err != nil {
+				log.Printf("debug: invalid price (line:%d) error:%v\n", reportCount, err)
+				return fatalErrorf(msg)
+			}
+
+			userID, err := strconv.Atoi(record[5])
+			if err != nil {
+				log.Printf("debug: invalid userID (line:%d) error:%v\n", reportCount, err)
+				return fatalErrorf(msg)
+			}
+
+			_, err = time.Parse(time.RFC3339, record[6])
+			if err != nil {
+				log.Printf("debug: invalid soldAt (line:%d) error:%v\n", reportCount, err)
+				return fatalErrorf(msg)
+			}
+
+			var canceledAt time.Time
+			if record[7] != "" {
+				canceledAt, err = time.Parse(time.RFC3339, record[7])
+				if err != nil {
+					log.Printf("debug: invalid canceledAt (line:%d) error:%v\n", reportCount, err)
+					return fatalErrorf(msg)
+				}
+			}
+
+			if uint(eventID) != event.ID {
+				log.Printf("debug: event id=%d does not match with id=%d (line:%d)\n", eventID, event.ID, reportCount)
+				return fatalErrorf(msg)
+			}
+			if expected := event.Price + GetSheetKindByRank(sheetRank).Price; uint(price) != expected {
+				log.Printf("debug: price:%d is not expected:%d (line:%d)\n", price, expected, reportCount)
+				return fatalErrorf(msg)
+			}
+
+			reservation, ok := s.reservations[uint(reservationID)]
+			if !ok {
+				// reserve request is possibly timed-out
+				continue
+			}
+			if reservation.ID != uint(reservationID) ||
+				reservation.EventID != uint(eventID) ||
+				reservation.UserID != uint(userID) ||
+				reservation.SheetRank != sheetRank ||
+				reservation.SheetNum != uint(sheetNum) {
+				log.Printf("debug: unexpected data (line:%d)\n", reportCount)
+				return fatalErrorf(msg)
+			}
+
+			if reservation.Canceled() {
+				if canceledAt.IsZero() {
+					log.Printf("debug: should have canceledAt (line:%d)\n", reportCount)
+					return fatalErrorf(msg)
+				}
+			} else if reservation.MaybeCanceled() {
+				if canceledAt.IsZero() {
+					log.Printf("warn: should have canceledAt (line:%d) but ignored (race condition)\n", reportCount)
+				}
+			} else {
+				if !canceledAt.IsZero() {
+					log.Printf("debug: should not have canceledAt (line:%d)\n", reportCount)
+					return fatalErrorf(msg)
+				}
+			}
+		}
+
+		reservationsCount := len(s.FilterReservationsByEventIDLocked(event.ID))
+		maybeReservedCount := len(s.FilterReserveLogByEventIDLocked(event.ID))
+		log.Printf("debug: reservationsCount:%d <= reportCount:%d <= reservationsCount:%d + maybeReservedCount:%d\n", reservationsCount, reportCount, reservationsCount, maybeReservedCount)
+		if !(reservationsCount <= reportCount && reportCount <= reservationsCount+maybeReservedCount) {
+			return fatalErrorf(msg)
+		}
+
+		return nil
+	}
+}
+
 func CheckReport(ctx context.Context, state *State) error {
 	admin, checker, push := state.PopRandomAdministrator()
 	if admin == nil {
@@ -1360,6 +1500,37 @@ func CheckReport(ctx context.Context, state *State) error {
 		Description:        "レポートを正しく取得できること",
 		CheckFunc:          checkReportResponse(state),
 		Timeout:            parameter.PostTestReportTimeout,
+	})
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func CheckEventReport(ctx context.Context, state *State) error {
+	admin, checker, push := state.PopRandomAdministrator()
+	if admin == nil {
+		return nil
+	}
+	defer push()
+
+	err := loginAdministrator(ctx, checker, admin)
+	if err != nil {
+		return err
+	}
+
+	event := state.GetRandomPublicEvent()
+	if event == nil {
+		return nil
+	}
+
+	err = checker.Play(ctx, &CheckAction{
+		Method:             "GET",
+		Path:               fmt.Sprintf("/admin/api/reports/events/%d/sales", event.ID),
+		ExpectedStatusCode: 200,
+		Description:        "レポートを正しく取得できること",
+		CheckFunc:          checkEventReportResponse(event, state),
 	})
 	if err != nil {
 		return err
