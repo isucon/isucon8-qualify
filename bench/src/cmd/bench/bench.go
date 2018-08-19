@@ -13,6 +13,7 @@ import (
 	"net/http"
 	_ "net/http/pprof"
 	"net/url"
+	"runtime"
 	"sort"
 	"strings"
 	"time"
@@ -187,6 +188,7 @@ func loadMain(ctx context.Context, state *bench.State) {
 	for {
 		select {
 		case <-beat.C:
+			log.Printf("debug: # of goroutines:%d\n", runtime.NumGoroutine())
 			if noLevelup {
 				continue
 			}
