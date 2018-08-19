@@ -25,14 +25,6 @@ import (
 	"golang.org/x/net/html"
 )
 
-const (
-	expectedIndexHash = 497858079
-)
-
-func joinCrc32(crcSum []byte) uint32 {
-	return uint32(crcSum[0])<<24 | uint32(crcSum[1])<<16 | uint32(crcSum[2])<<8 | uint32(crcSum[3])
-}
-
 func checkHTML(f func(*http.Response, *goquery.Document) error) func(*http.Response, *bytes.Buffer) error {
 	return func(res *http.Response, body *bytes.Buffer) error {
 		doc, err := goquery.NewDocumentFromReader(body)
@@ -537,7 +529,7 @@ func CheckTopPage(ctx context.Context, state *State) error {
 				fmt.Fprintln(os.Stderr, err)
 				return fatalErrorf("チェックサムの生成に失敗しました (主催者に連絡してください)")
 			}
-			if crcSum32 := joinCrc32(crcSum); crcSum32 != expectedIndexHash {
+			if crcSum32 := JoinCrc32(crcSum); crcSum32 != ExpectedIndexHash {
 				fmt.Fprint(os.Stderr, "HTML: ")
 				_ = html.Render(os.Stderr, doc.Nodes[0])
 				fmt.Fprintln(os.Stderr, "")

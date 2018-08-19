@@ -20,3 +20,8 @@ var (
 		&StaticFile{"/js/vue.min.js", 86452, "5283b86cbf48a538ee3cbebac633ccd4"},
 	}
 )
+
+const (
+	ExpectedIndexHash = 497858079
+	ExpectedAdminHash = 2213621546
+)
