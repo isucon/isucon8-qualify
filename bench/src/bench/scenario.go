@@ -1466,6 +1466,8 @@ func CheckEventReport(ctx context.Context, state *State) error {
 		return err
 	}
 
+	// We want to let webapp to lock reservations (SELECT FOR UPDATE). So, we ignore closed events.
+	// Note that webapp locks to update reservations (cancel), but it does not lock to create reservations (reserve).
 	event := state.GetRandomPublicEvent()
 	if event == nil {
 		return nil
