@@ -153,6 +153,7 @@ func checkMain(ctx context.Context, state *bench.State) error {
 			}
 			log.Println("debug: fire CheckEventReport")
 			t := time.Now()
+			// TBD: Increase number of events to check based on entire number of events, or load level?
 			err := bench.CheckEventReport(ctx, state)
 			log.Println("CheckEventReport", time.Since(t))
 
