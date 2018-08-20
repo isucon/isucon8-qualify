@@ -21,12 +21,13 @@ var (
 	PostTestLoginTimeout  = 20 * time.Second
 	PostTestReportTimeout = 60 * time.Second
 
-	LoadInitialNumGoroutines  = 5.0
-	LoadLevelUpRatio          = 1.5
-	LoadLevelUpInterval       = time.Second
-	CheckReportTickerInterval = 5 * time.Second
-	AllowableDelay            = time.Second
-	WaitOnError               = 500 * time.Millisecond
+	LoadInitialNumGoroutines = 5.0
+	LoadLevelUpRatio         = 1.5
+	LoadLevelUpInterval      = time.Second
+	CheckEventReportInterval = 5 * time.Second
+	CheckReportInterval      = 31 * time.Second
+	AllowableDelay           = time.Second
+	WaitOnError              = 500 * time.Millisecond
 
 	Score = func(getCount int64, postCount int64, deleteCount int64, s304Count int64, reserveCount int64, cancelCount int64, topCount int64) int64 {
 		return 1*(getCount-s304Count-topCount) + 1*(postCount-reserveCount) + 3*(topCount+reserveCount+cancelCount) + s304Count/100

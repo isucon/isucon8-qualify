@@ -127,7 +127,10 @@ func postTest(ctx context.Context, state *bench.State) error {
 }
 
 func checkMain(ctx context.Context, state *bench.State) error {
-	checkReportTicker := time.NewTicker(parameter.CheckReportTickerInterval)
+	// Inserts CheckEventReport and CheckReport on every the specified interval
+	checkEventReportTicker := time.NewTicker(parameter.CheckEventReportInterval)
+	defer checkEventReportTicker.Stop()
+	checkReportTicker := time.NewTicker(parameter.CheckReportInterval)
 	defer checkReportTicker.Stop()
 
 	randCheckFuncIndices := []int{}
@@ -144,17 +147,27 @@ func checkMain(ctx context.Context, state *bench.State) error {
 
 	for {
 		select {
-		case <-checkReportTicker.C:
+		case <-checkEventReportTicker.C:
 			if ctx.Err() != nil {
 				return nil
 			}
-
-			// Inserts CheckEventReport on every CheckReportTickerInterval
-
 			log.Println("debug: fire CheckEventReport")
 			t := time.Now()
 			err := bench.CheckEventReport(ctx, state)
 			log.Println("CheckEventReport", time.Since(t))
+
+			// fatalError以外は見逃してあげる
+			if err != nil && bench.IsCheckerFatal(err) {
+				return err
+			}
+		case <-checkReportTicker.C:
+			if ctx.Err() != nil {
+				return nil
+			}
+			log.Println("debug: fire CheckReport")
+			t := time.Now()
+			err := bench.CheckReport(ctx, state)
+			log.Println("CheckReport", time.Since(t))
 
 			// fatalError以外は見逃してあげる
 			if err != nil && bench.IsCheckerFatal(err) {
@@ -169,7 +182,6 @@ func checkMain(ctx context.Context, state *bench.State) error {
 			}
 
 			// Sequentially runs the check functions in randomly permuted order
-
 			checkFunc := popRandomPermCheckFunc()
 			t := time.Now()
 			err := checkFunc.Func(ctx, state)
