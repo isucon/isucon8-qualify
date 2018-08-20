@@ -21,7 +21,7 @@ var (
 
 	LoadInitialNumGoroutines = 5.0
 	LoadLevelUpRatio         = 1.5
-	LoadTickerInterval       = time.Second
+	LoadLevelUpInterval      = time.Second
 	AllowableDelay           = time.Second
 	WaitOnError              = 500 * time.Millisecond
 

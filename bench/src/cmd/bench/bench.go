@@ -202,12 +202,12 @@ func loadMain(ctx context.Context, state *bench.State) {
 
 	goLoadFuncs(ctx, state, int(numGoroutines))
 
-	beat := time.NewTicker(parameter.LoadTickerInterval)
-	defer beat.Stop()
+	levelUpTicker := time.NewTicker(parameter.LoadLevelUpInterval)
+	defer levelUpTicker.Stop()
 
 	for {
 		select {
-		case <-beat.C:
+		case <-levelUpTicker.C:
 			log.Printf("debug: loadLevel:%d numGoroutines:%d runtime.NumGoroutines():%d\n", counter.GetKey("load-level-up"), int(numGoroutines), runtime.NumGoroutine())
 			if noLevelup {
 				continue
