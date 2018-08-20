@@ -151,7 +151,7 @@ func checkMain(ctx context.Context, state *bench.State) error {
 
 			// Inserts CheckEventReport on every CheckReportTickerInterval
 
-			log.Println("debug: checkReportTicker is fired.")
+			log.Println("debug: fire CheckEventReport")
 			t := time.Now()
 			err := bench.CheckEventReport(ctx, state)
 			log.Println("CheckEventReport", time.Since(t))

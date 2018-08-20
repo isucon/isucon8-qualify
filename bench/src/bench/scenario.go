@@ -1218,7 +1218,7 @@ func checkReportHeader(reader *csv.Reader) error {
 	return nil
 }
 
-func checkReportRecord(s *State, reader *csv.Reader, line int) (*ReportRecord, error) {
+func checkReportRecord(s *State, reader *csv.Reader, reservations map[uint]*Reservation, line int) (*ReportRecord, error) {
 	// reservation_id,event_id,rank,num,price,user_id,sold_at,canceled_at
 	// 1,1,S,36,8000,1002,2018-08-17T04:55:30Z,2018-08-17T04:58:31Z
 	// 2,1,S,36,8000,1002,2018-08-17T04:55:32Z,
@@ -1299,7 +1299,7 @@ func checkReportRecord(s *State, reader *csv.Reader, line int) (*ReportRecord, e
 		CanceledAt:    canceledAt,
 	}
 
-	reservation, ok := s.reservations[record.ReservationID]
+	reservation, ok := reservations[record.ReservationID]
 	if !ok {
 		// Reserve request possibly time-out, ignore
 		return record, nil
@@ -1315,6 +1315,8 @@ func checkReportRecord(s *State, reader *csv.Reader, line int) (*ReportRecord, e
 	}
 
 	if reservation.Canceled() {
+		// If `SELECT FOR UPDATE` of the `report` API is removed from webapp,
+		// this check would faiil.
 		if record.CanceledAt.IsZero() {
 			log.Printf("debug: should have canceledAt (line:%d)\n", line)
 			return nil, fatalErrorf(msg)
@@ -1343,13 +1345,12 @@ func checkReportCount(reportCount int, reservationsCount int, maybeReservedCount
 
 func checkReportResponse(s *State) func(res *http.Response, body *bytes.Buffer) error {
 	return func(res *http.Response, body *bytes.Buffer) error {
-		// TODO(sonots): Avoid global mutex lock if we need to run concurrently
-		s.reservationsMtx.Lock()
-		defer s.reservationsMtx.Unlock()
-		s.reserveLogMtx.Lock()
-		defer s.reserveLogMtx.Unlock()
-		s.cancelLogMtx.Lock()
-		defer s.cancelLogMtx.Unlock()
+		// NOTE: s.GetReservations() returns a shallow copy, so, the state of each reservation
+		// could be changed during runtime. However, the state of reservation can be changed
+		//  only by `cancel` API, and it is locked by SELECT FOR UPDATE of the `report` API on
+		// the webapp side, thus, no update of reversations during runtime actually occurs.
+		reservations := s.GetReservations()
+		maybeReservedCount := s.MaybeReservedCount()
 
 		log.Println("debug:", body)
 		reader := csv.NewReader(body)
@@ -1360,7 +1361,7 @@ func checkReportResponse(s *State) func(res *http.Response, body *bytes.Buffer) 
 
 		reportCount := 0
 		for {
-			_, err := checkReportRecord(s, reader, reportCount)
+			_, err := checkReportRecord(s, reader, reservations, reportCount)
 			if err == io.EOF {
 				break
 			}
@@ -1370,9 +1371,7 @@ func checkReportResponse(s *State) func(res *http.Response, body *bytes.Buffer) 
 			reportCount++
 		}
 
-		reservationsCount := len(s.reservations)
-		maybeReservedCount := len(s.reserveLog)
-		err = checkReportCount(reportCount, reservationsCount, maybeReservedCount)
+		err = checkReportCount(reportCount, len(reservations), maybeReservedCount)
 		if err != nil {
 			return err
 		}
@@ -1383,14 +1382,10 @@ func checkReportResponse(s *State) func(res *http.Response, body *bytes.Buffer) 
 
 func checkEventReportResponse(s *State, event *Event) func(res *http.Response, body *bytes.Buffer) error {
 	return func(res *http.Response, body *bytes.Buffer) error {
-		// TODO(sonots): Avoid global mutex lock if we need to run concurrently
-		s.reservationsMtx.Lock()
-		defer s.reservationsMtx.Unlock()
-		s.reserveLogMtx.Lock()
-		defer s.reserveLogMtx.Unlock()
-		s.cancelLogMtx.Lock()
-		defer s.cancelLogMtx.Unlock()
+		reservations := s.FilterReservationsByEventID(event.ID)
+		maybeReservedCount := s.MaybeReservedCountInEventID(event.ID)
 
+		log.Printf("debug: checkEventReport %d\n", event.ID)
 		log.Println("debug:", body)
 		reader := csv.NewReader(body)
 		err := checkReportHeader(reader)
@@ -1401,7 +1396,7 @@ func checkEventReportResponse(s *State, event *Event) func(res *http.Response, b
 		msg := "正しいレポートを取得できません"
 		reportCount := 0
 		for {
-			record, err := checkReportRecord(s, reader, reportCount)
+			record, err := checkReportRecord(s, reader, reservations, reportCount)
 			if err == io.EOF {
 				break
 			}
@@ -1416,9 +1411,7 @@ func checkEventReportResponse(s *State, event *Event) func(res *http.Response, b
 			reportCount++
 		}
 
-		reservationsCount := len(s.FilterReservationsByEventIDLocked(event.ID))
-		maybeReservedCount := len(s.FilterReserveLogByEventIDLocked(event.ID))
-		err = checkReportCount(reportCount, reservationsCount, maybeReservedCount)
+		err = checkReportCount(reportCount, len(reservations), maybeReservedCount)
 		if err != nil {
 			return err
 		}
@@ -1466,8 +1459,10 @@ func CheckEventReport(ctx context.Context, state *State) error {
 		return err
 	}
 
-	// We want to let webapp to lock reservations (SELECT FOR UPDATE). So, we ignore closed events.
-	// Note that webapp locks to update reservations (cancel), but it does not lock to create reservations (reserve).
+	// We want to let webapp to lock reservations.
+	// Since no reserve/cancel occurs for closed events, we ignore closed events.
+	// Notice that webapp locks to update reservations (cancel),
+	// but it does not lock to create reservations (reserve).
 	event := state.GetRandomPublicEvent()
 	if event == nil {
 		return nil

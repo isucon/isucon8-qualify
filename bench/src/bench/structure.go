@@ -586,17 +586,6 @@ func (s *State) RevertCancelReservation(reservation *Reservation) {
 	s.reservations[reservation.ID] = reservation
 }
 
-func (s *State) FilterReservationsByEventIDLocked(eventID uint) []*Reservation {
-	filtered := make([]*Reservation, 0, len(s.reservations))
-	for _, reservation := range s.reservations {
-		if reservation.EventID != eventID {
-			continue
-		}
-		filtered = append(filtered, reservation)
-	}
-	return filtered
-}
-
 func (s *State) AppendReserveLog(reservation *Reservation) uint64 {
 	s.reserveLogMtx.Lock()
 	defer s.reserveLogMtx.Unlock()
@@ -616,17 +605,6 @@ func (s *State) DeleteReserveLog(reserveLogID uint64, reservation *Reservation) 
 	delete(s.reserveLog, reserveLogID)
 }
 
-func (s *State) FilterReserveLogByEventIDLocked(eventID uint) []*Reservation {
-	filtered := make([]*Reservation, 0, len(s.reserveLog))
-	for _, reservation := range s.reserveLog {
-		if reservation.EventID != eventID {
-			continue
-		}
-		filtered = append(filtered, reservation)
-	}
-	return filtered
-}
-
 func (s *State) AppendCancelLog(reservation *Reservation) uint64 {
 	s.cancelLogMtx.Lock()
 	defer s.cancelLogMtx.Unlock()
@@ -644,4 +622,55 @@ func (s *State) DeleteCancelLog(cancelLogID uint64, reservation *Reservation) {
 
 	log.Printf("debug: deleteCancelLog  LogID:%2d EventID:%2d UserID:%3d SheetRank:%s SheetNum:%d ReservationID:%d (Canceled)\n", s.cancelLogID, reservation.EventID, reservation.UserID, reservation.SheetRank, reservation.SheetNum, reservation.ID)
 	delete(s.cancelLog, cancelLogID)
+}
+
+// Returns a shallow copy of s.reservations
+func (s *State) GetReservations() map[uint]*Reservation {
+	s.reservationsMtx.Lock()
+	defer s.reservationsMtx.Unlock()
+
+	// TODO(sonots): could be slow if s.reservations are large ...
+	reservations := make(map[uint]*Reservation, len(s.reservations))
+	for id, reservation := range s.reservations {
+		reservations[id] = reservation
+	}
+
+	return reservations
+}
+
+// Returns a filtered shallow copy
+func (s *State) FilterReservationsByEventID(eventID uint) map[uint]*Reservation {
+	s.reservationsMtx.Lock()
+	defer s.reservationsMtx.Unlock()
+
+	filtered := make(map[uint]*Reservation, len(s.reservations))
+	for id, reservation := range s.reservations {
+		if reservation.EventID != eventID {
+			continue
+		}
+		filtered[id] = reservation
+	}
+	return filtered
+}
+
+func (s *State) MaybeReservedCount() int {
+	s.reserveLogMtx.Lock()
+	defer s.reserveLogMtx.Unlock()
+
+	return len(s.reserveLog)
+}
+
+func (s *State) MaybeReservedCountInEventID(eventID uint) int {
+	s.reserveLogMtx.Lock()
+	defer s.reserveLogMtx.Unlock()
+
+	// filtered reservedLog
+	filtered := make([]*Reservation, 0, len(s.reserveLog))
+	for _, reservation := range s.reserveLog {
+		if reservation.EventID != eventID {
+			continue
+		}
+		filtered = append(filtered, reservation)
+	}
+	return len(filtered)
 }
