@@ -156,13 +156,8 @@ func checkMain(ctx context.Context, state *bench.State) error {
 			err := bench.CheckEventReport(ctx, state)
 			log.Println("CheckEventReport", time.Since(t))
 
-			isFatalError := false
-			if cerr, ok := err.(*bench.CheckerError); ok {
-				isFatalError = cerr.IsFatal()
-			}
-
 			// fatalError以外は見逃してあげる
-			if err != nil && isFatalError {
+			if err != nil && bench.IsCheckerFatal(err) {
 				return err
 			}
 		case <-ctx.Done():
@@ -173,20 +168,15 @@ func checkMain(ctx context.Context, state *bench.State) error {
 				return nil
 			}
 
-			// Sequentially runs the check functions in random order
+			// Sequentially runs the check functions in randomly permuted order
 
 			checkFunc := popRandomPermCheckFunc()
 			t := time.Now()
 			err := checkFunc.Func(ctx, state)
 			log.Println("checkMain:", checkFunc.Name, time.Since(t))
 
-			isFatalError := false
-			if cerr, ok := err.(*bench.CheckerError); ok {
-				isFatalError = cerr.IsFatal()
-			}
-
 			// fatalError以外は見逃してあげる
-			if err != nil && isFatalError {
+			if err != nil && bench.IsCheckerFatal(err) {
 				return err
 			}
 
