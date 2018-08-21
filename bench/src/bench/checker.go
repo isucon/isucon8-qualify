@@ -35,8 +35,6 @@ var (
 	PostTimeout            = parameter.PostTimeout
 	InitializeTimeout      = parameter.InitializeTimeout
 	SlowThreshold          = parameter.SlowThreshold
-	ReportTimeout          = parameter.ReportTimeout
-	ReportPath             = "/admin/api/reports/sales"
 	MaxCheckerRequest      = parameter.MaxCheckerRequest
 	DebugMode              = false
 )
@@ -253,6 +251,8 @@ type CheckAction struct {
 	EnableCache          bool
 	SkipIfCacheAvailable bool
 	DisableSlowChecking  bool
+
+	Timeout time.Duration
 }
 
 func NewChecker() *Checker {
@@ -400,12 +400,14 @@ func (c *Checker) Play(ctx context.Context, a *CheckAction) error {
 		req.Header.Add(key, val)
 	}
 
-	timeout := GetTimeout
-	if req.Method == http.MethodPost {
-		timeout = PostTimeout
-	}
-	if a.Path == ReportPath {
-		timeout = ReportTimeout
+	var timeout time.Duration
+	if a.Timeout > 0 {
+		timeout = a.Timeout
+	} else {
+		timeout = GetTimeout
+		if req.Method == http.MethodPost {
+			timeout = PostTimeout
+		}
 	}
 	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()

@@ -1348,7 +1348,7 @@ func CheckReport(ctx context.Context, state *State) error {
 	}
 	defer push()
 
-	err := loginAdministrator(ctx, checker, admin)
+	err := loginAdministratorWithTimeout(ctx, checker, admin, parameter.PostTestLoginTimeout)
 	if err != nil {
 		return err
 	}
@@ -1359,6 +1359,7 @@ func CheckReport(ctx context.Context, state *State) error {
 		ExpectedStatusCode: 200,
 		Description:        "レポートを正しく取得できること",
 		CheckFunc:          checkReportResponse(state),
+		Timeout:            parameter.PostTestReportTimeout,
 	})
 	if err != nil {
 		return err
@@ -1368,6 +1369,10 @@ func CheckReport(ctx context.Context, state *State) error {
 }
 
 func loginAdministrator(ctx context.Context, checker *Checker, admin *Administrator) error {
+	return loginAdministratorWithTimeout(ctx, checker, admin, 0)
+}
+
+func loginAdministratorWithTimeout(ctx context.Context, checker *Checker, admin *Administrator, timeout time.Duration) error {
 	if admin.Status.Online {
 		return nil
 	}
@@ -1382,6 +1387,7 @@ func loginAdministrator(ctx context.Context, checker *Checker, admin *Administra
 			"password":   admin.Password,
 		},
 		CheckFunc: checkJsonAdministratorResponse(admin),
+		Timeout:   timeout, // 0 to use default timeout
 	})
 	if err != nil {
 		return err

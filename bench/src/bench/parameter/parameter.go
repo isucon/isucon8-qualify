@@ -15,9 +15,11 @@ var (
 	GetTimeout        = 10 * time.Second
 	PostTimeout       = 3 * time.Second
 	InitializeTimeout = 10 * time.Second
-	ReportTimeout     = 60 * time.Second
 	SlowThreshold     = 1000 * time.Millisecond
 	MaxCheckerRequest = 6
+	// TODO(sonots):  Current initial app takes 13 sec to login at postTest on my env. Tune somehow.
+	PostTestLoginTimeout  = 20 * time.Second
+	PostTestReportTimeout = 60 * time.Second
 
 	LoadInitialNumGoroutines = 5.0
 	LoadLevelUpRatio         = 1.5
