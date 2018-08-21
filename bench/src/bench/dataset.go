@@ -19,8 +19,9 @@ import (
 )
 
 var (
-	DataPath = "./data"
-	DataSet  BenchDataSet
+	DataPath   = "./data"
+	DataSet    BenchDataSet
+	SheetTotal = uint(1000)
 )
 
 func reverse(s string) string {
@@ -118,7 +119,7 @@ func prepareEventDataSet() {
 			PublicFg: publicFg,
 			ClosedFg: closedFg,
 			Price:    uint(price),
-			Remains:  1000,
+			Remains:  SheetTotal,
 		}
 
 		DataSet.Events = append(DataSet.Events, event)
