@@ -87,7 +87,8 @@ get '/initialize' => sub {
     $self->dbh->query('DELETE FROM events WHERE id > 3');
     $self->dbh->query('UPDATE events SET public_fg = 0, closed_fg = 1');
     $self->dbh->query('UPDATE events SET public_fg = 1, closed_fg = 0 WHERE id = 1');
-    $self->dbh->query('UPDATE events SET public_fg = 0, closed_fg = 0 WHERE id = 2');
+    $self->dbh->query('UPDATE events SET public_fg = 1, closed_fg = 0 WHERE id = 2');
+    $self->dbh->query('UPDATE events SET public_fg = 0, closed_fg = 0 WHERE id = 3');
     $txn->commit();
 
     return $c->req->new_response(204, [], '');

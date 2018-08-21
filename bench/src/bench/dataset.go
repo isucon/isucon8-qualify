@@ -19,8 +19,9 @@ import (
 )
 
 var (
-	DataPath = "./data"
-	DataSet  BenchDataSet
+	DataPath   = "./data"
+	DataSet    BenchDataSet
+	SheetTotal = uint(1000)
 )
 
 func reverse(s string) string {
@@ -104,6 +105,7 @@ func prepareEventDataSet() {
 	must(err)
 	defer file.Close()
 
+	// NOTE: となりのトロロ芋 is a sold-out event
 	s := bufio.NewScanner(file)
 	for i := 0; s.Scan(); i++ {
 		line := strings.Split(s.Text(), "\t")
@@ -111,6 +113,7 @@ func prepareEventDataSet() {
 		publicFg, _ := strconv.ParseBool(line[1])
 		closedFg, _ := strconv.ParseBool(line[2])
 		price, _ := strconv.Atoi(line[3])
+		remains, _ := strconv.Atoi(line[4])
 
 		event := &Event{
 			ID:       nextID,
@@ -118,13 +121,14 @@ func prepareEventDataSet() {
 			PublicFg: publicFg,
 			ClosedFg: closedFg,
 			Price:    uint(price),
+			Remains:  uint(remains),
 		}
 
 		DataSet.Events = append(DataSet.Events, event)
 		nextID += 1
 	}
 
-	// Old events which are already closed
+	// Old events which are already sold-out and closed
 	numClosedEvents := parameter.InitialNumClosedEvents
 	priceStrides := numClosedEvents/10 + 1
 	for i := 0; i < numClosedEvents; i++ {
@@ -134,6 +138,7 @@ func prepareEventDataSet() {
 			PublicFg: false,
 			ClosedFg: true,
 			Price:    uint(1000 + i/priceStrides*1000),
+			Remains:  0,
 		}
 		DataSet.ClosedEvents = append(DataSet.ClosedEvents, event)
 		nextID += 1
@@ -167,7 +172,11 @@ func prepareReservationsDataSet() {
 	nextID := uint(1)
 	minUnixTimestamp := time.Date(2011, 8, 27, 10, 0, 0, 0, time.Local).Unix()
 	maxUnixTimestamp := time.Date(2017, 10, 21, 10, 0, 0, 0, time.Local).Unix()
-	for _, event := range DataSet.ClosedEvents {
+	for _, event := range append(DataSet.Events, DataSet.ClosedEvents...) {
+		if event.Remains > 0 {
+			continue
+		}
+		// already sold-out event
 		for _, sheet := range DataSet.Sheets {
 			userID := uint(rand.Intn(len(DataSet.Users)) + 1)
 			reservation := &Reservation{
