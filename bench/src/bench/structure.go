@@ -176,8 +176,7 @@ type State struct {
 	adminMap        map[string]*Administrator
 	adminCheckerMap map[*Administrator]*Checker
 
-	events        []*Event
-	soldOutEvents []*Event
+	events []*Event
 
 	// public && closed does not happen
 	eventSheets         []*EventSheet // public && !closed
