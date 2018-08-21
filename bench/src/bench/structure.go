@@ -392,10 +392,15 @@ func (s *State) PushNewEvent(event *Event, caller string) {
 }
 
 func (s *State) pushNewEventLocked(event *Event, caller string) {
-	log.Printf("debug: newEventPush %d %s %d Public:%t Closed:%t (Caller:%s)\n", event.ID, event.Title, event.Price, event.PublicFg, event.ClosedFg, caller)
+	log.Printf("debug: newEventPush %d %s %d Public:%t Closed:%t Remains:%d (Caller:%s)\n", event.ID, event.Title, event.Price, event.PublicFg, event.ClosedFg, event.Remains, caller)
 
 	event.CreatedAt = time.Now()
 	s.events = append(s.events, event)
+
+	// already sold-out event
+	if event.Remains <= 0 {
+		return
+	}
 
 	newEventSheets := []*EventSheet{}
 	for _, sheetKind := range DataSet.SheetKinds {
