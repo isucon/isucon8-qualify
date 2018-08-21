@@ -102,7 +102,9 @@ func requestInitialize(targetHost string) error {
 // エラーが発生したら負荷をかけずに終了する
 func preTest(ctx context.Context, state *bench.State) error {
 	for _, checkFunc := range checkFuncs {
+		t := time.Now()
 		err := checkFunc.Func(ctx, state)
+		log.Println("preTest:", checkFunc.Name, time.Since(t))
 		if err != nil {
 			return err
 		}
@@ -113,7 +115,9 @@ func preTest(ctx context.Context, state *bench.State) error {
 
 func postTest(ctx context.Context, state *bench.State) error {
 	for _, postTestFunc := range postTestFuncs {
+		t := time.Now()
 		err := postTestFunc.Func(ctx, state)
+		log.Println("postTest:", postTestFunc.Name, time.Since(t))
 		if err != nil {
 			return err
 		}
@@ -128,11 +132,10 @@ func checkMain(ctx context.Context, state *bench.State) error {
 			return nil
 		}
 
-		t := time.Now()
-
 		checkFunc := checkFuncs[r]
+		t := time.Now()
 		err := checkFunc.Func(ctx, state)
-		log.Println(checkFunc.Name, time.Since(t))
+		log.Println("checkMain:", checkFunc.Name, time.Since(t))
 
 		isFatalError := false
 		if cerr, ok := err.(*bench.CheckerError); ok {
@@ -161,7 +164,9 @@ func goLoadFuncs(ctx context.Context, state *bench.State, n int) {
 				}
 
 				loadFunc := loadFuncs[rand.Intn(len(loadFuncs))]
+				t := time.Now()
 				err := loadFunc.Func(ctx, state)
+				log.Println("debug: loadFunc:", loadFunc.Name, time.Since(t))
 
 				if err != nil {
 					// バリデーションシナリオを悪用してスコアブーストさせないためエラーのときは少し待つ
@@ -183,7 +188,9 @@ func goLoadLevelUpFuncs(ctx context.Context, state *bench.State, n int) {
 				}
 
 				loadFunc := loadLevelUpFuncs[rand.Intn(len(loadLevelUpFuncs))]
+				t := time.Now()
 				err := loadFunc.Func(ctx, state)
+				log.Println("debug: levelUpFunc:", loadFunc.Name, time.Since(t))
 
 				if err != nil {
 					// バリデーションシナリオを悪用してスコアブーストさせないためエラーのときは少し待つ
@@ -298,6 +305,7 @@ func startBenchmark(remoteAddrs []string) *BenchResult {
 	addLoadAndLevelUpFunc(1, benchFunc{"LoadTopPage", bench.LoadTopPage})
 	addLoadAndLevelUpFunc(1, benchFunc{"LoadReserveCancelSheet", bench.LoadReserveCancelSheet})
 	addLoadAndLevelUpFunc(1, benchFunc{"LoadReserveSheet", bench.LoadReserveSheet})
+	addLoadAndLevelUpFunc(1, benchFunc{"LoadGetEvent", bench.LoadGetEvent})
 
 	addCheckFunc(benchFunc{"CheckStaticFiles", bench.CheckStaticFiles})
 	addCheckFunc(benchFunc{"CheckCreateUser", bench.CheckCreateUser})

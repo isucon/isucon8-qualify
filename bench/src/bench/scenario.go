@@ -341,6 +341,38 @@ func LoadReserveSheet(ctx context.Context, state *State) error {
 	return nil
 }
 
+func LoadGetEvent(ctx context.Context, state *State) error {
+	publicSoldOutEvents := FilterPublicEvents(FilterSoldOutEvents(state.GetEvents()))
+	if len(publicSoldOutEvents) == 0 {
+		return nil
+	}
+	event := publicSoldOutEvents[rand.Intn(len(publicSoldOutEvents))]
+
+	user, checker, userPush := state.PopRandomUser()
+	if user == nil {
+		return nil
+	}
+	defer userPush()
+
+	err := loginAppUser(ctx, checker, user)
+	if err != nil {
+		return err
+	}
+
+	err = checker.Play(ctx, &CheckAction{
+		Method:             "GET",
+		Path:               fmt.Sprintf("/api/events/%d", event.ID),
+		ExpectedStatusCode: 200,
+		Description:        "公開イベントを取得できること",
+		CheckFunc:          checkJsonEventResponse(event),
+	})
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 // Validation
 
 func CheckStaticFiles(ctx context.Context, state *State) error {
@@ -1513,6 +1545,14 @@ func reserveSheet(ctx context.Context, state *State, checker *Checker, userID ui
 	eventSheet.Num = reserved.SheetNum
 	state.AppendReservation(reservation)
 
+	event := state.FindEventByID(eventID)
+	assert(event != nil)
+	{
+		event.Lock()
+		defer event.Unlock()
+		event.Remains--
+	}
+
 	return reserved, nil
 }
 
@@ -1537,5 +1577,14 @@ func cancelSheet(ctx context.Context, state *State, checker *Checker, userID uin
 	state.CommitCancelReservation(reservation)
 	state.DeleteCancelLog(logID, reservation)
 	eventSheet.Num = NonReservedNum
+
+	event := state.FindEventByID(eventID)
+	assert(event != nil)
+	{
+		event.Lock()
+		defer event.Unlock()
+		event.Remains++
+	}
+
 	return nil
 }
