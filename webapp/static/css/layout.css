@@ -12,32 +12,38 @@
   background-color: rgba(0,0,0,0.6);
 }
 
-.event-modal-content .rank {
+.event-modal-dialog .rank {
   width: 2%;
   font-size: .75rem;
 }
 
-.event-modal-content .remaining-sheets-bar {
+.event-modal-dialog .remaining-sheets-bar {
   width: 98%;
 }
 
-.event-modal-content .sheets-tables {
+.event-modal-dialog .sheets-tables {
   max-height: 24rem;
   overflow: scroll;
 }
 
-.event-modal-content table {
+.event-modal-dialog table {
   font-size: 10px;
 }
 
-.event-modal-content table td {
+.event-modal-dialog table td {
   padding: .5em;
 }
 
-.event-modal-content table tbody td {
+.event-modal-dialog table tbody td {
   text-align: center;
 }
 
-.event-modal-content table tbody td .mine {
+.event-modal-dialog table tbody td .mine {
   color: #11FF33;
 }
+
+.my-page-modal-dialog .modal-body {
+  max-height: 30rem;
+  overflow: scroll;
+}
+

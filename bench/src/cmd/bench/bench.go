@@ -255,6 +255,8 @@ func printCounterSummary() {
 			key = "DELETE|/api/events/*/sheets/*/*/reservation"
 		} else if strings.HasPrefix(key, "GET|/admin/api/events/") {
 			key = "GET|/admin/api/events/*"
+		} else if strings.HasPrefix(key, "GET|/api/users/") {
+			key = "GET|/api/users/*"
 		} else if strings.HasPrefix(key, "POST|/admin/api/events/") {
 			key = "POST|/admin/api/events/*/actions/edit"
 		}
@@ -292,6 +294,7 @@ func printCounterSummary() {
 
 func startBenchmark(remoteAddrs []string) *BenchResult {
 	addLoadFunc(1, benchFunc{"LoadCreateUser", bench.LoadCreateUser})
+	addLoadFunc(1, benchFunc{"LoadMyPage", bench.LoadMyPage})
 	addLoadAndLevelUpFunc(1, benchFunc{"LoadTopPage", bench.LoadTopPage})
 	addLoadAndLevelUpFunc(1, benchFunc{"LoadReserveCancelSheet", bench.LoadReserveCancelSheet})
 	addLoadAndLevelUpFunc(1, benchFunc{"LoadReserveSheet", bench.LoadReserveSheet})
@@ -303,6 +306,7 @@ func startBenchmark(remoteAddrs []string) *BenchResult {
 	addCheckFunc(benchFunc{"CheckReserveSheet", bench.CheckReserveSheet})
 	addCheckFunc(benchFunc{"CheckAdminLogin", bench.CheckAdminLogin})
 	addCheckFunc(benchFunc{"CheckCreateEvent", bench.CheckCreateEvent})
+	addCheckFunc(benchFunc{"CheckMyPage", bench.CheckMyPage})
 
 	addPostTestFunc(benchFunc{"CheckReport", bench.CheckReport})
 
