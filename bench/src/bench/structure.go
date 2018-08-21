@@ -478,6 +478,14 @@ func FilterSoldOutEvents(src []*Event) (filtered []*Event) {
 	return
 }
 
+func (s *State) GetRandomPublicSoldOutEvent() *Event {
+	events := FilterPublicEvents(FilterSoldOutEvents(s.GetEvents()))
+	if len(events) == 0 {
+		return nil
+	}
+	return events[uint(rand.Intn(len(events)))]
+}
+
 func (s *State) PopEventSheet() (*EventSheet, func()) {
 	s.mtx.Lock()
 	defer s.mtx.Unlock()
