@@ -118,13 +118,14 @@ func prepareEventDataSet() {
 			PublicFg: publicFg,
 			ClosedFg: closedFg,
 			Price:    uint(price),
+			Remains:  1000,
 		}
 
 		DataSet.Events = append(DataSet.Events, event)
 		nextID += 1
 	}
 
-	// Old events which are already closed
+	// Old events which are already sold-out and closed
 	numClosedEvents := parameter.InitialNumClosedEvents
 	priceStrides := numClosedEvents/10 + 1
 	for i := 0; i < numClosedEvents; i++ {
@@ -134,6 +135,7 @@ func prepareEventDataSet() {
 			PublicFg: false,
 			ClosedFg: true,
 			Price:    uint(1000 + i/priceStrides*1000),
+			Remains:  0,
 		}
 		DataSet.ClosedEvents = append(DataSet.ClosedEvents, event)
 		nextID += 1

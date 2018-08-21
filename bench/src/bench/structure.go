@@ -377,6 +377,7 @@ func (s *State) CreateNewEvent() (*Event, func(caller string)) {
 		PublicFg: true,
 		ClosedFg: false,
 		Price:    1000 + uint(rand.Intn(10)*1000),
+		Remains:  1000,
 	}
 
 	// NOTE: push() function pushes into s.events, does not push to s.newEvents.

@@ -344,6 +344,7 @@ func LoadReserveSheet(ctx context.Context, state *State) error {
 func LoadGetEvent(ctx context.Context, state *State) error {
 	publicSoldOutEvents := FilterPublicEvents(FilterSoldOutEvents(state.GetEvents()))
 	if len(publicSoldOutEvents) == 0 {
+		log.Printf("debug: LoadGetEvent: no public and sold-out event")
 		return nil
 	}
 	event := publicSoldOutEvents[rand.Intn(len(publicSoldOutEvents))]
