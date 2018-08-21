@@ -95,12 +95,15 @@ type Administrator struct {
 }
 
 type Event struct {
+	sync.Mutex
+
 	ID        uint
 	Title     string
 	PublicFg  bool
 	ClosedFg  bool
 	Price     uint
 	CreatedAt time.Time
+	Remains   uint
 }
 
 type SheetKind struct {
@@ -173,7 +176,8 @@ type State struct {
 	adminMap        map[string]*Administrator
 	adminCheckerMap map[*Administrator]*Checker
 
-	events []*Event
+	events        []*Event
+	soldOutEvents []*Event
 
 	// public && closed does not happen
 	eventSheets         []*EventSheet // public && !closed
@@ -453,6 +457,17 @@ func FilterPublicEvents(src []*Event) (filtered []*Event) {
 			continue
 		}
 
+		filtered = append(filtered, e)
+	}
+	return
+}
+
+func FilterSoldOutEvents(src []*Event) (filtered []*Event) {
+	filtered = make([]*Event, 0, len(src))
+	for _, e := range src {
+		if e.Remains > 0 {
+			continue
+		}
 		filtered = append(filtered, e)
 	}
 	return
