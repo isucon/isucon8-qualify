@@ -174,14 +174,14 @@ func (e *CheckerError) IsTimeout() bool {
 	return e.err == RequestTimeoutError
 }
 
-func errorIsCheckerFatal(err error) bool {
+func IsCheckerFatal(err error) bool {
 	if cerr, ok := err.(*CheckerError); ok {
 		return cerr.IsFatal()
 	}
 	return false
 }
 
-func errorIsCheckerTimeout(err error) bool {
+func IsCheckerTimeout(err error) bool {
 	if cerr, ok := err.(*CheckerError); ok {
 		return cerr.IsTimeout()
 	}

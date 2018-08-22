@@ -119,6 +119,15 @@ type Sheet struct {
 	Price uint
 }
 
+type ReportRecord struct {
+	ReservationID uint
+	EventID       uint
+	SheetRank     string
+	SheetNum      uint
+	UserID        uint
+	CanceledAt    time.Time
+}
+
 type Reservation struct {
 	ID              uint
 	EventID         uint
@@ -454,14 +463,13 @@ func (s *State) GetEvents() (events []*Event) {
 	return
 }
 
-// ASSUMPTION: No event is popped from s.events, thus, s.events represents all events.
 func FilterPublicEvents(src []*Event) (filtered []*Event) {
 	filtered = make([]*Event, 0, len(src))
 	for _, e := range src {
 		if !e.PublicFg {
 			continue
 		}
-
+		assert(!e.ClosedFg)
 		filtered = append(filtered, e)
 	}
 	return
@@ -476,6 +484,14 @@ func FilterSoldOutEvents(src []*Event) (filtered []*Event) {
 		filtered = append(filtered, e)
 	}
 	return
+}
+
+func (s *State) GetRandomPublicEvent() *Event {
+	events := FilterPublicEvents(s.GetEvents())
+	if len(events) == 0 {
+		return nil
+	}
+	return events[uint(rand.Intn(len(events)))]
 }
 
 func (s *State) GetRandomPublicSoldOutEvent() *Event {
@@ -606,4 +622,79 @@ func (s *State) DeleteCancelLog(cancelLogID uint64, reservation *Reservation) {
 
 	log.Printf("debug: deleteCancelLog  LogID:%2d EventID:%2d UserID:%3d SheetRank:%s SheetNum:%d ReservationID:%d (Canceled)\n", s.cancelLogID, reservation.EventID, reservation.UserID, reservation.SheetRank, reservation.SheetNum, reservation.ID)
 	delete(s.cancelLog, cancelLogID)
+}
+
+// Returns a shallow copy of s.reservations
+func (s *State) GetReservations() map[uint]*Reservation {
+	s.reservationsMtx.Lock()
+	defer s.reservationsMtx.Unlock()
+
+	// TODO(sonots): could be slow if s.reservations are large ...
+	reservations := make(map[uint]*Reservation, len(s.reservations))
+	for id, reservation := range s.reservations {
+		reservations[id] = reservation
+	}
+
+	return reservations
+}
+
+// Returns a filtered shallow copy
+func (s *State) GetReservationsInEventID(eventID uint) map[uint]*Reservation {
+	s.reservationsMtx.Lock()
+	defer s.reservationsMtx.Unlock()
+
+	filtered := make(map[uint]*Reservation, len(s.reservations))
+	for id, reservation := range s.reservations {
+		if reservation.EventID != eventID {
+			continue
+		}
+		filtered[id] = reservation
+	}
+	return filtered
+}
+
+// Returns a filtered deep copy
+func FilterMaybeCanceledReservationsDeepCopy(src map[uint]*Reservation) (filtered map[uint]*Reservation) {
+	filtered = make(map[uint]*Reservation, len(src))
+	for id, r := range src {
+		if !r.MaybeCanceled() {
+			continue
+		}
+		reservation := *r // copy
+		filtered[id] = &reservation
+	}
+	return
+}
+
+func (s *State) GetReservationCount() int {
+	s.reservationsMtx.Lock()
+	defer s.reservationsMtx.Unlock()
+
+	return len(s.reservations)
+}
+
+func (s *State) GetReservationCountInEventID(eventID uint) int {
+	return len(s.GetReservationsInEventID(eventID))
+}
+
+func (s *State) MaybeReservedCount() int {
+	s.reserveLogMtx.Lock()
+	defer s.reserveLogMtx.Unlock()
+
+	return len(s.reserveLog)
+}
+
+func (s *State) MaybeReservedCountInEventID(eventID uint) int {
+	s.reserveLogMtx.Lock()
+	defer s.reserveLogMtx.Unlock()
+
+	// filtered reservedLog
+	filtered := make([]*Reservation, 0, len(s.reserveLog))
+	for _, reservation := range s.reserveLog {
+		if reservation.EventID != eventID {
+			continue
+		}
+		filtered = append(filtered, reservation)
+	}
+	return len(filtered)
 }
