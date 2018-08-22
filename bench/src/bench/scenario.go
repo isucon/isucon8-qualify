@@ -152,8 +152,7 @@ func checkJsonFullUserResponse(check func(*JsonFullUser) error) func(res *http.R
 
 func loadStaticFile(ctx context.Context, checker *Checker, path string) error {
 	return checker.Play(ctx, &CheckAction{
-		EnableCache:          true,
-		SkipIfCacheAvailable: true,
+		EnableCache: true,
 
 		Method: "GET",
 		Path:   path,

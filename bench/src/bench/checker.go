@@ -248,9 +248,8 @@ type CheckAction struct {
 	Description        string
 	CheckFunc          func(*http.Response, *bytes.Buffer) error
 
-	EnableCache          bool
-	SkipIfCacheAvailable bool
-	DisableSlowChecking  bool
+	EnableCache         bool
+	DisableSlowChecking bool
 
 	Timeout time.Duration
 }
