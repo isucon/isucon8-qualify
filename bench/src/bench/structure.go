@@ -653,6 +653,19 @@ func (s *State) GetReservationsInEventID(eventID uint) map[uint]*Reservation {
 	return filtered
 }
 
+// Returns a filtered deep copy
+func FilterMaybeCanceledReservationsDeepCopy(src map[uint]*Reservation) (filtered map[uint]*Reservation) {
+	filtered = make(map[uint]*Reservation, len(src))
+	for id, r := range src {
+		if !r.MaybeCanceled() {
+			continue
+		}
+		reservation := *r // copy
+		filtered[id] = &reservation
+	}
+	return
+}
+
 func (s *State) GetReservationCount() int {
 	s.reservationsMtx.Lock()
 	defer s.reservationsMtx.Unlock()
