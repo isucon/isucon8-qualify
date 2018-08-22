@@ -181,6 +181,7 @@ func goLoadAsset(ctx context.Context, checker *Checker) {
 	for _, sf := range StaticFiles {
 		assetFiles = append(assetFiles, sf.Path)
 	}
+	log.Println("debug: goLoadAsset")
 	goLoadStaticFiles(ctx, checker, assetFiles...)
 }
 
@@ -235,6 +236,8 @@ func LoadTopPage(ctx context.Context, state *State) error {
 		return nil
 	}
 	defer push()
+
+	goLoadAsset(ctx, checker)
 
 	// CheckTopPageでがっつり見る代わりにこっちではチェックを頑張らない
 	err := checker.Play(ctx, &CheckAction{
