@@ -639,7 +639,7 @@ func (s *State) GetReservations() map[uint]*Reservation {
 }
 
 // Returns a filtered shallow copy
-func (s *State) FilterReservationsByEventID(eventID uint) map[uint]*Reservation {
+func (s *State) GetReservationsInEventID(eventID uint) map[uint]*Reservation {
 	s.reservationsMtx.Lock()
 	defer s.reservationsMtx.Unlock()
 
@@ -651,6 +651,17 @@ func (s *State) FilterReservationsByEventID(eventID uint) map[uint]*Reservation 
 		filtered[id] = reservation
 	}
 	return filtered
+}
+
+func (s *State) GetReservationCount() int {
+	s.reservationsMtx.Lock()
+	defer s.reservationsMtx.Unlock()
+
+	return len(s.reservations)
+}
+
+func (s *State) GetReservationCountInEventID(eventID uint) int {
+	return len(s.GetReservationsInEventID(eventID))
 }
 
 func (s *State) MaybeReservedCount() int {

@@ -1218,7 +1218,7 @@ func checkReportHeader(reader *csv.Reader) error {
 	return nil
 }
 
-func checkReportRecord(s *State, reader *csv.Reader, reservations map[uint]*Reservation, line int) (*ReportRecord, error) {
+func checkReportRecord(s *State, reader *csv.Reader, reservationsAfterResponse map[uint]*Reservation, line int) (*ReportRecord, error) {
 	// reservation_id,event_id,rank,num,price,user_id,sold_at,canceled_at
 	// 1,1,S,36,8000,1002,2018-08-17T04:55:30Z,2018-08-17T04:58:31Z
 	// 2,1,S,36,8000,1002,2018-08-17T04:55:32Z,
@@ -1299,58 +1299,68 @@ func checkReportRecord(s *State, reader *csv.Reader, reservations map[uint]*Rese
 		CanceledAt:    canceledAt,
 	}
 
-	reservation, ok := reservations[record.ReservationID]
+	// NOTE: currently, we check only common sets between report and reservations
+	reservationAfterResponse, ok := reservationsAfterResponse[record.ReservationID]
 	if !ok {
-		// Reserve request possibly time-out, ignore
 		return record, nil
 	}
 
-	if reservation.ID != record.ReservationID ||
-		reservation.EventID != record.EventID ||
-		reservation.UserID != record.UserID ||
-		reservation.SheetRank != record.SheetRank ||
-		reservation.SheetNum != record.SheetNum {
+	if reservationAfterResponse.ID != record.ReservationID ||
+		reservationAfterResponse.EventID != record.EventID ||
+		reservationAfterResponse.UserID != record.UserID ||
+		reservationAfterResponse.SheetRank != record.SheetRank ||
+		reservationAfterResponse.SheetNum != record.SheetNum {
 		log.Printf("debug: unexpected data (line:%d)\n", line)
 		return nil, fatalErrorf(msg)
 	}
 
-	if reservation.Canceled() {
-		// If `SELECT FOR UPDATE` of the `report` API is removed from webapp,
-		// this check would faiil.
-		if record.CanceledAt.IsZero() {
-			log.Printf("debug: should have canceledAt (line:%d)\n", line)
-			return nil, fatalErrorf(msg)
-		}
-	} else if reservation.MaybeCanceled() {
-		if record.CanceledAt.IsZero() {
-			log.Printf("warn: should have canceledAt (line:%d) but ignored (race condition)\n", line)
-		}
-	} else {
-		if !record.CanceledAt.IsZero() {
-			log.Printf("debug: should not have canceledAt (line:%d)\n", line)
+	if !record.CanceledAt.IsZero() {
+		if reservationAfterResponse.MaybeCanceled() {
+			// ok
+		} else {
+			log.Printf("debug: must have been canceled (line:%d)\n", line)
 			return nil, fatalErrorf(msg)
 		}
 	}
+
+	// TODO(sonots): To do further checks, we need deep copy of reservationsBeforeRequest, but it can be slow...
+	// if reservation.Canceled() {
+	// 	// If `SELECT FOR UPDATE` of the `report` API is removed from webapp,
+	// 	// this check would faiil.
+	// 	if record.CanceledAt.IsZero() {
+	// 		log.Printf("debug: should have canceledAt (line:%d)\n", line)
+	// 		return nil, fatalErrorf(msg)
+	// 	}
+	// } else if reservation.MaybeCanceled() {
+	// 	if record.CanceledAt.IsZero() {
+	// 		log.Printf("warn: should have canceledAt (line:%d) but ignored (race condition)\n", line)
+	// 	}
+	// } else {
+	// 	if !record.CanceledAt.IsZero() {
+	// 		log.Printf("debug: should not have canceledAt (line:%d)\n", line)
+	// 		return nil, fatalErrorf(msg)
+	// 	}
+	// }
 
 	return record, nil
 }
 
-func checkReportCount(reportCount int, reservationsCount int, maybeReservedCount int) error {
-	log.Printf("debug: reservationsCount:%d <= reportCount:%d <= reservationsCount:%d + maybeReservedCount:%d\n", reservationsCount, reportCount, reservationsCount, maybeReservedCount)
-	if !(reservationsCount <= reportCount && reportCount <= reservationsCount+maybeReservedCount) {
-		return fatalErrorf("レポートの数が正しくありません")
+func checkReportCount(reservationCountBeforeRequest int, reportCount int, reservationCountAfterResponse int, maybeReservedCountAfterResponse int) error {
+	log.Printf("debug: reservationCountBeforeRequest:%d <= reportCount:%d <= reservationCountAfterResponse:%d + maybeReservedCountAfterResponse:%d\n", reservationCountBeforeRequest, reportCount, reservationCountAfterResponse, maybeReservedCountAfterResponse)
+	if reservationCountBeforeRequest <= reportCount && reportCount <= reservationCountAfterResponse+maybeReservedCountAfterResponse {
+		return nil
 	}
-	return nil
+	return fatalErrorf("レポートの数が正しくありません")
 }
 
-func checkReportResponse(s *State) func(res *http.Response, body *bytes.Buffer) error {
+func checkReportResponse(s *State, reservationCountBeforeRequest int) func(res *http.Response, body *bytes.Buffer) error {
 	return func(res *http.Response, body *bytes.Buffer) error {
 		// NOTE: s.GetReservations() returns a shallow copy, so, the state of each reservation
 		// could be changed during runtime. However, the state of reservation can be changed
 		//  only by `cancel` API, and it is locked by SELECT FOR UPDATE of the `report` API on
-		// the webapp side, thus, no update of reversations during runtime actually occurs.
-		reservations := s.GetReservations()
-		maybeReservedCount := s.MaybeReservedCount()
+		// the webapp side, thus, we assume no update of reversations during runtime occurs.
+		reservationsAfterResponse := s.GetReservations()
+		maybeReservedCountAfterResponse := s.MaybeReservedCount()
 
 		log.Println("debug:", body)
 		reader := csv.NewReader(body)
@@ -1361,7 +1371,7 @@ func checkReportResponse(s *State) func(res *http.Response, body *bytes.Buffer) 
 
 		reportCount := 0
 		for {
-			_, err := checkReportRecord(s, reader, reservations, reportCount)
+			_, err := checkReportRecord(s, reader, reservationsAfterResponse, reportCount)
 			if err == io.EOF {
 				break
 			}
@@ -1371,7 +1381,7 @@ func checkReportResponse(s *State) func(res *http.Response, body *bytes.Buffer) 
 			reportCount++
 		}
 
-		err = checkReportCount(reportCount, len(reservations), maybeReservedCount)
+		err = checkReportCount(reservationCountBeforeRequest, reportCount, len(reservationsAfterResponse), maybeReservedCountAfterResponse)
 		if err != nil {
 			return err
 		}
@@ -1380,10 +1390,10 @@ func checkReportResponse(s *State) func(res *http.Response, body *bytes.Buffer) 
 	}
 }
 
-func checkEventReportResponse(s *State, event *Event) func(res *http.Response, body *bytes.Buffer) error {
+func checkEventReportResponse(s *State, event *Event, reservationCountBeforeRequest int) func(res *http.Response, body *bytes.Buffer) error {
 	return func(res *http.Response, body *bytes.Buffer) error {
-		reservations := s.FilterReservationsByEventID(event.ID)
-		maybeReservedCount := s.MaybeReservedCountInEventID(event.ID)
+		reservationsAfterResponse := s.GetReservationsInEventID(event.ID)
+		maybeReservedCountAfterResponse := s.MaybeReservedCountInEventID(event.ID)
 
 		log.Printf("debug: checkEventReport %d\n", event.ID)
 		log.Println("debug:", body)
@@ -1396,7 +1406,7 @@ func checkEventReportResponse(s *State, event *Event) func(res *http.Response, b
 		msg := "正しいレポートを取得できません"
 		reportCount := 0
 		for {
-			record, err := checkReportRecord(s, reader, reservations, reportCount)
+			record, err := checkReportRecord(s, reader, reservationsAfterResponse, reportCount)
 			if err == io.EOF {
 				break
 			}
@@ -1411,7 +1421,7 @@ func checkEventReportResponse(s *State, event *Event) func(res *http.Response, b
 			reportCount++
 		}
 
-		err = checkReportCount(reportCount, len(reservations), maybeReservedCount)
+		err = checkReportCount(reservationCountBeforeRequest, reportCount, len(reservationsAfterResponse), maybeReservedCountAfterResponse)
 		if err != nil {
 			return err
 		}
@@ -1432,12 +1442,14 @@ func CheckReport(ctx context.Context, state *State) error {
 		return err
 	}
 
+	reservationCountBeforeRequest := state.GetReservationCount()
+
 	err = checker.Play(ctx, &CheckAction{
 		Method:             "GET",
 		Path:               "/admin/api/reports/sales",
 		ExpectedStatusCode: 200,
 		Description:        "レポートを正しく取得できること",
-		CheckFunc:          checkReportResponse(state),
+		CheckFunc:          checkReportResponse(state, reservationCountBeforeRequest),
 		Timeout:            parameter.PostTestReportTimeout,
 	})
 	if err != nil {
@@ -1468,12 +1480,14 @@ func CheckEventReport(ctx context.Context, state *State) error {
 		return nil
 	}
 
+	reservationCountBeforeRequest := state.GetReservationCountInEventID(event.ID)
+
 	err = checker.Play(ctx, &CheckAction{
 		Method:             "GET",
 		Path:               fmt.Sprintf("/admin/api/reports/events/%d/sales", event.ID),
 		ExpectedStatusCode: 200,
 		Description:        "レポートを正しく取得できること",
-		CheckFunc:          checkEventReportResponse(state, event),
+		CheckFunc:          checkEventReportResponse(state, event, reservationCountBeforeRequest),
 	})
 	if err != nil {
 		return err
