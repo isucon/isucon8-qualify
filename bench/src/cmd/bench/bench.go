@@ -12,7 +12,6 @@ import (
 	"net/http"
 	_ "net/http/pprof"
 	"net/url"
-	"regexp"
 	"runtime"
 	"sort"
 	"strings"
@@ -349,10 +348,10 @@ func printCounterSummary() {
 func startBenchmark(remoteAddrs []string) *BenchResult {
 	addLoadFunc(1, benchFunc{"LoadCreateUser", bench.LoadCreateUser})
 	addLoadFunc(1, benchFunc{"LoadMyPage", bench.LoadMyPage})
-	addLoadAndLevelUpFunc(1, benchFunc{"LoadTopPage", bench.LoadTopPage})
+	addLoadAndLevelUpFunc(3, benchFunc{"LoadTopPage", bench.LoadTopPage})
 	addLoadAndLevelUpFunc(1, benchFunc{"LoadReserveCancelSheet", bench.LoadReserveCancelSheet})
-	addLoadAndLevelUpFunc(1, benchFunc{"LoadReserveSheet", bench.LoadReserveSheet})
-	addLoadAndLevelUpFunc(1, benchFunc{"LoadGetEvent", bench.LoadGetEvent})
+	addLoadAndLevelUpFunc(2, benchFunc{"LoadReserveSheet", bench.LoadReserveSheet})
+	addLoadAndLevelUpFunc(3, benchFunc{"LoadGetEvent", bench.LoadGetEvent})
 
 	addCheckFunc(benchFunc{"CheckStaticFiles", bench.CheckStaticFiles})
 	addCheckFunc(benchFunc{"CheckCreateUser", bench.CheckCreateUser})
@@ -441,10 +440,8 @@ func startBenchmark(remoteAddrs []string) *BenchResult {
 	printCounterSummary()
 
 	getEventCount := counter.SumPrefix("GET|/api/events/")
-	reserveRegexp, _ := regexp.Compile("^POST|/api/events/.+/reserve$")
-	reserveCount := counter.SumMatched(reserveRegexp)
-	cancelRegexp, _ := regexp.Compile("^DELETE|/api/events/.+/reservation$")
-	cancelCount := counter.SumMatched(cancelRegexp)
+	reserveCount := counter.SumPrefix("POST|/api/events/")
+	cancelCount := counter.SumPrefix("DELETE|/api/events/")
 	topCount := counter.SumEqual("GET|/")
 
 	getCount := counter.SumPrefix(`GET|/`)
