@@ -1683,7 +1683,7 @@ func reserveSheet(ctx context.Context, state *State, checker *Checker, userID ui
 	reservation.SheetNum = reserved.SheetNum
 	state.DeleteReserveLog(logID, reservation)
 	eventSheet.Num = reserved.SheetNum
-	state.AppendReservation(reservation)
+	state.CommitReservation(reservation)
 
 	event := state.FindEventByID(eventID)
 	assert(event != nil)

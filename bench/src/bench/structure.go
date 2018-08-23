@@ -135,9 +135,14 @@ type Reservation struct {
 	SheetID         uint // Used only in initial reservations. 0 is set for rest because reserve API does not return it
 	SheetRank       string
 	SheetNum        uint
-	CancelRequested bool
-	CancelCompleted bool
+	CancelRequested bool  // TODO(sonots): Use CancelRequestedAt
+	CancelCompleted bool  // TODO(sonots): Use CancelCompletedAt
 	ReservedAt      int64 // Used only in initial reservations. 0 is set for rest because reserve API does not return it
+
+	// ReserveRequestedAt time.Time
+	ReserveCompletedAt time.Time
+	CancelRequestedAt  time.Time
+	CancelCompletedAt  time.Time
 }
 
 func (r Reservation) Canceled() bool {
@@ -553,10 +558,11 @@ func GetRandomSheetNum(sheetRank string) uint {
 	return uint(rand.Intn(int(total)))
 }
 
-func (s *State) AppendReservation(reservation *Reservation) {
+func (s *State) CommitReservation(reservation *Reservation) {
 	s.reservationsMtx.Lock()
 	defer s.reservationsMtx.Unlock()
 
+	reservation.ReserveCompletedAt = time.Now()
 	s.reservations[reservation.ID] = reservation
 }
 
@@ -567,6 +573,7 @@ func (s *State) BeginCancelReservation(reservationID uint) *Reservation {
 	reservation := s.reservations[reservationID]
 
 	reservation.CancelRequested = true
+	reservation.CancelRequestedAt = time.Now()
 	return reservation
 }
 
@@ -575,6 +582,7 @@ func (s *State) CommitCancelReservation(reservation *Reservation) {
 	defer s.reservationsMtx.Unlock()
 
 	reservation.CancelCompleted = true
+	reservation.CancelCompletedAt = time.Now()
 	s.reservations[reservation.ID] = reservation
 }
 
