@@ -305,21 +305,21 @@ sub get_event {
         $event->{sheets}->{$rank}->{remains} = 0;
     }
 
-    my $sheets = $self->dbh->select_all('SELECT s.*, r.user_id, r.reserved_at FROM sheets s LEFT JOIN (SELECT * FROM reservations WHERE event_id = ? AND canceled_at IS NULL GROUP BY event_id, sheet_id HAVING reserved_at = MIN(reserved_at)) r ON r.sheet_id = s.id ORDER BY s.rank, s.num', $event->{id});
+    my $sheets = $self->dbh->select_all('SELECT * FROM sheets ORDER BY `rank`, num');
     for my $sheet (@$sheets) {
         $event->{sheets}->{$sheet->{rank}}->{price} ||= $event->{price} + $sheet->{price};
 
         $event->{total} += 1;
         $event->{sheets}->{$sheet->{rank}}->{total} += 1;
 
-        if ($sheet->{user_id}) {
-            $sheet->{mine}        = JSON::XS::true if $login_user_id && $sheet->{user_id} == $login_user_id;
+        my $reservation = $self->dbh->select_row('SELECT * FROM reservations WHERE event_id = ? AND sheet_id = ? AND canceled_at IS NULL GROUP BY event_id, sheet_id HAVING reserved_at = MAX(reserved_at)', $event->{id}, $sheet->{id});
+        if ($reservation) {
+            $sheet->{mine}        = JSON::XS::true if $login_user_id && $reservation->{user_id} == $login_user_id;
             $sheet->{reserved}    = JSON::XS::true;
-            $sheet->{reserved_at} = Time::Moment->from_string($sheet->{reserved_at}.'Z', lenient => 1)->epoch;
+            $sheet->{reserved_at} = Time::Moment->from_string($reservation->{reserved_at}.'Z', lenient => 1)->epoch;
         } else {
             $event->{remains} += 1;
             $event->{sheets}->{$sheet->{rank}}->{remains} += 1;
-            delete $sheet->{reserved_at};
         }
 
         push @{ $event->{sheets}->{$sheet->{rank}}->{detail} } => $sheet;
@@ -327,7 +327,6 @@ sub get_event {
         delete $sheet->{id};
         delete $sheet->{price};
         delete $sheet->{rank};
-        delete $sheet->{user_id};
     }
 
     return $event;
