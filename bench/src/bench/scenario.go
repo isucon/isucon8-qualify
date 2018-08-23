@@ -1220,8 +1220,8 @@ func checkReportHeader(reader *csv.Reader) error {
 	return nil
 }
 
-func checkReportRecord(s *State, reader *csv.Reader, line int,
-	reservationsCopyBeforeRequest map[uint]*Reservation,
+func checkReportRecord(s *State, reader *csv.Reader, line int, timeBefore time.Time,
+	reservationsBeforeRequest map[uint]*Reservation,
 	reservationsAfterResponse map[uint]*Reservation) (*ReportRecord, error) {
 	// reservation_id,event_id,rank,num,price,user_id,sold_at,canceled_at
 	// 1,1,S,36,8000,1002,2018-08-17T04:55:30Z,2018-08-17T04:58:31Z
@@ -1303,35 +1303,35 @@ func checkReportRecord(s *State, reader *csv.Reader, line int,
 		CanceledAt:    canceledAt,
 	}
 
-	// All elements in reservationsCopyBeforeRequest must exist in this report, but
-	// some might be canceld.
+	// All elements in reservationsBeforeRequest must exist in this report
 
-	reservationCopyBeforeRequest, ok := reservationsCopyBeforeRequest[record.ReservationID]
+	reservationAfterResponse, ok := reservationsAfterResponse[record.ReservationID]
 	if !ok {
 		// want to make it fail, but potentially reserve request timeouted. ignore
 		return record, nil
 	}
 
-	if reservationCopyBeforeRequest.ID != record.ReservationID ||
-		reservationCopyBeforeRequest.EventID != record.EventID ||
-		reservationCopyBeforeRequest.UserID != record.UserID ||
-		reservationCopyBeforeRequest.SheetRank != record.SheetRank ||
-		reservationCopyBeforeRequest.SheetNum != record.SheetNum {
+	if reservationAfterResponse.ID != record.ReservationID ||
+		reservationAfterResponse.EventID != record.EventID ||
+		reservationAfterResponse.UserID != record.UserID ||
+		reservationAfterResponse.SheetRank != record.SheetRank ||
+		reservationAfterResponse.SheetNum != record.SheetNum {
 		log.Printf("debug: unexpected data (line:%d)\n", line)
 		return nil, fatalErrorf(msg)
 	}
 
+	reservationBeforeRequest, ok := reservationsBeforeRequest[record.ReservationID]
 	if !ok {
 		return record, nil
 	}
 
-	if reservationCopyBeforeRequest.Canceled() {
+	if reservationBeforeRequest.Canceled(timeBefore) {
 		// If `SELECT FOR UPDATE` of the `report` API is removed from webapp, this check would faiil.
 		if record.CanceledAt.IsZero() {
 			log.Printf("debug: should have canceledAt (line:%d)\n", line)
 			return nil, fatalErrorf(msg)
 		}
-	} else if reservationCopyBeforeRequest.MaybeCanceled() {
+	} else if reservationBeforeRequest.MaybeCanceled(timeBefore) {
 		if record.CanceledAt.IsZero() {
 			log.Printf("warn: should have canceledAt (line:%d) but ignored (race condition)\n", line)
 		}
@@ -1354,7 +1354,7 @@ func checkReportCount(reservationCountBeforeRequest int, reportCount int, reserv
 	return fatalErrorf("レポートの数が正しくありません")
 }
 
-func checkReportResponse(s *State, reservationsCopyBeforeRequest map[uint]*Reservation) func(res *http.Response, body *bytes.Buffer) error {
+func checkReportResponse(s *State, timeBefore time.Time, reservationsBeforeRequest map[uint]*Reservation) func(res *http.Response, body *bytes.Buffer) error {
 	return func(res *http.Response, body *bytes.Buffer) error {
 		reservationsAfterResponse := s.GetReservations()
 		maybeReservedCountAfterResponse := s.MaybeReservedCount()
@@ -1368,7 +1368,7 @@ func checkReportResponse(s *State, reservationsCopyBeforeRequest map[uint]*Reser
 
 		reportCount := 0
 		for {
-			_, err := checkReportRecord(s, reader, reportCount, reservationsCopyBeforeRequest, reservationsAfterResponse)
+			_, err := checkReportRecord(s, reader, reportCount, timeBefore, reservationsBeforeRequest, reservationsAfterResponse)
 			if err == io.EOF {
 				break
 			}
@@ -1378,7 +1378,7 @@ func checkReportResponse(s *State, reservationsCopyBeforeRequest map[uint]*Reser
 			reportCount++
 		}
 
-		err = checkReportCount(len(reservationsCopyBeforeRequest), reportCount, len(reservationsAfterResponse), maybeReservedCountAfterResponse)
+		err = checkReportCount(len(reservationsBeforeRequest), reportCount, len(reservationsAfterResponse), maybeReservedCountAfterResponse)
 		if err != nil {
 			return err
 		}
@@ -1387,7 +1387,7 @@ func checkReportResponse(s *State, reservationsCopyBeforeRequest map[uint]*Reser
 	}
 }
 
-func checkEventReportResponse(s *State, event *Event, reservationsCopyBeforeRequest map[uint]*Reservation) func(res *http.Response, body *bytes.Buffer) error {
+func checkEventReportResponse(s *State, event *Event, timeBefore time.Time, reservationsBeforeRequest map[uint]*Reservation) func(res *http.Response, body *bytes.Buffer) error {
 	return func(res *http.Response, body *bytes.Buffer) error {
 		// NOTE: s.GetReservationsInEventID() returns a shallow copy, so, the state of each reservation
 		// could be changed during runtime. However, the state of reservation can be changed
@@ -1407,7 +1407,7 @@ func checkEventReportResponse(s *State, event *Event, reservationsCopyBeforeRequ
 		msg := "正しいレポートを取得できません"
 		reportCount := 0
 		for {
-			record, err := checkReportRecord(s, reader, reportCount, reservationsCopyBeforeRequest, reservationsAfterResponse)
+			record, err := checkReportRecord(s, reader, reportCount, timeBefore, reservationsBeforeRequest, reservationsAfterResponse)
 			if err == io.EOF {
 				break
 			}
@@ -1422,7 +1422,7 @@ func checkEventReportResponse(s *State, event *Event, reservationsCopyBeforeRequ
 			reportCount++
 		}
 
-		err = checkReportCount(len(reservationsCopyBeforeRequest), reportCount, len(reservationsAfterResponse), maybeReservedCountAfterResponse)
+		err = checkReportCount(len(reservationsBeforeRequest), reportCount, len(reservationsAfterResponse), maybeReservedCountAfterResponse)
 		if err != nil {
 			return err
 		}
@@ -1443,14 +1443,15 @@ func CheckReport(ctx context.Context, state *State) error {
 		return err
 	}
 
-	reservationsCopyBeforeRequest := state.GetReservationsCopy()
+	timeBefore := time.Now().Add(-1 * parameter.AllowableDelay)
+	reservationsBeforeRequest := FilterReservationsToAllowDelay(state.GetReservationsCopy(), timeBefore)
 
 	err = checker.Play(ctx, &CheckAction{
 		Method:             "GET",
 		Path:               "/admin/api/reports/sales",
 		ExpectedStatusCode: 200,
 		Description:        "レポートを正しく取得できること",
-		CheckFunc:          checkReportResponse(state, reservationsCopyBeforeRequest),
+		CheckFunc:          checkReportResponse(state, timeBefore, reservationsBeforeRequest),
 		Timeout:            parameter.PostTestReportTimeout,
 	})
 	if err != nil {
@@ -1481,14 +1482,15 @@ func CheckEventReport(ctx context.Context, state *State) error {
 		return nil
 	}
 
-	reservationsCopyBeforeRequest := state.GetReservationsCopyInEventID(event.ID)
+	timeBefore := time.Now().Add(-1 * parameter.AllowableDelay)
+	reservationsBeforeRequest := FilterReservationsToAllowDelay(state.GetReservationsCopyInEventID(event.ID), timeBefore)
 
 	err = checker.Play(ctx, &CheckAction{
 		Method:             "GET",
 		Path:               fmt.Sprintf("/admin/api/reports/events/%d/sales", event.ID),
 		ExpectedStatusCode: 200,
 		Description:        "レポートを正しく取得できること",
-		CheckFunc:          checkEventReportResponse(state, event, reservationsCopyBeforeRequest),
+		CheckFunc:          checkEventReportResponse(state, event, timeBefore, reservationsBeforeRequest),
 	})
 	if err != nil {
 		return err
