@@ -312,6 +312,8 @@ func printCounterSummary() {
 			key = "GET|/api/users/*"
 		} else if strings.HasPrefix(key, "POST|/admin/api/events/") {
 			key = "POST|/admin/api/events/*/actions/edit"
+		} else if strings.HasPrefix(key, "GET|/admin/api/reports/events/") {
+			key = "GET|/admin/api/reports/events/*/sales"
 		}
 
 		m[key] += count
