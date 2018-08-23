@@ -375,6 +375,39 @@ func LoadGetEvent(ctx context.Context, state *State) error {
 	return nil
 }
 
+func LoadEventReport(ctx context.Context, state *State) error {
+	admin, checker, push := state.PopRandomAdministrator()
+	if admin == nil {
+		return nil
+	}
+	defer push()
+
+	err := loginAdministrator(ctx, checker, admin)
+	if err != nil {
+		return err
+	}
+
+	// We want to let webapp to lock reservations.
+	// Since no reserve/cancel occurs for closed events, we ignore closed events.
+	event := state.GetRandomPublicEvent()
+	if event == nil {
+		return nil
+	}
+
+	// We do check at CheckEventReport
+	err = checker.Play(ctx, &CheckAction{
+		Method:             "GET",
+		Path:               fmt.Sprintf("/admin/api/reports/events/%d/sales", event.ID),
+		ExpectedStatusCode: 200,
+		Description:        "レポートを取得できること",
+	})
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 // Validation
 
 func CheckStaticFiles(ctx context.Context, state *State) error {
