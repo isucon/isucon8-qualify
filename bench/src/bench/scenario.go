@@ -14,6 +14,7 @@ import (
 	"hash/crc32"
 	"io"
 	"log"
+	"math"
 	"math/rand"
 	"net/http"
 	"os"
@@ -1585,6 +1586,87 @@ func CheckEventReport(ctx context.Context, state *State) error {
 	})
 	if err != nil {
 		return err
+	}
+
+	return nil
+}
+
+func CheckSheetReservationEntropy(ctx context.Context, state *State) error {
+	var event *Event
+	var now time.Time
+	var source map[uint]*Reservation
+
+	// fetch source
+	seen := map[uint]bool{}
+	for retry := 0; retry < 5; retry++ {
+		event = state.GetRandomPublicEvent()
+		if event == nil {
+			return nil
+		}
+		if seen[event.ID] {
+			continue
+		}
+		seen[event.ID] = true
+
+		now = time.Now()
+		source = state.GetReservationsInEventID(event.ID)
+
+		// NOTE(karupa): skip smallest or biggest source
+		if l := len(source); !(10 < l && l < 6000) {
+			continue
+		}
+
+		break
+	}
+
+	// prepare
+	reservationsMap := map[string][]*Reservation{}
+	for _, reservation := range source {
+		if reservation.MaybeCanceled(now) {
+			continue
+		}
+		reservationsMap[reservation.SheetRank] = append(reservationsMap[reservation.SheetRank], reservation)
+	}
+	for _, reservations := range reservationsMap {
+		sort.Slice(reservations, func(i, j int) bool {
+			return reservations[i].ID < reservations[j].ID
+		})
+	}
+
+	// calculate score
+	// note(karupa): 等差数列であれば差分の和が一定以下の数になるはず/一定数以上
+	scoreMap := map[string]uint{}
+	for rank, reservations := range reservationsMap {
+		if len(reservations) < 2 {
+			continue
+		}
+
+		var score uint
+		var before = float64(reservations[0].SheetNum)
+		for _, reservation := range reservations[1:] {
+			after := float64(reservation.SheetNum)
+			score += uint(math.Abs(before - after))
+			before = after
+		}
+		scoreMap[rank] = score / uint(len(reservations))
+	}
+
+	// check score
+	ok := true
+	for rank, score := range scoreMap {
+		if score < 4 {
+			log.Printf("error: fatal entropy score %s=%d (event_id:%d)\n", rank, score, event.ID)
+			ok = false
+		} else if score < 8 {
+			log.Printf("warn: small entropy score %s=%d (event_id:%d)\n", rank, score, event.ID)
+		} else if score < 16 {
+			log.Printf("info: small entropy score %s=%d (event_id:%d)\n", rank, score, event.ID)
+		} else {
+			log.Printf("debug: normal entropy score %s=%d (event_id:%d)\n", rank, score, event.ID)
+		}
+	}
+	if !ok {
+		return fatalErrorf("予約順がランダムではありません: event_id:%d", event.ID)
 	}
 
 	return nil
