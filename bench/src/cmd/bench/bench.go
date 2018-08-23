@@ -12,6 +12,7 @@ import (
 	"net/http"
 	_ "net/http/pprof"
 	"net/url"
+	"regexp"
 	"runtime"
 	"sort"
 	"strings"
@@ -439,8 +440,11 @@ func startBenchmark(remoteAddrs []string) *BenchResult {
 
 	printCounterSummary()
 
-	reserveCount := counter.SumPrefix("POST|/api/events/")
-	cancelCount := counter.SumPrefix("DELETE|/api/events/")
+	getEventCount := counter.SumPrefix("GET|/api/events/")
+	reserveRegexp, _ := regexp.Compile("^POST|/api/events/.+/reserve$")
+	reserveCount := counter.SumMatched(reserveRegexp)
+	cancelRegexp, _ := regexp.Compile("^DELETE|/api/events/.+/reservation$")
+	cancelCount := counter.SumMatched(cancelRegexp)
 	topCount := counter.SumEqual("GET|/")
 
 	getCount := counter.SumPrefix(`GET|/`)
@@ -448,7 +452,7 @@ func startBenchmark(remoteAddrs []string) *BenchResult {
 	deleteCount := counter.SumPrefix(`DELETE|/`) // == cancelCount
 	s304Count := counter.GetKey("staticfile-304")
 
-	score := parameter.Score(getCount, postCount, deleteCount, s304Count, reserveCount, cancelCount, topCount)
+	score := parameter.Score(getCount, postCount, deleteCount, s304Count, reserveCount, cancelCount, topCount, getEventCount)
 
 	log.Println("get", getCount)
 	log.Println("post", postCount)
@@ -457,6 +461,7 @@ func startBenchmark(remoteAddrs []string) *BenchResult {
 	log.Println("top", topCount)
 	log.Println("reserve", reserveCount)
 	log.Println("cancel", cancelCount)
+	log.Println("get_event", getEventCount)
 	log.Println("score", score)
 
 	result.LoadLevel = int(counter.GetKey("load-level-up"))
