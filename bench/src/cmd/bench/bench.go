@@ -158,7 +158,7 @@ func checkMain(ctx context.Context, state *bench.State) error {
 			log.Println("CheckEventReport", time.Since(t))
 
 			// fatalError以外は見逃してあげる
-			if err != nil && bench.IsCheckerFatal(err) {
+			if err != nil && bench.IsFatal(err) {
 				return err
 			}
 		case <-checkReportTicker.C:
@@ -171,7 +171,7 @@ func checkMain(ctx context.Context, state *bench.State) error {
 			log.Println("CheckReport", time.Since(t))
 
 			// fatalError以外は見逃してあげる
-			if err != nil && bench.IsCheckerFatal(err) {
+			if err != nil && bench.IsFatal(err) {
 				return err
 			}
 		case <-ctx.Done():
@@ -189,7 +189,7 @@ func checkMain(ctx context.Context, state *bench.State) error {
 			log.Println("checkMain:", checkFunc.Name, time.Since(t))
 
 			// fatalError以外は見逃してあげる
-			if err != nil && bench.IsCheckerFatal(err) {
+			if err != nil && bench.IsFatal(err) {
 				return err
 			}
 
