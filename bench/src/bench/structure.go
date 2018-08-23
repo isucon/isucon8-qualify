@@ -637,10 +637,24 @@ func (s *State) GetReservations() map[uint]*Reservation {
 	s.reservationsMtx.Lock()
 	defer s.reservationsMtx.Unlock()
 
-	// TODO(sonots): could be slow if s.reservations are large ...
 	reservations := make(map[uint]*Reservation, len(s.reservations))
 	for id, reservation := range s.reservations {
 		reservations[id] = reservation
+	}
+
+	return reservations
+}
+
+// Returns a deep copy of s.reservations
+// NOTE: This could be slow if s.reservations are large, so use this only for postTest
+func (s *State) GetReservationsCopy() map[uint]*Reservation {
+	s.reservationsMtx.Lock()
+	defer s.reservationsMtx.Unlock()
+
+	reservations := make(map[uint]*Reservation, len(s.reservations))
+	for id, r := range s.reservations {
+		reservation := *r // copy
+		reservations[id] = &reservation
 	}
 
 	return reservations
@@ -662,16 +676,19 @@ func (s *State) GetReservationsInEventID(eventID uint) map[uint]*Reservation {
 }
 
 // Returns a filtered deep copy
-func FilterMaybeCanceledReservationsDeepCopy(src map[uint]*Reservation) (filtered map[uint]*Reservation) {
-	filtered = make(map[uint]*Reservation, len(src))
-	for id, r := range src {
-		if !r.MaybeCanceled() {
+func (s *State) GetReservationsCopyInEventID(eventID uint) map[uint]*Reservation {
+	s.reservationsMtx.Lock()
+	defer s.reservationsMtx.Unlock()
+
+	filtered := make(map[uint]*Reservation, len(s.reservations))
+	for id, r := range s.reservations {
+		if r.EventID != eventID {
 			continue
 		}
-		reservation := *r // copy
+		reservation := *r // dopy
 		filtered[id] = &reservation
 	}
-	return
+	return filtered
 }
 
 func (s *State) GetReservationCount() int {
