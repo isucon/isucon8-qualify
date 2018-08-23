@@ -1,0 +1,6 @@
+---
+- hosts: webapp2
+  roles:
+    - common
+    - go
+    - perl

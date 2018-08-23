@@ -1,0 +1,91 @@
+---
+- name: Create isucon group
+  become: yes
+  become_user: root
+  group:
+    name: isucon
+    gid: 1001
+    state: present
+    system: no
+
+- name: Create isucon user
+  become: yes
+  become_user: root
+  user:
+    name: isucon
+    uid: 1001
+    group: isucon
+    password: isucon
+    home: /home/isucon
+    shell: /bin/bash
+    state: present
+    system: no
+
+- name: Add sudoers
+  become: yes
+  become_user: root
+  copy:
+    content: "isucon  ALL=(ALL) NOPASSWD:ALL\n"
+    dest: /etc/sudoers.d/90-isucon-user
+    owner: root
+    group: root
+    mode: 0440
+
+- name: Install Development Tools
+  become: yes
+  become_user: root
+  yum: name="{{ item }}" state=present
+  with_items:
+    - "@Development Tools"
+
+- name: Install Dependencies
+  become: yes
+  become_user: root
+  yum:
+    pkg: "{{ item }}"
+    state: installed
+  with_items:
+    - autoconf
+    - automake
+    - curl
+    - gdbm-devel
+    - git
+    - jq
+    - libffi-devel
+    - libyaml-devel
+    - ncurses-devel
+    - openssl-devel
+    - patch
+    - readline-devel
+    - zlib-devel
+
+- name: Install xbuild
+  become: yes
+  become_user: isucon
+  git:
+    repo: https://github.com/tagomoris/xbuild.git
+    dest: /home/isucon/xbuild
+    version: master
+
+- name: mkdir local
+  become: yes
+  become_user: isucon
+  file: path=/home/isucon/local state=directory
+
+- name: deploy torb
+  become: yes
+  become_user: isucon
+  synchronize:
+    src: ../../../../
+    dest: /home/isucon/torb
+    recursive: yes
+
+- name: chown torb
+  become: yes
+  become_user: root
+  file:
+    dest: /home/isucon/torb
+    owner: isucon
+    group: isucon
+    mode: u=rwX,g=rX,o=rX
+    recurse: yes

@@ -1,0 +1,6 @@
+---
+- hosts: bench
+  roles:
+    - common
+    - go
+    - bench

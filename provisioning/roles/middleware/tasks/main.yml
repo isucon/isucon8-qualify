@@ -1,0 +1,84 @@
+---
+- name: Install MariaDB
+  become: yes
+  become_user: root
+  yum:
+    pkg: "{{ item }}"
+    state: installed
+  with_items:
+    - mariadb
+    - mariadb-server
+    - mariadb-devel
+    - MySQL-python
+
+- name: restart mariadb
+  become: yes
+  become_user: root
+  systemd:
+    name: mariadb
+    state: restarted
+    daemon_reload: yes
+    enabled: yes
+
+- name: create isucon
+  mysql_user:
+    login_user: root
+    name: isucon
+    password: isucon
+    priv: "*.*:ALL"
+    host: localhost
+    state: present
+
+- name: Append H2O repository
+  become: yes
+  become_user: root
+  blockinfile:
+    create: yes
+    dest: /etc/yum.repos.d/bintray-tatsushid-h2o-rpm.repo
+    content: |
+      [bintray-tatsushid-h2o-rpm]
+      name=bintray-tatsushid-h2o-rpm
+      baseurl=https://dl.bintray.com/tatsushid/h2o-rpm/centos/$releasever/$basearch/
+      gpgcheck=0
+      repo_gpgcheck=0
+      enabled=1
+
+- name: Install H2O
+  become: yes
+  become_user: root
+  yum:
+    pkg: "{{ item }}"
+    state: installed
+  with_items:
+    - cmake
+    - openssl-devel
+    - libuv
+    - h2o
+
+- name: Put default h2o.conf
+  become: yes
+  become_user: root
+  copy:
+    dest: /etc/h2o/h2o.conf
+    content: |
+      user: isucon
+      access-log: /var/log/h2o/access.log
+      error-log: /var/log/h2o/error.log
+      pid-file: /var/run/h2o/h2o.pid
+      hosts:
+        "localhost:80":
+          listen:
+            port: 80
+            host: 0.0.0.0
+          paths:
+            "/favicon.ico":
+              file.file: /home/isucon/torb/webapp/static/favicon.ico
+            "/css":
+              file.dir: /home/isucon/torb/webapp/static/css
+            "/img":
+              file.dir: /home/isucon/torb/webapp/static/img
+            "/js":
+              file.dir: /home/isucon/torb/webapp/static/js
+            "/":
+              proxy.reverse.url: http://127.0.0.1:8080/
+              proxy.preserve-host: ON

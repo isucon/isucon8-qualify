@@ -1,0 +1,39 @@
+---
+- name: Install cpanm
+  become: yes
+  become_user: isucon
+args:
+    chdir: /home/isucon/torb/webapp/perl
+  shell:
+    bash -lc "cpanm --installdeps --force ."
+
+- name: Append torb.perl systemd
+  become: yes
+  become_user: root
+  blockinfile:
+    create: yes
+    dest: /etc/systemd/system/torb.perl.service
+    content: |
+      [Unit]
+      Description = isucon8 qualifier webapp in perl
+
+      [Service]
+      WorkingDirectory=/home/isucon/torb/webapp/perl
+      EnvironmentFile=/home/isucon/torb/webapp/env.sh
+      ExecStart = /home/isucon/local/perl/bin/plackup -R lib -R app.psgi -R views -p 8080 app.psgi
+      Restart   = always
+      Type      = simple
+      User      = isucon
+      Group     = isucon
+      
+      [Install]
+      WantedBy = multi-user.target
+
+- name: systemd restart torb.perl
+  become: yes
+  become_user: root
+  systemd:
+    name: torb.perl
+    state: restarted
+    daemon_reload: yes
+    enabled: yes
