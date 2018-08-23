@@ -475,6 +475,8 @@ func startBenchmark(remoteAddrs []string) *BenchResult {
 }
 
 func main() {
+	rand.Seed(time.Now().UnixNano())
+
 	log.SetFlags(log.LstdFlags | log.Lmicroseconds | log.Lshortfile)
 	log.SetPrefix("[isu8q-bench] ")
 	colog.Register()
