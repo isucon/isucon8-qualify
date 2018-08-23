@@ -253,6 +253,28 @@ func LoadTopPage(ctx context.Context, state *State) error {
 	return nil
 }
 
+func LoadAdminTopPage(ctx context.Context, state *State) error {
+	admin, checker, push := state.PopRandomAdministrator()
+	if admin == nil {
+		return nil
+	}
+	defer push()
+
+	goLoadAsset(ctx, checker)
+
+	err := checker.Play(ctx, &CheckAction{
+		Method:             "GET",
+		Path:               "/admin/",
+		ExpectedStatusCode: 200,
+		Description:        "ページが表示されること",
+	})
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func LoadMyPage(ctx context.Context, state *State) error {
 	user, userChecker, userPush := state.PopRandomUser()
 	if user == nil {

@@ -349,6 +349,7 @@ func startBenchmark(remoteAddrs []string) *BenchResult {
 	addLoadFunc(1, benchFunc{"LoadCreateUser", bench.LoadCreateUser})
 	addLoadFunc(1, benchFunc{"LoadMyPage", bench.LoadMyPage})
 	addLoadFunc(1, benchFunc{"LoadEventReport", bench.LoadEventReport})
+	addLoadFunc(1, benchFunc{"LoadAdminTopPage", bench.LoadAdminTopPage})
 	addLoadAndLevelUpFunc(3, benchFunc{"LoadTopPage", bench.LoadTopPage})
 	addLoadAndLevelUpFunc(1, benchFunc{"LoadReserveCancelSheet", bench.LoadReserveCancelSheet})
 	addLoadAndLevelUpFunc(2, benchFunc{"LoadReserveSheet", bench.LoadReserveSheet})
