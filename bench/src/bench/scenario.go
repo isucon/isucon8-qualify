@@ -1410,7 +1410,13 @@ func checkReportRecord(s *State, reader *csv.Reader, line int, timeBefore time.T
 		reservationBeforeRequest.UserID != record.UserID ||
 		reservationBeforeRequest.SheetRank != record.SheetRank ||
 		reservationBeforeRequest.SheetNum != record.SheetNum {
-		log.Printf("debug: unexpected data (line:%d)\n", line)
+		log.Printf("debug: unexpected data ReservationID:%d!=%d EventID:%d!=%d UserID:%d!=%d Rank:%s!=%s Num:%d!=%d (line:%d)\n",
+			reservationBeforeRequest.ID, record.ReservationID,
+			reservationBeforeRequest.EventID, record.EventID,
+			reservationBeforeRequest.UserID, record.UserID,
+			reservationBeforeRequest.SheetRank, record.SheetRank,
+			reservationBeforeRequest.SheetNum, record.SheetNum,
+			line)
 		return nil, fatalErrorf(msg)
 	}
 
