@@ -1412,7 +1412,7 @@ func checkReportRecord(s *State, reader *csv.Reader, line int, timeBefore time.T
 		}
 	}
 	// TODO(sonots): Add a test to fail if `SELECT FOR UPDATE` is removed.
-	// if reservationsRightAfterRequest.CancelRequestedAt.IsZero() {
+	// if reservationRightAfterRequest.CancelRequestedAt.IsZero() {
 	// 	// If `SELECT FOR UPDATE` of the `report` API is removed from webapp, this check would faiil.
 	// 	if !record.CanceledAt.IsZero() {
 	// 		log.Printf("debug: should not have canceledAt (line:%d)\n", line)
