@@ -144,47 +144,6 @@ sub get_user {
     my $user = $self->dbh->select_row('SELECT * FROM users WHERE id = ?', $user_id);
     return unless $user;
 
-    my @recent_reservations;
-    {
-        my $rows = $self->dbh->select_all('SELECT r.*, s.rank AS sheet_rank, s.num AS sheet_num FROM reservations r INNER JOIN sheets s ON s.id = r.sheet_id WHERE r.user_id = ? ORDER BY IFNULL(r.canceled_at, r.reserved_at) DESC LIMIT 5', $user_id);
-        for my $row (@$rows) {
-            my $event = $self->get_event($row->{event_id});
-            $event->{public} = delete $event->{public_fg} ? JSON::XS::true : JSON::XS::false;
-            $event->{closed} = delete $event->{closed_fg} ? JSON::XS::true : JSON::XS::false;
-            delete $event->{sheets};
-            delete $event->{total};
-            delete $event->{remains};
-
-            my $reservation = {
-                id          => 0+$row->{id},
-                event       => $event,
-                sheet_rank  => $row->{sheet_rank},
-                sheet_num   => 0+$row->{sheet_num},
-                price       => $event->{sheets}->{$row->{sheet_rank}}->{price},
-                reserved_at => Time::Moment->from_string("$row->{reserved_at}Z", lenient => 1)->epoch(),
-                canceled_at => $row->{canceled_at} ? Time::Moment->from_string("$row->{canceled_at}Z", lenient => 1)->epoch() : undef,
-            };
-            push @recent_reservations => $reservation;
-
-        }
-    };
-    $user->{recent_reservations} = \@recent_reservations;
-    $user->{total_price} = 0+$self->dbh->select_one('SELECT IFNULL(SUM(e.price + s.price), 0) FROM reservations r INNER JOIN sheets s ON s.id = r.sheet_id INNER JOIN events e ON e.id = r.event_id WHERE r.user_id = ? AND r.canceled_at IS NULL', $user_id);
-
-    my @recent_events;
-    {
-        my $rows = $self->dbh->select_all('SELECT DISTINCT event_id FROM reservations WHERE user_id = ? ORDER BY IFNULL(canceled_at, reserved_at) DESC LIMIT 5', $user_id);
-        for my $row (@$rows) {
-            my $event = $self->get_event($row->{event_id});
-            $event->{public} = delete $event->{public_fg} ? JSON::XS::true : JSON::XS::false;
-            $event->{closed} = delete $event->{closed_fg} ? JSON::XS::true : JSON::XS::false;
-            delete $event->{sheets}->{$_}->{detail} for keys %{ $event->{sheets} };
-
-            push @recent_events => $event;
-        }
-    }
-    $user->{recent_events} = \@recent_events;
-
     # sanitize fields
     delete $user->{login_name};
     delete $user->{pass_hash};
@@ -215,6 +174,47 @@ get '/api/users/{id}' => [qw/login_required/] => sub {
         $res->status(403);
         return $res;
     }
+
+    my @recent_reservations;
+    {
+        my $rows = $self->dbh->select_all('SELECT r.*, s.rank AS sheet_rank, s.num AS sheet_num FROM reservations r INNER JOIN sheets s ON s.id = r.sheet_id WHERE r.user_id = ? ORDER BY IFNULL(r.canceled_at, r.reserved_at) DESC LIMIT 5', $user->{id});
+        for my $row (@$rows) {
+            my $event = $self->get_event($row->{event_id});
+            $event->{public} = delete $event->{public_fg} ? JSON::XS::true : JSON::XS::false;
+            $event->{closed} = delete $event->{closed_fg} ? JSON::XS::true : JSON::XS::false;
+            delete $event->{sheets};
+            delete $event->{total};
+            delete $event->{remains};
+
+            my $reservation = {
+                id          => 0+$row->{id},
+                event       => $event,
+                sheet_rank  => $row->{sheet_rank},
+                sheet_num   => 0+$row->{sheet_num},
+                price       => $event->{sheets}->{$row->{sheet_rank}}->{price},
+                reserved_at => Time::Moment->from_string("$row->{reserved_at}Z", lenient => 1)->epoch(),
+                canceled_at => $row->{canceled_at} ? Time::Moment->from_string("$row->{canceled_at}Z", lenient => 1)->epoch() : undef,
+            };
+            push @recent_reservations => $reservation;
+
+        }
+    };
+    $user->{recent_reservations} = \@recent_reservations;
+    $user->{total_price} = 0+$self->dbh->select_one('SELECT IFNULL(SUM(e.price + s.price), 0) FROM reservations r INNER JOIN sheets s ON s.id = r.sheet_id INNER JOIN events e ON e.id = r.event_id WHERE r.user_id = ? AND r.canceled_at IS NULL', $user->{id});
+
+    my @recent_events;
+    {
+        my $rows = $self->dbh->select_all('SELECT DISTINCT event_id FROM reservations WHERE user_id = ? ORDER BY IFNULL(canceled_at, reserved_at) DESC LIMIT 5', $user->{id});
+        for my $row (@$rows) {
+            my $event = $self->get_event($row->{event_id});
+            $event->{public} = delete $event->{public_fg} ? JSON::XS::true : JSON::XS::false;
+            $event->{closed} = delete $event->{closed_fg} ? JSON::XS::true : JSON::XS::false;
+            delete $event->{sheets}->{$_}->{detail} for keys %{ $event->{sheets} };
+
+            push @recent_events => $event;
+        }
+    }
+    $user->{recent_events} = \@recent_events;
 
     return $c->render_json($user);
 };
