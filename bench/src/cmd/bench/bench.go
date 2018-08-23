@@ -348,14 +348,15 @@ func printCounterSummary() {
 }
 
 func startBenchmark(remoteAddrs []string) *BenchResult {
-	addLoadFunc(1, benchFunc{"LoadCreateUser", bench.LoadCreateUser})
-	addLoadFunc(1, benchFunc{"LoadMyPage", bench.LoadMyPage})
-	addLoadFunc(1, benchFunc{"LoadEventReport", bench.LoadEventReport})
-	addLoadFunc(1, benchFunc{"LoadAdminTopPage", bench.LoadAdminTopPage})
-	addLoadAndLevelUpFunc(3, benchFunc{"LoadTopPage", bench.LoadTopPage})
-	addLoadAndLevelUpFunc(1, benchFunc{"LoadReserveCancelSheet", bench.LoadReserveCancelSheet})
-	addLoadAndLevelUpFunc(2, benchFunc{"LoadReserveSheet", bench.LoadReserveSheet})
-	addLoadAndLevelUpFunc(3, benchFunc{"LoadGetEvent", bench.LoadGetEvent})
+	addLoadFunc(10, benchFunc{"LoadCreateUser", bench.LoadCreateUser})
+	addLoadFunc(10, benchFunc{"LoadMyPage", bench.LoadMyPage})
+	addLoadFunc(10, benchFunc{"LoadEventReport", bench.LoadEventReport})
+	addLoadFunc(10, benchFunc{"LoadAdminTopPage", bench.LoadAdminTopPage})
+	addLoadFunc(1, benchFunc{"LoadReport", bench.LoadReport})
+	addLoadAndLevelUpFunc(30, benchFunc{"LoadTopPage", bench.LoadTopPage})
+	addLoadAndLevelUpFunc(10, benchFunc{"LoadReserveCancelSheet", bench.LoadReserveCancelSheet})
+	addLoadAndLevelUpFunc(20, benchFunc{"LoadReserveSheet", bench.LoadReserveSheet})
+	addLoadAndLevelUpFunc(30, benchFunc{"LoadGetEvent", bench.LoadGetEvent})
 
 	addCheckFunc(benchFunc{"CheckStaticFiles", bench.CheckStaticFiles})
 	addCheckFunc(benchFunc{"CheckCreateUser", bench.CheckCreateUser})

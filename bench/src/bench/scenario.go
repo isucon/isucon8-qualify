@@ -397,6 +397,33 @@ func LoadGetEvent(ctx context.Context, state *State) error {
 	return nil
 }
 
+func LoadReport(ctx context.Context, state *State) error {
+	admin, checker, push := state.PopRandomAdministrator()
+	if admin == nil {
+		return nil
+	}
+	defer push()
+
+	err := loginAdministratorWithTimeout(ctx, checker, admin, parameter.PostTestLoginTimeout)
+	if err != nil {
+		return err
+	}
+
+	// We do check at CheckReport
+	err = checker.Play(ctx, &CheckAction{
+		Method:             "GET",
+		Path:               "/admin/api/reports/sales",
+		ExpectedStatusCode: 200,
+		Description:        "レポートを取得できること",
+		Timeout:            parameter.PostTestReportTimeout,
+	})
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func LoadEventReport(ctx context.Context, state *State) error {
 	admin, checker, push := state.PopRandomAdministrator()
 	if admin == nil {
