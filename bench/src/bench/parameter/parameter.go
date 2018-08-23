@@ -30,7 +30,7 @@ var (
 	WaitOnError              = 500 * time.Millisecond
 
 	Score = func(getCount int64, postCount int64, deleteCount int64, s304Count int64, reserveCount int64, cancelCount int64, topCount int64, getEventCount int64) int64 {
-		return 1*(getCount-s304Count-topCount-getEventCount) + 1*(postCount-reserveCount) + 3*(topCount+reserveCount+cancelCount+getEventCount) + s304Count/100
+		return 1*(getCount-s304Count-topCount-getEventCount) + 1*(postCount-reserveCount) + 5*(topCount+getEventCount) + 10*(reserveCount+cancelCount) + s304Count/100
 	}
 
 	// TODO(sonots): parameters of workermode.go
