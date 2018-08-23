@@ -447,14 +447,14 @@ func startBenchmark(remoteAddrs []string) *BenchResult {
 	getCount := counter.SumPrefix(`GET|/`)
 	postCount := counter.SumPrefix(`POST|/`)
 	deleteCount := counter.SumPrefix(`DELETE|/`) // == cancelCount
-	s304Count := counter.GetKey("staticfile-304")
+	staticCount := counter.GetKey("staticfile-304") + counter.GetKey("staticfile-200")
 
-	score := parameter.Score(getCount, postCount, deleteCount, s304Count, reserveCount, cancelCount, topCount, getEventCount)
+	score := parameter.Score(getCount, postCount, deleteCount, staticCount, reserveCount, cancelCount, topCount, getEventCount)
 
 	log.Println("get", getCount)
 	log.Println("post", postCount)
 	log.Println("delete", deleteCount)
-	log.Println("s304", s304Count)
+	log.Println("static", staticCount)
 	log.Println("top", topCount)
 	log.Println("reserve", reserveCount)
 	log.Println("cancel", cancelCount)
