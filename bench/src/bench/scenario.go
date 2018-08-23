@@ -19,6 +19,7 @@ import (
 	"os"
 	"sort"
 	"strconv"
+	"sync/atomic"
 	"time"
 
 	"github.com/PuerkitoBio/goquery"
@@ -327,6 +328,10 @@ func LoadReserveCancelSheet(ctx context.Context, state *State) error {
 	if err != nil {
 		return err
 	}
+	if reserved == nil {
+		// retry it
+		return LoadReserveCancelSheet(ctx, state)
+	}
 
 	err = cancelSheet(ctx, state, userChecker, user.ID, eventSheet, reserved)
 	if err != nil {
@@ -357,9 +362,13 @@ func LoadReserveSheet(ctx context.Context, state *State) error {
 		return err
 	}
 
-	_, err = reserveSheet(ctx, state, userChecker, user.ID, eventSheet)
+	reserved, err := reserveSheet(ctx, state, userChecker, user.ID, eventSheet)
 	if err != nil {
 		return err
+	}
+	if reserved == nil {
+		// retry it
+		return LoadReserveSheet(ctx, state)
 	}
 
 	return nil
@@ -823,6 +832,10 @@ func CheckReserveSheet(ctx context.Context, state *State) error {
 	reserved, err := reserveSheet(ctx, state, userChecker, user.ID, eventSheet)
 	if err != nil {
 		return err
+	}
+	if reserved == nil {
+		// retry it
+		return CheckReserveSheet(ctx, state)
 	}
 
 	err = cancelSheet(ctx, state, userChecker, user.ID, eventSheet, reserved)
@@ -1737,6 +1750,14 @@ func reserveSheet(ctx context.Context, state *State, checker *Checker, userID ui
 	eventID := eventSheet.EventID
 	rank := eventSheet.Rank
 
+	event := state.FindEventByID(eventID)
+	assert(event != nil)
+
+	ok := event.RT.TryGetTicket(rank)
+	if !ok {
+		return nil, nil
+	}
+
 	reserved := &JsonReservation{ReservationID: 0, SheetRank: rank, SheetNum: 0}
 	reservation := &Reservation{ID: 0, EventID: eventID, UserID: userID, SheetRank: rank, SheetNum: 0}
 	logID := state.AppendReserveLog(reservation)
@@ -1760,13 +1781,7 @@ func reserveSheet(ctx context.Context, state *State, checker *Checker, userID ui
 	eventSheet.Num = reserved.SheetNum
 	state.CommitReservation(reservation)
 
-	event := state.FindEventByID(eventID)
-	assert(event != nil)
-	{
-		event.Lock()
-		defer event.Unlock()
-		event.Remains--
-	}
+	atomic.AddInt32(&event.Remains, -1)
 
 	return reserved, nil
 }
@@ -1795,11 +1810,8 @@ func cancelSheet(ctx context.Context, state *State, checker *Checker, userID uin
 
 	event := state.FindEventByID(eventID)
 	assert(event != nil)
-	{
-		event.Lock()
-		defer event.Unlock()
-		event.Remains++
-	}
+	atomic.AddInt32(&event.Remains, 1)
+	event.RT.Release(rank)
 
 	return nil
 }

@@ -19,10 +19,11 @@ import (
 )
 
 var (
-	DataPath   = "./data"
-	DataSet    BenchDataSet
-	SheetTotal = uint(1000)
+	DataPath = "./data"
+	DataSet  BenchDataSet
 )
+
+var SheetTotal uint // calculated in prepareSheetDataSet
 
 func reverse(s string) string {
 	r := []rune(s)
@@ -115,17 +116,31 @@ func prepareEventDataSet() {
 		price, _ := strconv.Atoi(line[3])
 		remains, _ := strconv.Atoi(line[4])
 
+		// XXX: to calculate ReserveTicket
+		assert(remains == 0 || remains == int(SheetTotal))
+
 		event := &Event{
 			ID:       nextID,
 			Title:    title,
 			PublicFg: publicFg,
 			ClosedFg: closedFg,
 			Price:    uint(price),
-			Remains:  uint(remains),
+			Remains:  int32(remains),
+		}
+		if remains == int(SheetTotal) {
+			event.RT.S = int32(DataSet.SheetKindMap["S"].Total)
+			event.RT.A = int32(DataSet.SheetKindMap["A"].Total)
+			event.RT.B = int32(DataSet.SheetKindMap["B"].Total)
+			event.RT.C = int32(DataSet.SheetKindMap["C"].Total)
+		} else {
+			event.RT.S = 0
+			event.RT.A = 0
+			event.RT.B = 0
+			event.RT.C = 0
 		}
 
 		DataSet.Events = append(DataSet.Events, event)
-		nextID += 1
+		nextID++
 	}
 
 	// Old events which are already sold-out and closed
@@ -139,9 +154,10 @@ func prepareEventDataSet() {
 			ClosedFg: true,
 			Price:    uint(1000 + i/priceStrides*1000),
 			Remains:  0,
+			RT:       ReservationTickets{0, 0, 0, 0},
 		}
 		DataSet.ClosedEvents = append(DataSet.ClosedEvents, event)
-		nextID += 1
+		nextID++
 	}
 }
 
@@ -152,9 +168,12 @@ func prepareSheetDataSet() {
 		{"B", 300, 1000},
 		{"C", 500, 0},
 	}
+	DataSet.SheetKindMap = map[string]*SheetKind{}
 
 	nextID := uint(1)
 	for _, sheetKind := range DataSet.SheetKinds {
+		SheetTotal += sheetKind.Total
+		DataSet.SheetKindMap[sheetKind.Rank] = sheetKind
 		for i := uint(0); i < sheetKind.Total; i++ {
 			sheet := &Sheet{
 				ID:    nextID,
@@ -196,10 +215,10 @@ func prepareReservationsDataSet() {
 
 func PrepareDataSet() {
 	log.Println("datapath", DataPath)
+	prepareSheetDataSet()
 	prepareUserDataSet()
 	prepareAdministratorDataSet()
 	prepareEventDataSet()
-	prepareSheetDataSet()
 	prepareReservationsDataSet()
 }
 
