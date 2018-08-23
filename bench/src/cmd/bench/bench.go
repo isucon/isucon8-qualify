@@ -348,10 +348,10 @@ func printCounterSummary() {
 func startBenchmark(remoteAddrs []string) *BenchResult {
 	addLoadFunc(1, benchFunc{"LoadCreateUser", bench.LoadCreateUser})
 	addLoadFunc(1, benchFunc{"LoadMyPage", bench.LoadMyPage})
-	addLoadAndLevelUpFunc(1, benchFunc{"LoadTopPage", bench.LoadTopPage})
+	addLoadAndLevelUpFunc(3, benchFunc{"LoadTopPage", bench.LoadTopPage})
 	addLoadAndLevelUpFunc(1, benchFunc{"LoadReserveCancelSheet", bench.LoadReserveCancelSheet})
-	addLoadAndLevelUpFunc(1, benchFunc{"LoadReserveSheet", bench.LoadReserveSheet})
-	addLoadAndLevelUpFunc(1, benchFunc{"LoadGetEvent", bench.LoadGetEvent})
+	addLoadAndLevelUpFunc(2, benchFunc{"LoadReserveSheet", bench.LoadReserveSheet})
+	addLoadAndLevelUpFunc(3, benchFunc{"LoadGetEvent", bench.LoadGetEvent})
 
 	addCheckFunc(benchFunc{"CheckStaticFiles", bench.CheckStaticFiles})
 	addCheckFunc(benchFunc{"CheckCreateUser", bench.CheckCreateUser})
@@ -439,6 +439,7 @@ func startBenchmark(remoteAddrs []string) *BenchResult {
 
 	printCounterSummary()
 
+	getEventCount := counter.SumPrefix("GET|/api/events/")
 	reserveCount := counter.SumPrefix("POST|/api/events/")
 	cancelCount := counter.SumPrefix("DELETE|/api/events/")
 	topCount := counter.SumEqual("GET|/")
@@ -448,7 +449,7 @@ func startBenchmark(remoteAddrs []string) *BenchResult {
 	deleteCount := counter.SumPrefix(`DELETE|/`) // == cancelCount
 	s304Count := counter.GetKey("staticfile-304")
 
-	score := parameter.Score(getCount, postCount, deleteCount, s304Count, reserveCount, cancelCount, topCount)
+	score := parameter.Score(getCount, postCount, deleteCount, s304Count, reserveCount, cancelCount, topCount, getEventCount)
 
 	log.Println("get", getCount)
 	log.Println("post", postCount)
@@ -457,6 +458,7 @@ func startBenchmark(remoteAddrs []string) *BenchResult {
 	log.Println("top", topCount)
 	log.Println("reserve", reserveCount)
 	log.Println("cancel", cancelCount)
+	log.Println("get_event", getEventCount)
 	log.Println("score", score)
 
 	result.LoadLevel = int(counter.GetKey("load-level-up"))
