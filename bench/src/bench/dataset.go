@@ -21,6 +21,7 @@ import (
 var (
 	DataPath = "./data"
 	DataSet  BenchDataSet
+	Rng      = rand.New(rand.NewSource(42))
 )
 
 var SheetTotal uint // calculated in prepareSheetDataSet
@@ -197,7 +198,7 @@ func prepareReservationsDataSet() {
 		}
 		// already sold-out event
 		for _, sheet := range DataSet.Sheets {
-			userID := uint(rand.Intn(len(DataSet.Users)) + 1)
+			userID := uint(Rng.Intn(len(DataSet.Users)) + 1)
 			reservation := &Reservation{
 				ID:         nextID,
 				EventID:    event.ID,
@@ -205,7 +206,7 @@ func prepareReservationsDataSet() {
 				SheetID:    sheet.ID,
 				SheetRank:  sheet.Rank,
 				SheetNum:   sheet.Num,
-				ReservedAt: int64(rand.Int63n(maxUnixTimestamp-minUnixTimestamp) + minUnixTimestamp), // TODO(sonots): randomize nsec
+				ReservedAt: int64(Rng.Int63n(maxUnixTimestamp-minUnixTimestamp) + minUnixTimestamp), // TODO(sonots): randomize nsec
 			}
 			nextID++
 			DataSet.Reservations = append(DataSet.Reservations, reservation)
