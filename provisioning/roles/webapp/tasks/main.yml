@@ -2,7 +2,7 @@
 - name: Install cpanm
   become: yes
   become_user: isucon
-args:
+  args:
     chdir: /home/isucon/torb/webapp/perl
   shell:
     bash -lc "cpanm --installdeps --force ."
