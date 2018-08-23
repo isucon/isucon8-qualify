@@ -642,16 +642,21 @@ func (s *State) GetReservations() map[uint]*Reservation {
 }
 
 // Returns a deep copy of s.reservations
-// NOTE: This could be slow if s.reservations are large, so use this only for postTest
+// NOTE: This could be slow if s.reservations are large, but we assume that
+// len(s.reservations) are less than 10,000 even in very fast webapp implementation.
 func (s *State) GetReservationsCopy() map[uint]*Reservation {
 	s.reservationsMtx.Lock()
 	defer s.reservationsMtx.Unlock()
+
+	t := time.Now()
 
 	reservations := make(map[uint]*Reservation, len(s.reservations))
 	for id, r := range s.reservations {
 		reservation := *r // copy
 		reservations[id] = &reservation
 	}
+
+	log.Println("debug: GetReservationsCopy", time.Since(t))
 
 	return reservations
 }

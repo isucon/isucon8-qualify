@@ -130,8 +130,8 @@ func checkMain(ctx context.Context, state *bench.State) error {
 	// Inserts CheckEventReport and CheckReport on every the specified interval
 	checkEventReportTicker := time.NewTicker(parameter.CheckEventReportInterval)
 	defer checkEventReportTicker.Stop()
-	// checkReportTicker := time.NewTicker(parameter.CheckReportInterval)
-	// defer checkReportTicker.Stop()
+	checkReportTicker := time.NewTicker(parameter.CheckReportInterval)
+	defer checkReportTicker.Stop()
 
 	randCheckFuncIndices := []int{}
 	popRandomPermCheckFunc := func() benchFunc {
@@ -161,19 +161,19 @@ func checkMain(ctx context.Context, state *bench.State) error {
 			if err != nil && bench.IsCheckerFatal(err) {
 				return err
 			}
-		// case <-checkReportTicker.C:
-		// 	if ctx.Err() != nil {
-		// 		return nil
-		// 	}
-		// 	log.Println("debug: fire CheckReport")
-		// 	t := time.Now()
-		// 	err := bench.CheckReport(ctx, state)
-		// 	log.Println("CheckReport", time.Since(t))
+		case <-checkReportTicker.C:
+			if ctx.Err() != nil {
+				return nil
+			}
+			log.Println("debug: fire CheckReport")
+			t := time.Now()
+			err := bench.CheckReport(ctx, state)
+			log.Println("CheckReport", time.Since(t))
 
-		// 	// fatalError以外は見逃してあげる
-		// 	if err != nil && bench.IsCheckerFatal(err) {
-		// 		return err
-		// 	}
+			// fatalError以外は見逃してあげる
+			if err != nil && bench.IsCheckerFatal(err) {
+				return err
+			}
 		case <-ctx.Done():
 			// benchmarker timeout
 			return nil
