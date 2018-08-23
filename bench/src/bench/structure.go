@@ -4,6 +4,7 @@ import (
 	"log"
 	"math/rand"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/LK4D4/trylock"
@@ -95,15 +96,51 @@ type Administrator struct {
 }
 
 type Event struct {
-	sync.Mutex
-
 	ID        uint
 	Title     string
 	PublicFg  bool
 	ClosedFg  bool
 	Price     uint
 	CreatedAt time.Time
-	Remains   uint
+
+	Remains int32 // for atomic.AddInt32
+	RT      ReservationTickets
+}
+
+type ReservationTickets struct {
+	S, A, B, C int32 // for atomic.AddInt32
+}
+
+func (rt ReservationTickets) TryGetTicket(rank string) bool {
+	ptr := rt.getPointer(rank)
+
+	ticketID := atomic.AddInt32(ptr, -1)
+	if ticketID < 0 {
+		atomic.AddInt32(ptr, 1)
+		return false
+	}
+
+	return true
+}
+
+func (rt ReservationTickets) Release(rank string) {
+	atomic.AddInt32(rt.getPointer(rank), 1)
+}
+
+func (rt ReservationTickets) getPointer(rank string) *int32 {
+	switch rank {
+	case "S":
+		return &rt.S
+	case "A":
+		return &rt.A
+	case "B":
+		return &rt.B
+	case "C":
+		return &rt.C
+	default:
+		var devnull int32 // be zero for fallback
+		return &devnull
+	}
 }
 
 type SheetKind struct {
@@ -160,8 +197,9 @@ type BenchDataSet struct {
 	Events       []*Event
 	ClosedEvents []*Event
 
-	SheetKinds []*SheetKind
-	Sheets     []*Sheet
+	SheetKinds   []*SheetKind
+	SheetKindMap map[string]*SheetKind
+	Sheets       []*Sheet
 
 	Reservations []*Reservation
 }
@@ -388,7 +426,13 @@ func (s *State) CreateNewEvent() (*Event, func(caller string)) {
 		PublicFg: true,
 		ClosedFg: false,
 		Price:    1000 + uint(rand.Intn(10)*1000),
-		Remains:  SheetTotal,
+		Remains:  int32(SheetTotal),
+		RT: ReservationTickets{
+			S: int32(DataSet.SheetKindMap["S"].Total),
+			A: int32(DataSet.SheetKindMap["A"].Total),
+			B: int32(DataSet.SheetKindMap["B"].Total),
+			C: int32(DataSet.SheetKindMap["C"].Total),
+		},
 	}
 
 	// NOTE: push() function pushes into s.events, does not push to s.newEvents.
