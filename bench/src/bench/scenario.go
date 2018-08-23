@@ -1305,24 +1305,18 @@ func checkReportRecord(s *State, reader *csv.Reader, line int, timeBefore time.T
 
 	// All elements in reservationsBeforeRequest must exist in this report
 
-	reservationAfterResponse, ok := reservationsAfterResponse[record.ReservationID]
-	if !ok {
-		// want to make it fail, but potentially reserve request timeouted. ignore
-		return record, nil
-	}
-
-	if reservationAfterResponse.ID != record.ReservationID ||
-		reservationAfterResponse.EventID != record.EventID ||
-		reservationAfterResponse.UserID != record.UserID ||
-		reservationAfterResponse.SheetRank != record.SheetRank ||
-		reservationAfterResponse.SheetNum != record.SheetNum {
-		log.Printf("debug: unexpected data (line:%d)\n", line)
-		return nil, fatalErrorf(msg)
-	}
-
 	reservationBeforeRequest, ok := reservationsBeforeRequest[record.ReservationID]
 	if !ok {
 		return record, nil
+	}
+
+	if reservationBeforeRequest.ID != record.ReservationID ||
+		reservationBeforeRequest.EventID != record.EventID ||
+		reservationBeforeRequest.UserID != record.UserID ||
+		reservationBeforeRequest.SheetRank != record.SheetRank ||
+		reservationBeforeRequest.SheetNum != record.SheetNum {
+		log.Printf("debug: unexpected data (line:%d)\n", line)
+		return nil, fatalErrorf(msg)
 	}
 
 	if reservationBeforeRequest.Canceled(timeBefore) {
