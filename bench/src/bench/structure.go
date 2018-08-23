@@ -129,23 +129,26 @@ type ReportRecord struct {
 }
 
 type Reservation struct {
-	ID              uint
-	EventID         uint
-	UserID          uint
-	SheetID         uint // Used only in initial reservations. 0 is set for rest because reserve API does not return it
-	SheetRank       string
-	SheetNum        uint
-	CancelRequested bool
-	CancelCompleted bool
-	ReservedAt      int64 // Used only in initial reservations. 0 is set for rest because reserve API does not return it
+	ID         uint
+	EventID    uint
+	UserID     uint
+	SheetID    uint // Used only in initial reservations. 0 is set for rest because reserve API does not return it
+	SheetRank  string
+	SheetNum   uint
+	ReservedAt int64 // Used only in initial reservations. 0 is set for rest because reserve API does not return it
+
+	// ReserveRequestedAt time.Time
+	ReserveCompletedAt time.Time
+	CancelRequestedAt  time.Time
+	CancelCompletedAt  time.Time
 }
 
-func (r Reservation) Canceled() bool {
-	return r.CancelRequested && r.CancelCompleted
+func (r Reservation) Canceled(timeBefore time.Time) bool {
+	return r.MaybeCanceled(timeBefore) && !r.CancelCompletedAt.IsZero() && r.CancelCompletedAt.Before(timeBefore)
 }
 
-func (r Reservation) MaybeCanceled() bool {
-	return r.CancelRequested
+func (r Reservation) MaybeCanceled(timeBefore time.Time) bool {
+	return !r.CancelRequestedAt.IsZero() && r.CancelRequestedAt.Before(timeBefore)
 }
 
 type BenchDataSet struct {
@@ -553,10 +556,11 @@ func GetRandomSheetNum(sheetRank string) uint {
 	return uint(rand.Intn(int(total)))
 }
 
-func (s *State) AppendReservation(reservation *Reservation) {
+func (s *State) CommitReservation(reservation *Reservation) {
 	s.reservationsMtx.Lock()
 	defer s.reservationsMtx.Unlock()
 
+	reservation.ReserveCompletedAt = time.Now()
 	s.reservations[reservation.ID] = reservation
 }
 
@@ -566,7 +570,7 @@ func (s *State) BeginCancelReservation(reservationID uint) *Reservation {
 
 	reservation := s.reservations[reservationID]
 
-	reservation.CancelRequested = true
+	reservation.CancelRequestedAt = time.Now()
 	return reservation
 }
 
@@ -574,7 +578,7 @@ func (s *State) CommitCancelReservation(reservation *Reservation) {
 	s.reservationsMtx.Lock()
 	defer s.reservationsMtx.Unlock()
 
-	reservation.CancelCompleted = true
+	reservation.CancelCompletedAt = time.Now()
 	s.reservations[reservation.ID] = reservation
 }
 
@@ -582,7 +586,7 @@ func (s *State) RevertCancelReservation(reservation *Reservation) {
 	s.reservationsMtx.Lock()
 	defer s.reservationsMtx.Unlock()
 
-	reservation.CancelRequested = false
+	reservation.CancelRequestedAt = time.Time{} // 0
 	s.reservations[reservation.ID] = reservation
 }
 
@@ -629,10 +633,24 @@ func (s *State) GetReservations() map[uint]*Reservation {
 	s.reservationsMtx.Lock()
 	defer s.reservationsMtx.Unlock()
 
-	// TODO(sonots): could be slow if s.reservations are large ...
 	reservations := make(map[uint]*Reservation, len(s.reservations))
 	for id, reservation := range s.reservations {
 		reservations[id] = reservation
+	}
+
+	return reservations
+}
+
+// Returns a deep copy of s.reservations
+// NOTE: This could be slow if s.reservations are large, so use this only for postTest
+func (s *State) GetReservationsCopy() map[uint]*Reservation {
+	s.reservationsMtx.Lock()
+	defer s.reservationsMtx.Unlock()
+
+	reservations := make(map[uint]*Reservation, len(s.reservations))
+	for id, r := range s.reservations {
+		reservation := *r // copy
+		reservations[id] = &reservation
 	}
 
 	return reservations
@@ -654,14 +672,28 @@ func (s *State) GetReservationsInEventID(eventID uint) map[uint]*Reservation {
 }
 
 // Returns a filtered deep copy
-func FilterMaybeCanceledReservationsDeepCopy(src map[uint]*Reservation) (filtered map[uint]*Reservation) {
-	filtered = make(map[uint]*Reservation, len(src))
-	for id, r := range src {
-		if !r.MaybeCanceled() {
+func (s *State) GetReservationsCopyInEventID(eventID uint) map[uint]*Reservation {
+	s.reservationsMtx.Lock()
+	defer s.reservationsMtx.Unlock()
+
+	filtered := make(map[uint]*Reservation, len(s.reservations))
+	for id, r := range s.reservations {
+		if r.EventID != eventID {
 			continue
 		}
 		reservation := *r // copy
 		filtered[id] = &reservation
+	}
+	return filtered
+}
+
+func FilterReservationsToAllowDelay(src map[uint]*Reservation, timeBefore time.Time) (filtered map[uint]*Reservation) {
+	filtered = make(map[uint]*Reservation, len(src))
+
+	for id, reservation := range src {
+		if reservation.ReserveCompletedAt.Before(timeBefore) {
+			filtered[id] = reservation
+		}
 	}
 	return
 }

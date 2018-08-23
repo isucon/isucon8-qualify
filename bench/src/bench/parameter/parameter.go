@@ -25,9 +25,9 @@ var (
 	LoadLevelUpRatio         = 1.5
 	LoadLevelUpInterval      = time.Second
 	CheckEventReportInterval = 5 * time.Second
-	CheckReportInterval      = 31 * time.Second
-	AllowableDelay           = time.Second
-	WaitOnError              = 500 * time.Millisecond
+	// CheckReportInterval      = 31 * time.Second
+	AllowableDelay = time.Second
+	WaitOnError    = 500 * time.Millisecond
 
 	Score = func(getCount int64, postCount int64, deleteCount int64, staticCount int64, reserveCount int64, cancelCount int64, topCount int64, getEventCount int64) int64 {
 		return 1*(getCount-staticCount-topCount-getEventCount) + 1*(postCount-reserveCount) + 5*(topCount+getEventCount) + 10*(reserveCount+cancelCount) + staticCount/100
