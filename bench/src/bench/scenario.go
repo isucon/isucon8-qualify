@@ -1323,9 +1323,7 @@ func checkReportHeader(reader *csv.Reader) error {
 	return nil
 }
 
-func checkReportRecord(s *State, reader *csv.Reader, line int, timeBefore time.Time,
-	reservationsBeforeRequest map[uint]*Reservation,
-	reservationsAfterResponse map[uint]*Reservation) (*ReportRecord, error) {
+func getReportRecord(s *State, reader *csv.Reader, line int) (*ReportRecord, error) {
 	// reservation_id,event_id,rank,num,price,user_id,sold_at,canceled_at
 	// 1,1,S,36,8000,1002,2018-08-17T04:55:30Z,2018-08-17T04:58:31Z
 	// 2,1,S,36,8000,1002,2018-08-17T04:55:32Z,
@@ -1340,7 +1338,7 @@ func checkReportRecord(s *State, reader *csv.Reader, line int, timeBefore time.T
 		return nil, err
 	}
 
-	msg := "正しいレポートを取得できません"
+	msg := "正しいCSVレポートを取得できません"
 
 	reservationID, err := strconv.Atoi(row[0])
 	if err != nil {
@@ -1406,48 +1404,56 @@ func checkReportRecord(s *State, reader *csv.Reader, line int, timeBefore time.T
 		CanceledAt:    canceledAt,
 	}
 
-	// All elements in reservationsBeforeRequest must exist in this report
-
-	reservationBeforeRequest, ok := reservationsBeforeRequest[record.ReservationID]
-	if !ok {
-		return record, nil
-	}
-
-	if reservationBeforeRequest.ID != record.ReservationID ||
-		reservationBeforeRequest.EventID != record.EventID ||
-		reservationBeforeRequest.UserID != record.UserID ||
-		reservationBeforeRequest.SheetRank != record.SheetRank ||
-		reservationBeforeRequest.SheetNum != record.SheetNum {
-		log.Printf("debug: unexpected data ReservationID:%d!=%d EventID:%d!=%d UserID:%d!=%d Rank:%s!=%s Num:%d!=%d (line:%d)\n",
-			reservationBeforeRequest.ID, record.ReservationID,
-			reservationBeforeRequest.EventID, record.EventID,
-			reservationBeforeRequest.UserID, record.UserID,
-			reservationBeforeRequest.SheetRank, record.SheetRank,
-			reservationBeforeRequest.SheetNum, record.SheetNum,
-			line)
-		return nil, fatalErrorf(msg)
-	}
-
-	if reservationBeforeRequest.Canceled(timeBefore) {
-		if record.CanceledAt.IsZero() {
-			log.Printf("debug: should have canceledAt (line:%d)\n", line)
-			return nil, fatalErrorf(msg)
-		}
-	} else if reservationBeforeRequest.MaybeCanceled(timeBefore) {
-		if record.CanceledAt.IsZero() {
-			log.Printf("warn: should have canceledAt (line:%d) but ignored (race condition)\n", line)
-		}
-	}
-	// TODO(sonots): Add a test to fail if `SELECT FOR UPDATE` is removed.
-	// if reservationRightAfterRequest.CancelRequestedAt.IsZero() {
-	// 	// If `SELECT FOR UPDATE` of the `report` API is removed from webapp, this check would faiil.
-	// 	if !record.CanceledAt.IsZero() {
-	// 		log.Printf("debug: should not have canceledAt (line:%d)\n", line)
-	// 		return nil, fatalErrorf(msg)
-	// 	}
-	// }
-
 	return record, nil
+}
+
+func checkReportRecord(s *State, records map[uint]*ReportRecord, timeBefore time.Time,
+	reservationsBeforeRequest map[uint]*Reservation) error {
+	msg := "正しいレポートを取得できません"
+
+	for reservationID, reservationBeforeRequest := range reservationsBeforeRequest {
+		// All elements in reservationsBeforeRequest must exist in records
+		record, ok := records[reservationID]
+		if !ok {
+			log.Printf("debug: should exist (reservationID:%d)\n", reservationID)
+			return fatalErrorf(msg)
+		}
+
+		if reservationBeforeRequest.ID != record.ReservationID ||
+			reservationBeforeRequest.EventID != record.EventID ||
+			reservationBeforeRequest.UserID != record.UserID ||
+			reservationBeforeRequest.SheetRank != record.SheetRank ||
+			reservationBeforeRequest.SheetNum != record.SheetNum {
+			log.Printf("debug: unexpected data ReservationID:%d!=%d EventID:%d!=%d UserID:%d!=%d Rank:%s!=%s Num:%d!=%d\n",
+				reservationBeforeRequest.ID, record.ReservationID,
+				reservationBeforeRequest.EventID, record.EventID,
+				reservationBeforeRequest.UserID, record.UserID,
+				reservationBeforeRequest.SheetRank, record.SheetRank,
+				reservationBeforeRequest.SheetNum, record.SheetNum)
+			return fatalErrorf(msg)
+		}
+
+		if reservationBeforeRequest.Canceled(timeBefore) {
+			if record.CanceledAt.IsZero() {
+				log.Printf("debug: should have canceledAt (reservationID:%d)\n", reservationID)
+				return fatalErrorf(msg)
+			}
+		} else if reservationBeforeRequest.MaybeCanceled(timeBefore) {
+			if record.CanceledAt.IsZero() {
+				log.Printf("warn: should have canceledAt (reservationID:%d) but ignored (race condition)\n", reservationID)
+			}
+		}
+		// TODO(sonots): Add a test to fail if `SELECT FOR UPDATE` is removed.
+		// if reservationRightAfterRequest.CancelRequestedAt.IsZero() {
+		// 	// If `SELECT FOR UPDATE` of the `report` API is removed from webapp, this check would faiil.
+		// 	if !record.CanceledAt.IsZero() {
+		// 		log.Printf("debug: should not have canceledAt (reservationID:%d)\n", reservationID)
+		// 		return fatalErrorf(msg)
+		// 	}
+		// }
+	}
+
+	return nil
 }
 
 func checkReportCount(reservationCountBeforeRequest int, reportCount int, reservationCountAfterResponse int, maybeReservedCountAfterResponse int) error {
@@ -1471,19 +1477,24 @@ func checkReportResponse(s *State, timeBefore time.Time, reservationsBeforeReque
 			return err
 		}
 
-		reportCount := 0
+		records := map[uint]*ReportRecord{}
 		for {
-			_, err := checkReportRecord(s, reader, reportCount, timeBefore, reservationsBeforeRequest, reservationsAfterResponse)
+			record, err := getReportRecord(s, reader, len(records))
 			if err == io.EOF {
 				break
 			}
 			if err != nil {
 				return err
 			}
-			reportCount++
+			records[record.ReservationID] = record
 		}
 
-		err = checkReportCount(len(reservationsBeforeRequest), reportCount, len(reservationsAfterResponse), maybeReservedCountAfterResponse)
+		err = checkReportRecord(s, records, timeBefore, reservationsBeforeRequest)
+		if err != nil {
+			return err
+		}
+
+		err = checkReportCount(len(reservationsBeforeRequest), len(records), len(reservationsAfterResponse), maybeReservedCountAfterResponse)
 		if err != nil {
 			return err
 		}
@@ -1509,10 +1520,10 @@ func checkEventReportResponse(s *State, event *Event, timeBefore time.Time, rese
 			return err
 		}
 
-		msg := "正しいレポートを取得できません"
-		reportCount := 0
+		msg := "正しいCSVレポートを取得できません"
+		records := map[uint]*ReportRecord{}
 		for {
-			record, err := checkReportRecord(s, reader, reportCount, timeBefore, reservationsBeforeRequest, reservationsAfterResponse)
+			record, err := getReportRecord(s, reader, len(records))
 			if err == io.EOF {
 				break
 			}
@@ -1521,13 +1532,19 @@ func checkEventReportResponse(s *State, event *Event, timeBefore time.Time, rese
 			}
 
 			if record.EventID != event.ID {
-				log.Printf("debug: event id=%d does not match with id=%d (line:%d)\n", record.EventID, event.ID, reportCount)
+				log.Printf("debug: event id=%d does not match with id=%d (line:%d)\n", record.EventID, event.ID, len(records))
 				return fatalErrorf(msg)
 			}
-			reportCount++
+
+			records[record.ReservationID] = record
 		}
 
-		err = checkReportCount(len(reservationsBeforeRequest), reportCount, len(reservationsAfterResponse), maybeReservedCountAfterResponse)
+		err = checkReportRecord(s, records, timeBefore, reservationsBeforeRequest)
+		if err != nil {
+			return err
+		}
+
+		err = checkReportCount(len(reservationsBeforeRequest), len(records), len(reservationsAfterResponse), maybeReservedCountAfterResponse)
 		if err != nil {
 			return err
 		}
