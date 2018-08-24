@@ -70,6 +70,7 @@ func checkEventsList(state *State, events []JsonEvent) error {
 
 	expected := FilterPublicEvents(state.GetEvents())
 	if len(events) == 0 {
+		log.Println("warn: events is empty")
 		return fatalErrorf("イベントの数が正しくありません")
 	} else if len(events) < len(expected) {
 		// 期待する数に満たない場合は1秒以内の誤差は許容する
@@ -84,6 +85,7 @@ func checkEventsList(state *State, events []JsonEvent) error {
 		threshold := time.Now().Add(-1 * parameter.AllowableDelay)
 		for _, e := range missed {
 			if e.CreatedAt.Before(threshold) {
+				log.Printf("warn: missing event is too old id:%d createdAt:%s threshold:%s\n", e.ID, e.CreatedAt, threshold)
 				return fatalErrorf("イベントの数が正しくありません")
 			}
 		}
@@ -513,6 +515,7 @@ func checkJsonUserCreateResponse(user *AppUser) func(res *http.Response, body *b
 			return fatalErrorf("Jsonのデコードに失敗 %v", err)
 		}
 		if jsonUser.Nickname != user.Nickname {
+			log.Printf("warn: expected nickname=%s but got nickname=%s\n", user.Nickname, jsonUser.Nickname)
 			return fatalErrorf("正しいユーザ情報を取得できません")
 		}
 		// Set auto incremented ID from response
@@ -529,7 +532,11 @@ func checkJsonUserResponse(user *AppUser) func(res *http.Response, body *bytes.B
 		if err != nil {
 			return fatalErrorf("Jsonのデコードに失敗 %v", err)
 		}
-		if jsonUser.ID != user.ID || jsonUser.Nickname != user.Nickname {
+		if jsonUser.ID != user.ID {
+			log.Printf("warn: expected id=%d but got id=%d\n", user.ID, jsonUser.ID)
+			return fatalErrorf("正しいユーザ情報を取得できません")
+		} else if jsonUser.Nickname != user.Nickname {
+			log.Printf("warn: expected nickname=%s but got nickname=%s (user_id=%d)\n", user.Nickname, jsonUser.Nickname, user.ID)
 			return fatalErrorf("正しいユーザ情報を取得できません")
 		}
 		return nil
