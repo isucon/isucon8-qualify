@@ -111,10 +111,11 @@ type ReservationTickets struct {
 	S, A, B, C int32 // for atomic.AddInt32
 }
 
-func (rt ReservationTickets) TryGetTicket(rank string) bool {
+func (rt *ReservationTickets) TryGetTicket(rank string) bool {
 	ptr := rt.getPointer(rank)
 
 	ticketID := atomic.AddInt32(ptr, -1)
+	log.Printf("debug: rank=%s ticketID=%d\n", rank, ticketID)
 	if ticketID < 0 {
 		atomic.AddInt32(ptr, 1)
 		return false
@@ -123,11 +124,11 @@ func (rt ReservationTickets) TryGetTicket(rank string) bool {
 	return true
 }
 
-func (rt ReservationTickets) Release(rank string) {
+func (rt *ReservationTickets) Release(rank string) {
 	atomic.AddInt32(rt.getPointer(rank), 1)
 }
 
-func (rt ReservationTickets) getPointer(rank string) *int32 {
+func (rt *ReservationTickets) getPointer(rank string) *int32 {
 	switch rank {
 	case "S":
 		return &rt.S

@@ -29,6 +29,7 @@ var (
 	preTestOnly      bool
 	noLevelup        bool
 	checkFuncs       []benchFunc // also preTestFuncs
+	everyCheckFuncs  []benchFunc
 	loadFuncs        []benchFunc
 	loadLevelUpFuncs []benchFunc
 	postTestFuncs    []benchFunc
@@ -44,6 +45,10 @@ type benchFunc struct {
 
 func addCheckFunc(f benchFunc) {
 	checkFuncs = append(checkFuncs, f)
+}
+
+func addEveryCheckFunc(f benchFunc) {
+	everyCheckFuncs = append(everyCheckFuncs, f)
 }
 
 func addLoadFunc(weight int, f benchFunc) {
@@ -101,7 +106,10 @@ func requestInitialize(targetHost string) error {
 // 負荷を掛ける前にアプリが最低限動作しているかをチェックする
 // エラーが発生したら負荷をかけずに終了する
 func preTest(ctx context.Context, state *bench.State) error {
-	for _, checkFunc := range checkFuncs {
+	funcs := make([]benchFunc, len(checkFuncs)+len(everyCheckFuncs))
+	copy(funcs, checkFuncs)
+	copy(funcs[len(checkFuncs):], everyCheckFuncs)
+	for _, checkFunc := range funcs {
 		t := time.Now()
 		err := checkFunc.Func(ctx, state)
 		log.Println("preTest:", checkFunc.Name, time.Since(t))
@@ -132,6 +140,8 @@ func checkMain(ctx context.Context, state *bench.State) error {
 	defer checkEventReportTicker.Stop()
 	checkReportTicker := time.NewTicker(parameter.CheckReportInterval)
 	defer checkReportTicker.Stop()
+	everyCheckerTicker := time.NewTicker(parameter.EveryCheckerInterval)
+	defer everyCheckerTicker.Stop()
 
 	randCheckFuncIndices := []int{}
 	popRandomPermCheckFunc := func() benchFunc {
@@ -158,7 +168,7 @@ func checkMain(ctx context.Context, state *bench.State) error {
 			log.Println("CheckEventReport", time.Since(t))
 
 			// fatalError以外は見逃してあげる
-			if err != nil && bench.IsCheckerFatal(err) {
+			if err != nil && bench.IsFatal(err) {
 				return err
 			}
 		case <-checkReportTicker.C:
@@ -171,8 +181,24 @@ func checkMain(ctx context.Context, state *bench.State) error {
 			log.Println("CheckReport", time.Since(t))
 
 			// fatalError以外は見逃してあげる
-			if err != nil && bench.IsCheckerFatal(err) {
+			if err != nil && bench.IsFatal(err) {
 				return err
+			}
+		case <-everyCheckerTicker.C:
+			for _, checkFunc := range everyCheckFuncs {
+				t := time.Now()
+				err := checkFunc.Func(ctx, state)
+				log.Println("checkMain(every):", checkFunc.Name, time.Since(t))
+
+				// fatalError以外は見逃してあげる
+				if err != nil && bench.IsFatal(err) {
+					return err
+				}
+
+				if err != nil {
+					// バリデーションシナリオを悪用してスコアブーストさせないためエラーのときは少し待つ
+					time.Sleep(parameter.WaitOnError)
+				}
 			}
 		case <-ctx.Done():
 			// benchmarker timeout
@@ -189,7 +215,7 @@ func checkMain(ctx context.Context, state *bench.State) error {
 			log.Println("checkMain:", checkFunc.Name, time.Since(t))
 
 			// fatalError以外は見逃してあげる
-			if err != nil && bench.IsCheckerFatal(err) {
+			if err != nil && bench.IsFatal(err) {
 				return err
 			}
 
@@ -366,6 +392,8 @@ func startBenchmark(remoteAddrs []string) *BenchResult {
 	addCheckFunc(benchFunc{"CheckAdminLogin", bench.CheckAdminLogin})
 	addCheckFunc(benchFunc{"CheckCreateEvent", bench.CheckCreateEvent})
 	addCheckFunc(benchFunc{"CheckMyPage", bench.CheckMyPage})
+
+	addEveryCheckFunc(benchFunc{"CheckSheetReservationEntropy", bench.CheckSheetReservationEntropy})
 
 	addPostTestFunc(benchFunc{"CheckReport", bench.CheckReport})
 

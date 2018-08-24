@@ -11,6 +11,7 @@ import (
 	"math/rand"
 	"os"
 	"path/filepath"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -189,7 +190,6 @@ func prepareSheetDataSet() {
 }
 
 func prepareReservationsDataSet() {
-	nextID := uint(1)
 	minUnixTimestamp := time.Date(2011, 8, 27, 10, 0, 0, 0, time.Local).Unix()
 	maxUnixTimestamp := time.Date(2017, 10, 21, 10, 0, 0, 0, time.Local).Unix()
 	for _, event := range append(DataSet.Events, DataSet.ClosedEvents...) {
@@ -200,7 +200,6 @@ func prepareReservationsDataSet() {
 		for _, sheet := range DataSet.Sheets {
 			userID := uint(Rng.Intn(len(DataSet.Users)) + 1)
 			reservation := &Reservation{
-				ID:         nextID,
 				EventID:    event.ID,
 				UserID:     userID,
 				SheetID:    sheet.ID,
@@ -208,9 +207,17 @@ func prepareReservationsDataSet() {
 				SheetNum:   sheet.Num,
 				ReservedAt: int64(Rng.Int63n(maxUnixTimestamp-minUnixTimestamp) + minUnixTimestamp), // TODO(sonots): randomize nsec
 			}
-			nextID++
 			DataSet.Reservations = append(DataSet.Reservations, reservation)
 		}
+	}
+	sort.Slice(DataSet.Reservations, func(i, j int) bool {
+		return DataSet.Reservations[i].ReservedAt < DataSet.Reservations[j].ReservedAt
+	})
+
+	nextID := uint(1)
+	for _, reservation := range DataSet.Reservations {
+		reservation.ID = nextID
+		nextID++
 	}
 }
 

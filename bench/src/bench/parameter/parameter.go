@@ -26,6 +26,7 @@ var (
 	LoadLevelUpInterval      = time.Second
 	CheckEventReportInterval = 5 * time.Second
 	CheckReportInterval      = 31 * time.Second
+	EveryCheckerInterval     = 3 * time.Second
 	AllowableDelay           = time.Second
 	WaitOnError              = 500 * time.Millisecond
 
