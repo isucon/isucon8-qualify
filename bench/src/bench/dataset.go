@@ -92,7 +92,7 @@ func prepareAdministratorDataSet() {
 		administrator := &Administrator{
 			ID:        nextID,
 			LoginName: loginName,
-			Password:  loginName + reverse(loginName),
+			Password:  "admin" + loginName + reverse(loginName),
 			Nickname:  nickname,
 		}
 		nextID++
