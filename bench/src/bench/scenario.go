@@ -1652,7 +1652,7 @@ func CheckSheetReservationEntropy(ctx context.Context, state *State) error {
 		source = state.GetReservationsInEventID(event.ID)
 
 		// NOTE(karupa): skip smallest or biggest source
-		if l := len(source); !(10 < l && l < 6000) {
+		if l := len(source); !(10 < l && l < 600) {
 			continue
 		}
 
