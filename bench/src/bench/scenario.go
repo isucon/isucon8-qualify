@@ -1323,7 +1323,7 @@ func checkReportHeader(reader *csv.Reader) error {
 	return nil
 }
 
-func getReportRecord(s *State, reader *csv.Reader, line int) (*ReportRecord, error) {
+func getReportRecords(s *State, reader *csv.Reader) (map[uint]*ReportRecord, error) {
 	// reservation_id,event_id,rank,num,price,user_id,sold_at,canceled_at
 	// 1,1,S,36,8000,1002,2018-08-17T04:55:30Z,2018-08-17T04:58:31Z
 	// 2,1,S,36,8000,1002,2018-08-17T04:55:32Z,
@@ -1333,78 +1333,77 @@ func getReportRecord(s *State, reader *csv.Reader, line int) (*ReportRecord, err
 	// 6,3,A,15,6000,1002,2018-08-17T04:55:38Z,
 	// 7,3,S,10,8000,1002,2018-08-17T04:55:41Z,2018-08-17T04:58:29Z
 
-	row, err := reader.Read()
-	if err == io.EOF {
-		return nil, err
-	}
+	records := map[uint]*ReportRecord{}
 
-	msg := "正しいCSVレポートを取得できません"
+	line := 0
+	for {
+		row, err := reader.Read()
+		if err == io.EOF {
+			break
+		}
+		line++
 
-	reservationID, err := strconv.Atoi(row[0])
-	if err != nil {
-		log.Printf("debug: invalid reservationID (line:%d) error:%v\n", line, err)
-		return nil, fatalErrorf(msg)
-	}
-	eventID, err := strconv.Atoi(row[1])
-	if err != nil {
-		log.Printf("debug: invalid eventID (line:%d) error:%v\n", line, err)
-		return nil, fatalErrorf(msg)
-	}
-	sheetRank := row[2]
+		msg := "正しいCSVレポートを取得できません"
 
-	sheetNum, err := strconv.Atoi(row[3])
-	if err != nil {
-		log.Printf("debug: invalid sheetNum (line:%d) error:%v\n", line, err)
-		return nil, fatalErrorf(msg)
-	}
-
-	price, err := strconv.Atoi(row[4])
-	if err != nil {
-		log.Printf("debug: invalid price (line:%d) error:%v\n", line, err)
-		return nil, fatalErrorf(msg)
-	}
-
-	userID, err := strconv.Atoi(row[5])
-	if err != nil {
-		log.Printf("debug: invalid userID (line:%d) error:%v\n", line, err)
-		return nil, fatalErrorf(msg)
-	}
-
-	_, err = time.Parse(time.RFC3339, row[6])
-	if err != nil {
-		log.Printf("debug: invalid soldAt (line:%d) error:%v\n", line, err)
-		return nil, fatalErrorf(msg)
-	}
-
-	var canceledAt time.Time
-	if row[7] != "" {
-		canceledAt, err = time.Parse(time.RFC3339, row[7])
+		reservationID, err := strconv.Atoi(row[0])
 		if err != nil {
-			log.Printf("debug: invalid canceledAt (line:%d) error:%v\n", line, err)
+			log.Printf("debug: invalid reservationID (line:%d) error:%v\n", line, err)
 			return nil, fatalErrorf(msg)
 		}
+		eventID, err := strconv.Atoi(row[1])
+		if err != nil {
+			log.Printf("debug: invalid eventID (line:%d) error:%v\n", line, err)
+			return nil, fatalErrorf(msg)
+		}
+		sheetRank := row[2]
+
+		sheetNum, err := strconv.Atoi(row[3])
+		if err != nil {
+			log.Printf("debug: invalid sheetNum (line:%d) error:%v\n", line, err)
+			return nil, fatalErrorf(msg)
+		}
+
+		sheetPrice, err := strconv.Atoi(row[4])
+		if err != nil {
+			log.Printf("debug: invalid price (line:%d) error:%v\n", line, err)
+			return nil, fatalErrorf(msg)
+		}
+
+		userID, err := strconv.Atoi(row[5])
+		if err != nil {
+			log.Printf("debug: invalid userID (line:%d) error:%v\n", line, err)
+			return nil, fatalErrorf(msg)
+		}
+
+		_, err = time.Parse(time.RFC3339, row[6])
+		if err != nil {
+			log.Printf("debug: invalid soldAt (line:%d) error:%v\n", line, err)
+			return nil, fatalErrorf(msg)
+		}
+
+		var canceledAt time.Time
+		if row[7] != "" {
+			canceledAt, err = time.Parse(time.RFC3339, row[7])
+			if err != nil {
+				log.Printf("debug: invalid canceledAt (line:%d) error:%v\n", line, err)
+				return nil, fatalErrorf(msg)
+			}
+		}
+
+		record := &ReportRecord{
+			ReservationID: uint(reservationID),
+			EventID:       uint(eventID),
+			SheetRank:     sheetRank,
+			SheetNum:      uint(sheetNum),
+			SheetPrice:    uint(sheetPrice),
+			UserID:        uint(userID),
+			CanceledAt:    canceledAt,
+		}
+
+		records[record.ReservationID] = record
 	}
 
-	event := s.FindEventByID(uint(eventID))
-	if event == nil {
-		log.Printf("debug: event id=%d is not found (line:%d)\n", eventID, line)
-		return nil, fatalErrorf(msg)
-	}
-	if expected := event.Price + GetSheetKindByRank(sheetRank).Price; uint(price) != expected {
-		log.Printf("debug: price:%d is not expected:%d (line:%d)\n", price, expected, line)
-		return nil, fatalErrorf(msg)
-	}
-
-	record := &ReportRecord{
-		ReservationID: uint(reservationID),
-		EventID:       uint(eventID),
-		SheetRank:     sheetRank,
-		SheetNum:      uint(sheetNum),
-		UserID:        uint(userID),
-		CanceledAt:    canceledAt,
-	}
-
-	return record, nil
+	return records, nil
 }
 
 func checkReportRecord(s *State, records map[uint]*ReportRecord, timeBefore time.Time,
@@ -1416,6 +1415,16 @@ func checkReportRecord(s *State, records map[uint]*ReportRecord, timeBefore time
 		record, ok := records[reservationID]
 		if !ok {
 			log.Printf("debug: should exist (reservationID:%d)\n", reservationID)
+			return fatalErrorf(msg)
+		}
+
+		event := s.FindEventByID(record.EventID)
+		if event == nil {
+			log.Printf("debug: event id=%d is not found (reservationID:%d)\n", record.EventID, reservationID)
+			return fatalErrorf(msg)
+		}
+		if expected := event.Price + GetSheetKindByRank(record.SheetRank).Price; record.SheetPrice != expected {
+			log.Printf("debug: price:%d is not expected:%d (reservationID:%d)\n", record.SheetPrice, expected, reservationID)
 			return fatalErrorf(msg)
 		}
 
@@ -1472,21 +1481,15 @@ func checkReportResponse(s *State, timeBefore time.Time, reservationsBeforeReque
 
 		log.Println("debug:", body)
 		reader := csv.NewReader(body)
+
 		err := checkReportHeader(reader)
 		if err != nil {
 			return err
 		}
 
-		records := map[uint]*ReportRecord{}
-		for {
-			record, err := getReportRecord(s, reader, len(records))
-			if err == io.EOF {
-				break
-			}
-			if err != nil {
-				return err
-			}
-			records[record.ReservationID] = record
+		records, err := getReportRecords(s, reader)
+		if err != nil {
+			return err
 		}
 
 		err = checkReportRecord(s, records, timeBefore, reservationsBeforeRequest)
@@ -1515,28 +1518,23 @@ func checkEventReportResponse(s *State, event *Event, timeBefore time.Time, rese
 		log.Printf("debug: checkEventReport %d\n", event.ID)
 		log.Println("debug:", body)
 		reader := csv.NewReader(body)
+
 		err := checkReportHeader(reader)
 		if err != nil {
 			return err
 		}
 
-		msg := "正しいCSVレポートを取得できません"
-		records := map[uint]*ReportRecord{}
-		for {
-			record, err := getReportRecord(s, reader, len(records))
-			if err == io.EOF {
-				break
-			}
-			if err != nil {
-				return err
-			}
+		records, err := getReportRecords(s, reader)
+		if err != nil {
+			return err
+		}
 
+		msg := "正しいレポートを取得できません"
+		for _, record := range records {
 			if record.EventID != event.ID {
-				log.Printf("debug: event id=%d does not match with id=%d (line:%d)\n", record.EventID, event.ID, len(records))
+				log.Printf("debug: event id=%d does not match with id=%d (reservationID:%d)\n", record.EventID, event.ID, record.ReservationID)
 				return fatalErrorf(msg)
 			}
-
-			records[record.ReservationID] = record
 		}
 
 		err = checkReportRecord(s, records, timeBefore, reservationsBeforeRequest)
