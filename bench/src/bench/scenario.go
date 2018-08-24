@@ -140,7 +140,7 @@ func checkEventsList(state *State, events []JsonEvent) error {
 	return nil
 }
 
-func checkJsonFullUserResponse(check func(*JsonFullUser) error) func(res *http.Response, body *bytes.Buffer) error {
+func checkJsonFullUserResponse(user *AppUser, check func(*JsonFullUser) error) func(res *http.Response, body *bytes.Buffer) error {
 	return func(res *http.Response, body *bytes.Buffer) error {
 		dec := json.NewDecoder(body)
 
@@ -148,6 +148,13 @@ func checkJsonFullUserResponse(check func(*JsonFullUser) error) func(res *http.R
 		err := dec.Decode(&v)
 		if err != nil {
 			return fatalErrorf("Jsonのデコードに失敗 %v", err)
+		}
+		if user.ID != v.ID {
+			log.Printf("warn: expected id=%d but got id=%d\n", user.ID, v.ID)
+			return fatalErrorf("正しいユーザーを取得できません")
+		} else if user.Nickname != v.Nickname {
+			log.Printf("warn: expected nickname=%s but got nickname=%s (user_id=%d)\n", user.Nickname, v.Nickname, user.ID)
+			return fatalErrorf("正しいユーザーを取得できません")
 		}
 
 		return check(&v)
@@ -327,7 +334,7 @@ func LoadReserveCancelSheet(ctx context.Context, state *State) error {
 		return err
 	}
 
-	reserved, err := reserveSheet(ctx, state, userChecker, user.ID, eventSheet)
+	reserved, err := reserveSheet(ctx, state, userChecker, user, eventSheet)
 	if err != nil {
 		return err
 	}
@@ -336,7 +343,7 @@ func LoadReserveCancelSheet(ctx context.Context, state *State) error {
 		return LoadReserveCancelSheet(ctx, state)
 	}
 
-	err = cancelSheet(ctx, state, userChecker, user.ID, eventSheet, reserved)
+	err = cancelSheet(ctx, state, userChecker, user, eventSheet, reserved)
 	if err != nil {
 		return err
 	}
@@ -365,7 +372,7 @@ func LoadReserveSheet(ctx context.Context, state *State) error {
 		return err
 	}
 
-	reserved, err := reserveSheet(ctx, state, userChecker, user.ID, eventSheet)
+	reserved, err := reserveSheet(ctx, state, userChecker, user, eventSheet)
 	if err != nil {
 		return err
 	}
@@ -786,8 +793,28 @@ func CheckMyPage(ctx context.Context, state *State) error {
 		Path:               fmt.Sprintf("/api/users/%d", user.ID),
 		ExpectedStatusCode: 200,
 		Description:        "ページが表示されること",
-		CheckFunc: checkJsonFullUserResponse(func(user *JsonFullUser) error {
-			// TODO
+		CheckFunc: checkJsonFullUserResponse(user, func(fullUser *JsonFullUser) error {
+			recentEventIDs := user.Status.GetRecentEventIDs()
+			for i, e := range fullUser.RecentEvents {
+				if expected := recentEventIDs[i]; expected != e.ID {
+					log.Printf("warn: miss match user recent event expected=%d got=%d userID=%d\n", expected, e.ID, fullUser.ID)
+					return fatalErrorf("最新の最近予約したイベントが取得できません")
+				}
+			}
+
+			recentReservationIDs := user.Status.GetRecentReservationIDs()
+			for i, r := range fullUser.RecentReservations {
+				if expected := recentReservationIDs[i]; expected != r.ReservationID {
+					log.Printf("warn: miss match user recent reservation id expected=%d got=%d userID=%d\n", expected, r.ReservationID, fullUser.ID)
+					return fatalErrorf("最新の最近予約した席が取得できません")
+				}
+			}
+
+			if user.Status.TotalPrice != fullUser.TotalPrice {
+				log.Printf("warn: miss match user total price expected=%d got=%d userID=%d\n", user.Status.TotalPrice, fullUser.TotalPrice, fullUser.ID)
+				return fatalErrorf("最新の予約総額が取得できません")
+			}
+
 			return nil
 		}),
 	})
@@ -837,7 +864,7 @@ func CheckReserveSheet(ctx context.Context, state *State) error {
 	eventID := eventSheet.EventID
 	rank := eventSheet.Rank
 
-	reserved, err := reserveSheet(ctx, state, userChecker, user.ID, eventSheet)
+	reserved, err := reserveSheet(ctx, state, userChecker, user, eventSheet)
 	if err != nil {
 		return err
 	}
@@ -846,7 +873,7 @@ func CheckReserveSheet(ctx context.Context, state *State) error {
 		return CheckReserveSheet(ctx, state)
 	}
 
-	err = cancelSheet(ctx, state, userChecker, user.ID, eventSheet, reserved)
+	err = cancelSheet(ctx, state, userChecker, user, eventSheet, reserved)
 	if err != nil {
 		return err
 	}
@@ -1841,7 +1868,7 @@ func checkJsonReservationResponse(reserved *JsonReservation) func(res *http.Resp
 	}
 }
 
-func reserveSheet(ctx context.Context, state *State, checker *Checker, userID uint, eventSheet *EventSheet) (*JsonReservation, error) {
+func reserveSheet(ctx context.Context, state *State, checker *Checker, user *AppUser, eventSheet *EventSheet) (*JsonReservation, error) {
 	eventID := eventSheet.EventID
 	rank := eventSheet.Rank
 
@@ -1854,7 +1881,7 @@ func reserveSheet(ctx context.Context, state *State, checker *Checker, userID ui
 	}
 
 	reserved := &JsonReservation{ReservationID: 0, SheetRank: rank, SheetNum: 0}
-	reservation := &Reservation{ID: 0, EventID: eventID, UserID: userID, SheetRank: rank, SheetNum: 0}
+	reservation := &Reservation{ID: 0, EventID: eventID, UserID: user.ID, SheetRank: rank, Price: eventSheet.Price, SheetNum: 0}
 	logID := state.AppendReserveLog(reservation)
 	err := checker.Play(ctx, &CheckAction{
 		Method:             "POST",
@@ -1876,16 +1903,24 @@ func reserveSheet(ctx context.Context, state *State, checker *Checker, userID ui
 	eventSheet.Num = reserved.SheetNum
 	state.CommitReservation(reservation)
 
+	user.Status.AppendRecentEventID(event.ID)
+	user.Status.AppendRecentReservationID(reserved.ReservationID)
+	user.Status.TotalPrice += eventSheet.Price
+
 	atomic.AddInt32(&event.Remains, -1)
 
 	return reserved, nil
 }
 
-func cancelSheet(ctx context.Context, state *State, checker *Checker, userID uint, eventSheet *EventSheet, reserved *JsonReservation) error {
+func cancelSheet(ctx context.Context, state *State, checker *Checker, user *AppUser, eventSheet *EventSheet, reserved *JsonReservation) error {
 	eventID := eventSheet.EventID
 	rank := eventSheet.Rank
 	reservationID := reserved.ReservationID
 	sheetNum := reserved.SheetNum
+
+	user.Status.AppendRecentEventID(eventID)
+	user.Status.AppendRecentReservationID(reserved.ReservationID)
+	user.Status.TotalPrice -= eventSheet.Price
 
 	reservation := state.BeginCancelReservation(reservationID)
 	logID := state.AppendCancelLog(reservation)
@@ -1905,6 +1940,7 @@ func cancelSheet(ctx context.Context, state *State, checker *Checker, userID uin
 
 	event := state.FindEventByID(eventID)
 	assert(event != nil)
+
 	atomic.AddInt32(&event.Remains, 1)
 	event.RT.Release(rank)
 

@@ -205,6 +205,7 @@ func prepareReservationsDataSet() {
 				SheetID:    sheet.ID,
 				SheetRank:  sheet.Rank,
 				SheetNum:   sheet.Num,
+				Price:      event.Price + sheet.Price,
 				ReservedAt: int64(Rng.Int63n(maxUnixTimestamp-minUnixTimestamp) + minUnixTimestamp), // TODO(sonots): randomize nsec
 			}
 			DataSet.Reservations = append(DataSet.Reservations, reservation)

@@ -21,7 +21,7 @@ type JsonFullUser struct {
 	JsonUser
 
 	TotalPrice         uint                   `json:"total_price"`
-	RecentEvents       []*JsonEvent           `json:"recent_events"`
+	RecentEvents       []*JsonFullEvent       `json:"recent_events"`
 	RecentReservations []*JsonFullReservation `json:"recent_reservations"`
 }
 
@@ -55,7 +55,7 @@ type JsonFullEvent struct {
 }
 
 type JsonReservation struct {
-	ReservationID uint   `json:"reservation_id"`
+	ReservationID uint   `json:"id"`
 	SheetRank     string `json:"sheet_rank"`
 	SheetNum      uint   `json:"sheet_num"`
 }
@@ -63,10 +63,17 @@ type JsonReservation struct {
 type JsonFullReservation struct {
 	JsonReservation
 
-	Event      *JsonFullEvent `json:"event"`
-	Price      uint           `json:"price"`
-	ReservedAt uint           `json:"reserved_at"`
-	CanceledAt uint           `json:"canceled_at"`
+	Event      *JsonEventInFullReservation `json:"event"`
+	Price      uint                        `json:"price"`
+	ReservedAt uint                        `json:"reserved_at"`
+	CanceledAt uint                        `json:"canceled_at"`
+}
+
+type JsonEventInFullReservation struct {
+	ID     uint   `json:"id"`
+	Title  string `json:"title"`
+	Public bool   `json:"public"`
+	Closed bool   `json:"closed"`
 }
 
 type JsonError struct {
@@ -79,9 +86,58 @@ type AppUser struct {
 	LoginName string
 	Password  string
 
-	Status struct {
-		Online bool
+	Status AppUserStatus
+}
+
+type AppUserStatus struct {
+	Online bool
+
+	TotalPrice           uint
+	recentEventIDs       []uint
+	recentReservationIDs []uint
+}
+
+func (s *AppUserStatus) AppendRecentEventID(id uint) {
+	s.recentEventIDs = appendUniqAfter(s.recentEventIDs, id, 5)
+}
+
+func (s *AppUserStatus) AppendRecentReservationID(id uint) {
+	s.recentReservationIDs = appendUniqAfter(s.recentReservationIDs, id, 5)
+}
+
+func (s *AppUserStatus) GetRecentEventIDs() []uint {
+	ids := make([]uint, len(s.recentEventIDs))
+	copy(ids, s.recentEventIDs)
+	reverseUintSlice(ids)
+	return ids
+}
+
+func (s *AppUserStatus) GetRecentReservationIDs() []uint {
+	ids := make([]uint, len(s.recentReservationIDs))
+	copy(ids, s.recentReservationIDs)
+	reverseUintSlice(ids)
+	return ids
+}
+
+func appendUniqAfter(s []uint, ui uint, limit int) []uint {
+	for i, si := range s {
+		if si != ui {
+			continue
+		}
+		if len(s) == i+1 {
+			return s
+		}
+
+		next := s[i+1]
+		s[i] = next
+		s[i+1] = ui
 	}
+	s = append(s, ui)
+
+	if len(s) > limit {
+		return s[:limit]
+	}
+	return s
 }
 
 type Administrator struct {
@@ -173,6 +229,7 @@ type Reservation struct {
 	SheetID    uint // Used only in initial reservations. 0 is set for rest because reserve API does not return it
 	SheetRank  string
 	SheetNum   uint
+	Price      uint
 	ReservedAt int64 // Used only in initial reservations. 0 is set for rest because reserve API does not return it
 
 	// ReserveRequestedAt time.Time
@@ -212,6 +269,7 @@ type EventSheet struct {
 	EventID uint
 	Rank    string
 	Num     uint
+	Price   uint
 }
 
 type State struct {
@@ -348,6 +406,17 @@ func (s *State) pushNewUserLocked(u *AppUser) {
 func (s *State) pushInitialUserLocked(u *AppUser) {
 	s.userMap[u.LoginName] = u
 	s.users = append(s.users, u)
+
+	t := time.Now()
+	for _, r := range DataSet.Reservations {
+		if r.UserID != u.ID || r.Canceled(t) {
+			continue
+		}
+
+		u.Status.AppendRecentEventID(r.EventID)
+		u.Status.AppendRecentReservationID(r.ID)
+		u.Status.TotalPrice += r.Price
+	}
 }
 
 func (s *State) GetChecker(u *AppUser) *Checker {
@@ -462,7 +531,7 @@ func (s *State) pushNewEventLocked(event *Event, caller string) {
 	newEventSheets := []*EventSheet{}
 	for _, sheetKind := range DataSet.SheetKinds {
 		for i := uint(0); i < sheetKind.Total; i++ {
-			eventSheet := &EventSheet{event.ID, sheetKind.Rank, NonReservedNum}
+			eventSheet := &EventSheet{event.ID, sheetKind.Rank, event.Price + sheetKind.Price, NonReservedNum}
 			newEventSheets = append(newEventSheets, eventSheet)
 		}
 	}
@@ -483,7 +552,7 @@ func (s *State) pushInitialClosedEventLocked(event *Event) {
 
 	for _, sheetKind := range DataSet.SheetKinds {
 		for i := uint(0); i < sheetKind.Total; i++ {
-			eventSheet := &EventSheet{event.ID, sheetKind.Rank, i + 1}
+			eventSheet := &EventSheet{event.ID, sheetKind.Rank, event.Price + sheetKind.Price, i + 1}
 			s.reservedEventSheets = append(s.reservedEventSheets, eventSheet)
 		}
 	}
@@ -742,6 +811,17 @@ func FilterReservationsToAllowDelay(src map[uint]*Reservation, timeBefore time.T
 
 	for id, reservation := range src {
 		if reservation.ReserveCompletedAt.Before(timeBefore) {
+			filtered[id] = reservation
+		}
+	}
+	return
+}
+
+func FilterReservationsByUserID(src map[uint]*Reservation, userID uint) (filtered map[uint]*Reservation) {
+	filtered = make(map[uint]*Reservation, len(src))
+
+	for id, reservation := range src {
+		if reservation.UserID == userID {
 			filtered[id] = reservation
 		}
 	}
