@@ -853,14 +853,6 @@ func CheckCancelReserveSheet(ctx context.Context, state *State) error {
 		return err
 	}
 
-	// For simplicity, s.reservedEventSheets are not modified in this method.
-	eventSheet := &EventSheet{eventID, rank, 0}
-
-	err = cancelSheet(ctx, state, cacnelChecker, eventSheet, reservation)
-	if err != nil {
-		return err
-	}
-
 	reserveUser, reserveChecker, reserveUserPush := state.PopRandomUser()
 	if reserveUser == nil {
 		return nil
@@ -868,6 +860,14 @@ func CheckCancelReserveSheet(ctx context.Context, state *State) error {
 	defer reserveUserPush()
 
 	err = loginAppUser(ctx, reserveChecker, reserveUser)
+	if err != nil {
+		return err
+	}
+
+	// For simplicity, s.reservedEventSheets are not modified in this method.
+	eventSheet := &EventSheet{eventID, rank, 0}
+
+	err = cancelSheet(ctx, state, cacnelChecker, eventSheet, reservation)
 	if err != nil {
 		return err
 	}
