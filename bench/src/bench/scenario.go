@@ -340,7 +340,7 @@ func LoadReserveCancelSheet(ctx context.Context, state *State) error {
 	if ok {
 		defer reservation.CancelMtx.Unlock()
 	} else {
-		log.Printf("debug: loadReserveCancel: reservation:%d is locked\n", reservation.ID)
+		log.Printf("debug: loadReserveCancel: reservation:%d is locked to cancel\n", reservation.ID)
 		return nil
 	}
 
@@ -822,12 +822,12 @@ func CheckCancelReserveSheet(ctx context.Context, state *State) error {
 
 	event := state.GetRandomPublicSoldOutEvent()
 	if event == nil {
-		log.Printf("warn: checkCancelReserve: no public and sold-out event")
+		log.Printf("warn: checkCancelReserveSheet: no public and sold-out event")
 		return nil
 	}
 	reservation := state.GetRandomNonCanceledReservationInEventID(event.ID)
 	if reservation == nil {
-		log.Printf("warn: checkCancelReserve: no non-canceled reservations in event:%d\n", event.ID)
+		log.Printf("warn: checkCancelReserveSheet: no reservation which is not canceled in event:%d\n", event.ID)
 		return nil
 	}
 
@@ -838,7 +838,7 @@ func CheckCancelReserveSheet(ctx context.Context, state *State) error {
 	if ok {
 		defer reservation.CancelMtx.Unlock()
 	} else {
-		log.Printf("debug: checkCancelReserve: reservation:%d is locked\n", reservation.ID)
+		log.Printf("debug: checkCancelReserveSheet: reservation:%d is locked to cancel\n", reservation.ID)
 		return nil
 	}
 
@@ -889,6 +889,7 @@ func CheckCancelReserveSheet(ctx context.Context, state *State) error {
 		CheckFunc: checkJsonErrorResponse("sold_out"),
 	})
 	if err != nil {
+		log.Printf("warn: %s\n", err)
 		return err
 	}
 
@@ -932,7 +933,7 @@ func CheckReserveSheet(ctx context.Context, state *State) error {
 	if ok {
 		defer reservation.CancelMtx.Unlock()
 	} else {
-		log.Printf("debug: checkReserveSheet: reservation:%d is locked\n", reservation.ID)
+		log.Printf("debug: checkReserveSheet: reservation:%d is locked to cancel\n", reservation.ID)
 		return nil
 	}
 
