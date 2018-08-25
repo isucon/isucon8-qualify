@@ -877,21 +877,22 @@ func CheckCancelReserveSheet(ctx context.Context, state *State) error {
 		return err
 	}
 
+	// TODO(sonots): 409 check
 	// Make sure we get 409 sold_out, otherwise, let it fail
-	err = reserveChecker.Play(ctx, &CheckAction{
-		Method:             "POST",
-		Path:               fmt.Sprintf("/api/events/%d/actions/reserve", eventID),
-		ExpectedStatusCode: 409,
-		Description:        "売り切れの場合エラーになること",
-		PostJSON: map[string]interface{}{
-			"sheet_rank": rank,
-		},
-		CheckFunc: checkJsonErrorResponse("sold_out"),
-	})
-	if err != nil {
-		log.Printf("warn: %s\n", err)
-		return err
-	}
+	// err = reserveChecker.Play(ctx, &CheckAction{
+	// 	Method:             "POST",
+	// 	Path:               fmt.Sprintf("/api/events/%d/actions/reserve", eventID),
+	// 	ExpectedStatusCode: 409,
+	// 	Description:        "売り切れの場合エラーになること",
+	// 	PostJSON: map[string]interface{}{
+	// 		"sheet_rank": rank,
+	// 	},
+	// 	CheckFunc: checkJsonErrorResponse("sold_out"),
+	// })
+	// if err != nil {
+	// 	log.Printf("warn: %s\n", err)
+	// 	return err
+	// }
 
 	return nil
 }
