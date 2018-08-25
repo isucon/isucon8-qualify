@@ -817,66 +817,65 @@ func CheckMyPage(ctx context.Context, state *State) error {
 // (簡単のため)Check関数にして sold_out 状態に戻らなかったら fail
 func CheckCancelReserveSheet(ctx context.Context, state *State) error {
 	// LoadGetEvent() can run concurrently, but CheckCancelReserveSheet() can not
-	// TODO(sonots): This giant lock impacted benchrmarker performance than I expected. Fix to avoid this.
-	// state.getRandomPublicSoldOutEventRWMtx.Lock()
-	// defer state.getRandomPublicSoldOutEventRWMtx.Unlock()
+	state.getRandomPublicSoldOutEventRWMtx.Lock()
+	defer state.getRandomPublicSoldOutEventRWMtx.Unlock()
 
-	// event := state.GetRandomPublicSoldOutEvent()
-	// if event == nil {
-	// 	log.Printf("warn: checkCancelReserveSheet: no public and sold-out event")
-	// 	return nil
-	// }
-	// reservation := state.GetRandomNonCanceledReservationInEventID(event.ID)
-	// if reservation == nil {
-	// 	log.Printf("warn: checkCancelReserveSheet: no reservation which is not canceled in event:%d\n", event.ID)
-	// 	return nil
-	// }
+	event := state.GetRandomPublicSoldOutEvent()
+	if event == nil {
+		log.Printf("warn: checkCancelReserveSheet: no public and sold-out event")
+		return nil
+	}
+	reservation := state.GetRandomNonCanceledReservationInEventID(event.ID)
+	if reservation == nil {
+		log.Printf("warn: checkCancelReserveSheet: no reservation which is not canceled in event:%d\n", event.ID)
+		return nil
+	}
 
-	// eventID := event.ID
-	// rank := reservation.SheetRank
+	eventID := event.ID
+	rank := reservation.SheetRank
 
-	// ok := reservation.CancelMtx.TryLock()
-	// if ok {
-	// 	defer reservation.CancelMtx.Unlock()
-	// } else {
-	// 	log.Printf("debug: checkCancelReserveSheet: reservation:%d is locked to cancel\n", reservation.ID)
-	// 	return nil
-	// }
+	ok := reservation.CancelMtx.TryLock()
+	if ok {
+		defer reservation.CancelMtx.Unlock()
+	} else {
+		log.Printf("debug: checkCancelReserveSheet: reservation:%d is locked to cancel\n", reservation.ID)
+		return nil
+	}
 
-	// cancelUser, cacnelChecker, cancelUserPush := state.PopUserByID(reservation.UserID)
-	// if cancelUser == nil {
-	// 	return nil
-	// }
-	// defer cancelUserPush()
+	cancelUser, cacnelChecker, cancelUserPush := state.PopUserByID(reservation.UserID)
+	if cancelUser == nil {
+		return nil
+	}
+	defer cancelUserPush()
 
-	// err := loginAppUser(ctx, cacnelChecker, cancelUser)
-	// if err != nil {
-	// 	return err
-	// }
+	err := loginAppUser(ctx, cacnelChecker, cancelUser)
+	if err != nil {
+		return err
+	}
 
-	// // For simplicity, s.reservedEventSheets are not modified in this method.
-	// eventSheet := &EventSheet{eventID, rank, 0}
+	// For simplicity, s.reservedEventSheets are not modified in this method.
+	eventSheet := &EventSheet{eventID, rank, 0}
 
-	// err = cancelSheet(ctx, state, cacnelChecker, eventSheet, reservation)
-	// if err != nil {
-	// 	return err
-	// }
+	err = cancelSheet(ctx, state, cacnelChecker, eventSheet, reservation)
+	if err != nil {
+		return err
+	}
 
-	// reserveUser, reserveChecker, reserveUserPush := state.PopRandomUser()
-	// if reserveUser == nil {
-	// 	return nil
-	// }
-	// defer reserveUserPush()
+	reserveUser, reserveChecker, reserveUserPush := state.PopRandomUser()
+	if reserveUser == nil {
+		return nil
+	}
+	defer reserveUserPush()
 
-	// err = loginAppUser(ctx, reserveChecker, reserveUser)
-	// if err != nil {
-	// 	return err
-	// }
+	err = loginAppUser(ctx, reserveChecker, reserveUser)
+	if err != nil {
+		return err
+	}
 
-	// _, err = reserveSheet(ctx, state, reserveChecker, reserveUser.ID, eventSheet)
-	// if err != nil {
-	// 	return err
-	// }
+	_, err = reserveSheet(ctx, state, reserveChecker, reserveUser.ID, eventSheet)
+	if err != nil {
+		return err
+	}
 
 	// TODO(sonots): 409 check
 	// Make sure we get 409 sold_out, otherwise, let it fail
