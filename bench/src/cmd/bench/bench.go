@@ -29,6 +29,7 @@ var (
 	preTestOnly      bool
 	noLevelup        bool
 	checkFuncs       []benchFunc // also preTestFuncs
+	everyCheckFuncs  []benchFunc
 	loadFuncs        []benchFunc
 	loadLevelUpFuncs []benchFunc
 	postTestFuncs    []benchFunc
@@ -44,6 +45,10 @@ type benchFunc struct {
 
 func addCheckFunc(f benchFunc) {
 	checkFuncs = append(checkFuncs, f)
+}
+
+func addEveryCheckFunc(f benchFunc) {
+	everyCheckFuncs = append(everyCheckFuncs, f)
 }
 
 func addLoadFunc(weight int, f benchFunc) {
@@ -101,7 +106,10 @@ func requestInitialize(targetHost string) error {
 // 負荷を掛ける前にアプリが最低限動作しているかをチェックする
 // エラーが発生したら負荷をかけずに終了する
 func preTest(ctx context.Context, state *bench.State) error {
-	for _, checkFunc := range checkFuncs {
+	funcs := make([]benchFunc, len(checkFuncs)+len(everyCheckFuncs))
+	copy(funcs, checkFuncs)
+	copy(funcs[len(checkFuncs):], everyCheckFuncs)
+	for _, checkFunc := range funcs {
 		t := time.Now()
 		err := checkFunc.Func(ctx, state)
 		log.Println("preTest:", checkFunc.Name, time.Since(t))
@@ -130,8 +138,10 @@ func checkMain(ctx context.Context, state *bench.State) error {
 	// Inserts CheckEventReport and CheckReport on every the specified interval
 	checkEventReportTicker := time.NewTicker(parameter.CheckEventReportInterval)
 	defer checkEventReportTicker.Stop()
-	// checkReportTicker := time.NewTicker(parameter.CheckReportInterval)
-	// defer checkReportTicker.Stop()
+	checkReportTicker := time.NewTicker(parameter.CheckReportInterval)
+	defer checkReportTicker.Stop()
+	everyCheckerTicker := time.NewTicker(parameter.EveryCheckerInterval)
+	defer everyCheckerTicker.Stop()
 
 	randCheckFuncIndices := []int{}
 	popRandomPermCheckFunc := func() benchFunc {
@@ -151,29 +161,42 @@ func checkMain(ctx context.Context, state *bench.State) error {
 			if ctx.Err() != nil {
 				return nil
 			}
-			log.Println("debug: fire CheckEventReport")
 			t := time.Now()
-			// TBD: Increase number of events to check based on entire number of events, or load level?
 			err := bench.CheckEventReport(ctx, state)
-			log.Println("CheckEventReport", time.Since(t))
+			log.Println("checkMain(checkEventReport): CheckEventReport", time.Since(t))
 
 			// fatalError以外は見逃してあげる
-			if err != nil && bench.IsCheckerFatal(err) {
+			if err != nil && bench.IsFatal(err) {
 				return err
 			}
-		// case <-checkReportTicker.C:
-		// 	if ctx.Err() != nil {
-		// 		return nil
-		// 	}
-		// 	log.Println("debug: fire CheckReport")
-		// 	t := time.Now()
-		// 	err := bench.CheckReport(ctx, state)
-		// 	log.Println("CheckReport", time.Since(t))
+		case <-checkReportTicker.C:
+			if ctx.Err() != nil {
+				return nil
+			}
+			t := time.Now()
+			err := bench.CheckReport(ctx, state)
+			log.Println("checkMain(checkReport): CheckReport", time.Since(t))
 
-		// 	// fatalError以外は見逃してあげる
-		// 	if err != nil && bench.IsCheckerFatal(err) {
-		// 		return err
-		// 	}
+			// fatalError以外は見逃してあげる
+			if err != nil && bench.IsFatal(err) {
+				return err
+			}
+		case <-everyCheckerTicker.C:
+			for _, checkFunc := range everyCheckFuncs {
+				t := time.Now()
+				err := checkFunc.Func(ctx, state)
+				log.Println("checkMain(every):", checkFunc.Name, time.Since(t))
+
+				// fatalError以外は見逃してあげる
+				if err != nil && bench.IsFatal(err) {
+					return err
+				}
+
+				if err != nil {
+					// バリデーションシナリオを悪用してスコアブーストさせないためエラーのときは少し待つ
+					time.Sleep(parameter.WaitOnError)
+				}
+			}
 		case <-ctx.Done():
 			// benchmarker timeout
 			return nil
@@ -189,7 +212,7 @@ func checkMain(ctx context.Context, state *bench.State) error {
 			log.Println("checkMain:", checkFunc.Name, time.Since(t))
 
 			// fatalError以外は見逃してあげる
-			if err != nil && bench.IsCheckerFatal(err) {
+			if err != nil && bench.IsFatal(err) {
 				return err
 			}
 
@@ -312,6 +335,8 @@ func printCounterSummary() {
 			key = "GET|/api/users/*"
 		} else if strings.HasPrefix(key, "POST|/admin/api/events/") {
 			key = "POST|/admin/api/events/*/actions/edit"
+		} else if strings.HasPrefix(key, "GET|/admin/api/reports/events/") {
+			key = "GET|/admin/api/reports/events/*/sales"
 		}
 
 		m[key] += count
@@ -346,12 +371,15 @@ func printCounterSummary() {
 }
 
 func startBenchmark(remoteAddrs []string) *BenchResult {
-	addLoadFunc(1, benchFunc{"LoadCreateUser", bench.LoadCreateUser})
-	addLoadFunc(1, benchFunc{"LoadMyPage", bench.LoadMyPage})
-	addLoadAndLevelUpFunc(3, benchFunc{"LoadTopPage", bench.LoadTopPage})
-	addLoadAndLevelUpFunc(1, benchFunc{"LoadReserveCancelSheet", bench.LoadReserveCancelSheet})
-	addLoadAndLevelUpFunc(2, benchFunc{"LoadReserveSheet", bench.LoadReserveSheet})
-	addLoadAndLevelUpFunc(3, benchFunc{"LoadGetEvent", bench.LoadGetEvent})
+	addLoadFunc(10, benchFunc{"LoadCreateUser", bench.LoadCreateUser})
+	addLoadFunc(10, benchFunc{"LoadMyPage", bench.LoadMyPage})
+	addLoadFunc(10, benchFunc{"LoadEventReport", bench.LoadEventReport})
+	addLoadFunc(10, benchFunc{"LoadAdminTopPage", bench.LoadAdminTopPage})
+	addLoadFunc(1, benchFunc{"LoadReport", bench.LoadReport})
+	addLoadAndLevelUpFunc(30, benchFunc{"LoadTopPage", bench.LoadTopPage})
+	addLoadAndLevelUpFunc(10, benchFunc{"LoadReserveCancelSheet", bench.LoadReserveCancelSheet})
+	addLoadAndLevelUpFunc(20, benchFunc{"LoadReserveSheet", bench.LoadReserveSheet})
+	addLoadAndLevelUpFunc(30, benchFunc{"LoadGetEvent", bench.LoadGetEvent})
 
 	addCheckFunc(benchFunc{"CheckStaticFiles", bench.CheckStaticFiles})
 	addCheckFunc(benchFunc{"CheckCreateUser", bench.CheckCreateUser})
@@ -361,6 +389,9 @@ func startBenchmark(remoteAddrs []string) *BenchResult {
 	addCheckFunc(benchFunc{"CheckAdminLogin", bench.CheckAdminLogin})
 	addCheckFunc(benchFunc{"CheckCreateEvent", bench.CheckCreateEvent})
 	addCheckFunc(benchFunc{"CheckMyPage", bench.CheckMyPage})
+	// addCheckFunc(benchFunc{"CheckCancelReserveSheet", bench.CheckCancelReserveSheet})
+
+	addEveryCheckFunc(benchFunc{"CheckSheetReservationEntropy", bench.CheckSheetReservationEntropy})
 
 	addPostTestFunc(benchFunc{"CheckReport", bench.CheckReport})
 
@@ -470,6 +501,8 @@ func startBenchmark(remoteAddrs []string) *BenchResult {
 }
 
 func main() {
+	rand.Seed(time.Now().UnixNano())
+
 	log.SetFlags(log.LstdFlags | log.Lmicroseconds | log.Lshortfile)
 	log.SetPrefix("[isu8q-bench] ")
 	colog.Register()

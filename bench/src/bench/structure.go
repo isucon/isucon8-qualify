@@ -4,6 +4,7 @@ import (
 	"log"
 	"math/rand"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/LK4D4/trylock"
@@ -95,15 +96,52 @@ type Administrator struct {
 }
 
 type Event struct {
-	sync.Mutex
-
 	ID        uint
 	Title     string
 	PublicFg  bool
 	ClosedFg  bool
 	Price     uint
 	CreatedAt time.Time
-	Remains   uint
+
+	Remains int32 // for atomic.AddInt32
+	RT      ReservationTickets
+}
+
+type ReservationTickets struct {
+	S, A, B, C int32 // for atomic.AddInt32
+}
+
+func (rt *ReservationTickets) TryGetTicket(rank string) bool {
+	ptr := rt.getPointer(rank)
+
+	ticketID := atomic.AddInt32(ptr, -1)
+	log.Printf("debug: tryGetTicket: rank=%s ticketID=%d\n", rank, ticketID)
+	if ticketID < 0 {
+		atomic.AddInt32(ptr, 1)
+		return false
+	}
+
+	return true
+}
+
+func (rt *ReservationTickets) Release(rank string) {
+	atomic.AddInt32(rt.getPointer(rank), 1)
+}
+
+func (rt *ReservationTickets) getPointer(rank string) *int32 {
+	switch rank {
+	case "S":
+		return &rt.S
+	case "A":
+		return &rt.A
+	case "B":
+		return &rt.B
+	case "C":
+		return &rt.C
+	default:
+		var devnull int32 // be zero for fallback
+		return &devnull
+	}
 }
 
 type SheetKind struct {
@@ -124,6 +162,7 @@ type ReportRecord struct {
 	EventID       uint
 	SheetRank     string
 	SheetNum      uint
+	SheetPrice    uint
 	UserID        uint
 	CanceledAt    time.Time
 }
@@ -139,6 +178,7 @@ type Reservation struct {
 
 	// ReserveRequestedAt time.Time
 	ReserveCompletedAt time.Time
+	CancelMtx          trylock.Mutex
 	CancelRequestedAt  time.Time
 	CancelCompletedAt  time.Time
 }
@@ -160,8 +200,9 @@ type BenchDataSet struct {
 	Events       []*Event
 	ClosedEvents []*Event
 
-	SheetKinds []*SheetKind
-	Sheets     []*Sheet
+	SheetKinds   []*SheetKind
+	SheetKindMap map[string]*SheetKind
+	Sheets       []*Sheet
 
 	Reservations []*Reservation
 }
@@ -176,8 +217,9 @@ type EventSheet struct {
 }
 
 type State struct {
-	mtx         sync.Mutex
-	newEventMtx trylock.Mutex
+	mtx                              sync.Mutex
+	newEventMtx                      trylock.Mutex
+	getRandomPublicSoldOutEventRWMtx sync.RWMutex
 
 	users      []*AppUser
 	newUsers   []*AppUser
@@ -257,6 +299,36 @@ func (s *State) PopRandomUser() (*AppUser, *Checker, func()) {
 
 	i := rand.Intn(n)
 	u := s.users[i]
+
+	s.users[i] = s.users[n-1]
+	s.users[n-1] = nil
+	s.users = s.users[:n-1]
+
+	return u, s.getCheckerLocked(u), func() { s.PushUser(u) }
+}
+
+func (s *State) PopUserByID(userID uint) (*AppUser, *Checker, func()) {
+	s.mtx.Lock()
+	defer s.mtx.Unlock()
+
+	n := len(s.users)
+	if n == 0 {
+		log.Println("debug: Empty users")
+		return nil, nil, nil
+	}
+
+	var i int
+	var u *AppUser
+	for i, u = range s.users {
+		if u.ID == userID {
+			break
+		}
+	}
+
+	if u == nil {
+		log.Printf("debug: User ID:%d not found\n", userID)
+		return nil, nil, nil
+	}
 
 	s.users[i] = s.users[n-1]
 	s.users[n-1] = nil
@@ -388,7 +460,13 @@ func (s *State) CreateNewEvent() (*Event, func(caller string)) {
 		PublicFg: true,
 		ClosedFg: false,
 		Price:    1000 + uint(rand.Intn(10)*1000),
-		Remains:  SheetTotal,
+		Remains:  int32(SheetTotal),
+		RT: ReservationTickets{
+			S: int32(DataSet.SheetKindMap["S"].Total),
+			A: int32(DataSet.SheetKindMap["A"].Total),
+			B: int32(DataSet.SheetKindMap["B"].Total),
+			C: int32(DataSet.SheetKindMap["C"].Total),
+		},
 	}
 
 	// NOTE: push() function pushes into s.events, does not push to s.newEvents.
@@ -564,14 +642,21 @@ func (s *State) CommitReservation(reservation *Reservation) {
 	s.reservations[reservation.ID] = reservation
 }
 
-func (s *State) BeginCancelReservation(reservationID uint) *Reservation {
+func (s *State) FindReservationByID(reservationID uint) *Reservation {
 	s.reservationsMtx.Lock()
 	defer s.reservationsMtx.Unlock()
 
 	reservation := s.reservations[reservationID]
 
-	reservation.CancelRequestedAt = time.Now()
 	return reservation
+}
+
+func (s *State) BeginCancelReservation(reservation *Reservation) {
+	s.reservationsMtx.Lock()
+	defer s.reservationsMtx.Unlock()
+
+	reservation.CancelRequestedAt = time.Now()
+	s.reservations[reservation.ID] = reservation
 }
 
 func (s *State) CommitCancelReservation(reservation *Reservation) {
@@ -642,16 +727,21 @@ func (s *State) GetReservations() map[uint]*Reservation {
 }
 
 // Returns a deep copy of s.reservations
-// NOTE: This could be slow if s.reservations are large, so use this only for postTest
+// NOTE: This could be slow if s.reservations are large, but we assume that
+// len(s.reservations) are less than 10,000 even in very fast webapp implementation.
 func (s *State) GetReservationsCopy() map[uint]*Reservation {
 	s.reservationsMtx.Lock()
 	defer s.reservationsMtx.Unlock()
+
+	t := time.Now()
 
 	reservations := make(map[uint]*Reservation, len(s.reservations))
 	for id, r := range s.reservations {
 		reservation := *r // copy
 		reservations[id] = &reservation
 	}
+
+	log.Println("debug: GetReservationsCopy", time.Since(t))
 
 	return reservations
 }
@@ -696,6 +786,20 @@ func FilterReservationsToAllowDelay(src map[uint]*Reservation, timeBefore time.T
 		}
 	}
 	return
+}
+
+func (s *State) GetRandomNonCanceledReservationInEventID(eventID uint) *Reservation {
+	reservations := s.GetReservationsInEventID(eventID)
+
+	filtered := make([]*Reservation, 0, len(reservations))
+	for _, reservation := range reservations {
+		if reservation.CancelRequestedAt.IsZero() && reservation.CancelCompletedAt.IsZero() {
+			filtered = append(filtered, reservation)
+		}
+	}
+
+	i := rand.Intn(len(filtered))
+	return filtered[i]
 }
 
 func (s *State) GetReservationCount() int {
