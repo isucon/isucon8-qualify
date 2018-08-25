@@ -1,4 +1,18 @@
 ---
+- name: Set sysctl File Limits
+  become: yes
+  become_user: root
+  copy:
+    src: 50-fs.conf
+    dest: /etc/sysctl.d
+
+- name: Set Shell File Limits
+  become: yes
+  become_user: root
+  copy:
+    src: 91-nofiles.conf
+    dest: /etc/security/limits.d
+
 - name: deploy torb bench
   become: yes
   become_user: isucon
@@ -21,4 +35,3 @@
     group: isucon
     mode: u=rwX,g=rX,o=rX
     recurse: yes
-
