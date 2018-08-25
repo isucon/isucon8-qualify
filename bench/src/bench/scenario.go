@@ -1805,7 +1805,7 @@ func popOrCreateEventSheet(ctx context.Context, state *State) (*EventSheet, func
 	} else {
 		log.Println("debug: Somebody else is trying to create a new event. Exit.")
 		// NOTE: We immediately return rather than waiting somebody else finishes to create a new event
-		// because probably the former strategy makes benchmarker work faster.
+		// because probably the waiting strategy makes benchmarker work faster.
 		return nil, nil, nil
 	}
 
