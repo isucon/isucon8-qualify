@@ -1,0 +1,62 @@
+---
+- name: open tcp 80 port
+  become: yes
+  become_user: root
+  iptables:
+    flush: true
+    chain: INPUT
+    protocol: tcp
+    destination_port: 80
+    jump: ACCEPT
+
+- name: deploy torb
+  become: yes
+  become_user: isucon
+  synchronize:
+    src: ../../../../
+    dest: /home/isucon/torb
+    recursive: yes
+    rsync_opts:
+      - "--exclude=.git"
+      - "--exclude=.gitignore"
+      - "--exclude=provisioning"
+
+- name: chown torb
+  become: yes
+  become_user: root
+  file:
+    dest: /home/isucon/torb
+    owner: isucon
+    group: isucon
+    mode: u=rwX,g=rX,o=rX
+    recurse: yes
+
+- name: Install cpanm for torb.perl
+  become: yes
+  become_user: isucon
+  args:
+    chdir: /home/isucon/torb/webapp/perl
+  shell:
+    bash -lc "cpanm --installdeps --force ."
+
+- name: Append torb.perl systemd
+  become: yes
+  become_user: root
+  blockinfile:
+    create: yes
+    dest: /etc/systemd/system/torb.perl.service
+    content: |
+      [Unit]
+      Description = isucon8 qualifier webapp in perl
+
+      [Service]
+      WorkingDirectory=/home/isucon/torb/webapp/perl
+      EnvironmentFile=/home/isucon/torb/webapp/env.sh
+      ExecStart = /home/isucon/local/perl/bin/plackup -R lib -R app.psgi -R views -p 8080 app.psgi
+      Restart   = always
+      Type      = simple
+      User      = isucon
+      Group     = isucon
+      
+      [Install]
+      WantedBy = multi-user.target

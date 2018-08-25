@@ -1,0 +1,7 @@
+---
+- hosts: bench
+  roles:
+    - common
+    - install_go
+    - deploy_bench
+    - build_bench

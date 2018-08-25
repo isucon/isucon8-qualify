@@ -1,0 +1,34 @@
+---
+- name: Run gen-initial-dataset
+  become: yes
+  become_user: isucon
+  args:
+    chdir: /home/isucon/torb/bench
+  command: |
+    bin/gen-initial-dataset
+
+- name: Run db init
+  become: yes
+  become_user: isucon
+  args:
+    chdir: /home/isucon/torb
+  command: |
+    db/init.sh
+
+- name: systemd restart h2o
+  become: yes
+  become_user: root
+  systemd:
+    name: h2o
+    state: restarted
+    daemon_reload: yes
+    enabled: yes
+
+- name: systemd restart torb.perl
+  become: yes
+  become_user: root
+  systemd:
+    name: torb.perl
+    state: restarted
+    daemon_reload: yes
+    enabled: yes
