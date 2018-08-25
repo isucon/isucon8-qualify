@@ -103,12 +103,15 @@ type Event struct {
 	Price     uint
 	CreatedAt time.Time
 
+	// Modified after response (after committed)
 	Remains int32 // for atomic.AddInt32
-	RT      ReservationTickets
+
+	// Modified before requests
+	RT ReservationTickets
 }
 
 type ReservationTickets struct {
-	S, A, B, C int32 // for atomic.AddInt32
+	S, A, B, C int32 // for atomic.AddInt32, modified before request
 }
 
 func (rt *ReservationTickets) TryGetTicket(rank string) bool {
@@ -231,6 +234,11 @@ type State struct {
 	adminCheckerMap map[*Administrator]*Checker
 
 	events []*Event
+
+	// Following xxxEventSheets should not hold ambigous states.
+	// It means that `eventSheets` hold sheets which are not reserved surely, and
+	// `reservedEventSheets` hold sheets which are reserved surely.
+	// In other words, if timeout for reserve/cancel requests are occurred, its eventSheet is thrown away.
 
 	// public && closed does not happen
 	eventSheets         []*EventSheet // public && !closed
