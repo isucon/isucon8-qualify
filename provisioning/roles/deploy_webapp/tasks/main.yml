@@ -1,4 +1,13 @@
 ---
+- name: open tcp 80 port
+  become: yes
+  become_user: root
+  iptables:
+    chain: INPUT
+    protocol: tcp
+    destination_port: 80
+    jump: ACCEPT
+
 - name: deploy torb
   become: yes
   become_user: isucon
@@ -9,7 +18,7 @@
     rsync_opts:
       - "--exclude=.git"
       - "--exclude=.gitignore"
-      - "--exclude=bench"
+      #- "--exclude=bench"
       - "--exclude=provisioning"
 
 - name: chown torb
