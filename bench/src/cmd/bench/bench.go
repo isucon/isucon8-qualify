@@ -161,11 +161,10 @@ func checkMain(ctx context.Context, state *bench.State) error {
 			if ctx.Err() != nil {
 				return nil
 			}
-			log.Println("debug: fire CheckEventReport")
 			t := time.Now()
 			// TBD: Increase number of events to check based on entire number of events, or load level?
 			err := bench.CheckEventReport(ctx, state)
-			log.Println("CheckEventReport", time.Since(t))
+			log.Println("checkMain(checkEventReport): CheckEventReport", time.Since(t))
 
 			// fatalError以外は見逃してあげる
 			if err != nil && bench.IsFatal(err) {
@@ -175,10 +174,9 @@ func checkMain(ctx context.Context, state *bench.State) error {
 			if ctx.Err() != nil {
 				return nil
 			}
-			log.Println("debug: fire CheckReport")
 			t := time.Now()
 			err := bench.CheckReport(ctx, state)
-			log.Println("CheckReport", time.Since(t))
+			log.Println("checkMain(checkReport): CheckReport", time.Since(t))
 
 			// fatalError以外は見逃してあげる
 			if err != nil && bench.IsFatal(err) {

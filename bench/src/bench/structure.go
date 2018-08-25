@@ -115,7 +115,7 @@ func (rt *ReservationTickets) TryGetTicket(rank string) bool {
 	ptr := rt.getPointer(rank)
 
 	ticketID := atomic.AddInt32(ptr, -1)
-	log.Printf("debug: rank=%s ticketID=%d\n", rank, ticketID)
+	log.Printf("debug: tryGetTicket: rank=%s ticketID=%d\n", rank, ticketID)
 	if ticketID < 0 {
 		atomic.AddInt32(ptr, 1)
 		return false
