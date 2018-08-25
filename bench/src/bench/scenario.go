@@ -327,16 +327,24 @@ func LoadReserveCancelSheet(ctx context.Context, state *State) error {
 		return err
 	}
 
-	reserved, err := reserveSheet(ctx, state, userChecker, user.ID, eventSheet)
+	reservation, err := reserveSheet(ctx, state, userChecker, user.ID, eventSheet)
 	if err != nil {
 		return err
 	}
-	if reserved == nil {
+	if reservation == nil {
 		// retry it
 		return LoadReserveCancelSheet(ctx, state)
 	}
 
-	err = cancelSheet(ctx, state, userChecker, user.ID, eventSheet, reserved)
+	ok := reservation.CancelMtx.TryLock()
+	if ok {
+		defer reservation.CancelMtx.Unlock()
+	} else {
+		log.Printf("debug: loadReserveCancel: reservation:%d is locked\n", reservation.ID)
+		return nil
+	}
+
+	err = cancelSheet(ctx, state, userChecker, eventSheet, reservation)
 	if err != nil {
 		return err
 	}
@@ -365,11 +373,11 @@ func LoadReserveSheet(ctx context.Context, state *State) error {
 		return err
 	}
 
-	reserved, err := reserveSheet(ctx, state, userChecker, user.ID, eventSheet)
+	reservation, err := reserveSheet(ctx, state, userChecker, user.ID, eventSheet)
 	if err != nil {
 		return err
 	}
-	if reserved == nil {
+	if reservation == nil {
 		// retry it
 		return LoadReserveSheet(ctx, state)
 	}
@@ -378,6 +386,10 @@ func LoadReserveSheet(ctx context.Context, state *State) error {
 }
 
 func LoadGetEvent(ctx context.Context, state *State) error {
+	// LoadGetEvent() can run concurrently, but CheckCancelReserveSheet() can not
+	state.getRandomPublicSoldOutEventRWMtx.Lock()
+	defer state.getRandomPublicSoldOutEventRWMtx.Unlock()
+
 	event := state.GetRandomPublicSoldOutEvent()
 	if event == nil {
 		log.Printf("warn: LoadGetEvent: no public and sold-out event")
@@ -798,6 +810,91 @@ func CheckMyPage(ctx context.Context, state *State) error {
 	return nil
 }
 
+// たまには売り切れイベントをキャンセルさせて、キャッシュしにくくさせる
+// キャンセルを待ってイベントページをF5しているユーザもいる想定なのでキャンセルしてあげる
+// (簡単のため)キャンセルしたら別のユーザですぐに予約する
+// (簡単のため)Check関数にして１並列でしか動かないようにする
+// (簡単のため)Check関数にして sold_out 状態に戻らなかったら fail
+func CheckCancelReserveSheet(ctx context.Context, state *State) error {
+	// LoadGetEvent() can run concurrently, but CheckCancelReserveSheet() can not
+	state.getRandomPublicSoldOutEventRWMtx.Lock()
+	defer state.getRandomPublicSoldOutEventRWMtx.Unlock()
+
+	event := state.GetRandomPublicSoldOutEvent()
+	if event == nil {
+		log.Printf("warn: checkCancelReserve: no public and sold-out event")
+		return nil
+	}
+	reservation := state.GetRandomNonCanceledReservationInEventID(event.ID)
+	if reservation == nil {
+		log.Printf("warn: checkCancelReserve: no non-canceled reservations in event:%d\n", event.ID)
+		return nil
+	}
+
+	eventID := event.ID
+	rank := reservation.SheetRank
+
+	ok := reservation.CancelMtx.TryLock()
+	if ok {
+		defer reservation.CancelMtx.Unlock()
+	} else {
+		log.Printf("debug: checkCancelReserve: reservation:%d is locked\n", reservation.ID)
+		return nil
+	}
+
+	cancelUser, cacnelChecker, cancelUserPush := state.PopUserByID(reservation.UserID)
+	if cancelUser == nil {
+		return nil
+	}
+	defer cancelUserPush()
+
+	err := loginAppUser(ctx, cacnelChecker, cancelUser)
+	if err != nil {
+		return err
+	}
+
+	// For simplicity, s.reservedEventSheets are not modified in this method.
+	eventSheet := &EventSheet{eventID, rank, 0}
+
+	err = cancelSheet(ctx, state, cacnelChecker, eventSheet, reservation)
+	if err != nil {
+		return err
+	}
+
+	reserveUser, reserveChecker, reserveUserPush := state.PopRandomUser()
+	if reserveUser == nil {
+		return nil
+	}
+	defer reserveUserPush()
+
+	err = loginAppUser(ctx, reserveChecker, reserveUser)
+	if err != nil {
+		return err
+	}
+
+	_, err = reserveSheet(ctx, state, reserveChecker, reserveUser.ID, eventSheet)
+	if err != nil {
+		return err
+	}
+
+	// Make sure we get 409 sold_out, otherwise, let it fail
+	err = reserveChecker.Play(ctx, &CheckAction{
+		Method:             "POST",
+		Path:               fmt.Sprintf("/api/events/%d/actions/reserve", eventID),
+		ExpectedStatusCode: 409,
+		Description:        "売り切れの場合エラーになること",
+		PostJSON: map[string]interface{}{
+			"sheet_rank": rank,
+		},
+		CheckFunc: checkJsonErrorResponse("sold_out"),
+	})
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func CheckReserveSheet(ctx context.Context, state *State) error {
 	user, userChecker, userPush := state.PopRandomUser()
 	if user == nil {
@@ -809,21 +906,6 @@ func CheckReserveSheet(ctx context.Context, state *State) error {
 	if err != nil {
 		return err
 	}
-
-	// TODO(sonots); Need to find a sheet rank which are sold_out
-	// err = userChecker.Play(ctx, &CheckAction{
-	// 	Method:             "POST",
-	// 	Path:               fmt.Sprintf("/api/events/%d/actions/reserve", eventID),
-	// 	ExpectedStatusCode: 409,
-	// 	Description:        "売り切れの場合エラーになること",
-	// 	CheckFunc:          checkJsonErrorResponse("sold_out"),
-	// 	PostJSON: map[string]interface{}{
-	// 		"sheet_rank": rank,
-	// 	},
-	// })
-	// if err != nil {
-	// 	return err
-	// }
 
 	eventSheet, eventSheetPush, err := popOrCreateEventSheet(ctx, state)
 	if err != nil {
@@ -837,23 +919,31 @@ func CheckReserveSheet(ctx context.Context, state *State) error {
 	eventID := eventSheet.EventID
 	rank := eventSheet.Rank
 
-	reserved, err := reserveSheet(ctx, state, userChecker, user.ID, eventSheet)
+	reservation, err := reserveSheet(ctx, state, userChecker, user.ID, eventSheet)
 	if err != nil {
 		return err
 	}
-	if reserved == nil {
+	if reservation == nil {
 		// retry it
 		return CheckReserveSheet(ctx, state)
 	}
 
-	err = cancelSheet(ctx, state, userChecker, user.ID, eventSheet, reserved)
+	ok := reservation.CancelMtx.TryLock()
+	if ok {
+		defer reservation.CancelMtx.Unlock()
+	} else {
+		log.Printf("debug: checkReserveSheet: reservation:%d is locked\n", reservation.ID)
+		return nil
+	}
+
+	err = cancelSheet(ctx, state, userChecker, eventSheet, reservation)
 	if err != nil {
 		return err
 	}
 
 	err = userChecker.Play(ctx, &CheckAction{
 		Method:             "DELETE",
-		Path:               fmt.Sprintf("/api/events/%d/sheets/%s/%d/reservation", eventID, reserved.SheetRank, reserved.SheetNum),
+		Path:               fmt.Sprintf("/api/events/%d/sheets/%s/%d/reservation", eventID, reservation.SheetRank, reservation.SheetNum),
 		ExpectedStatusCode: 400,
 		Description:        "すでにキャンセル済みの場合エラーになること",
 		CheckFunc:          checkJsonErrorResponse("not_reserved"),
@@ -865,7 +955,7 @@ func CheckReserveSheet(ctx context.Context, state *State) error {
 	// TODO(sonots): Need to find a sheet which somebody else reserved.
 	// err := userChecker.Play(ctx, &CheckAction{
 	// 	Method:      "DELETE",
-	// 	Path:        fmt.Sprintf("/api/events/%d/sheets/%s/%d/reservation", eventID, reserved.SheetRank, reserved.SheetNum),
+	// 	Path:        fmt.Sprintf("/api/events/%d/sheets/%s/%d/reservation", eventID, reservation.SheetRank, reservation.SheetNum),
 	// 	ExpectedStatusCode: 403,
 	// 	Description: "購入していないチケットをキャンセルしようとするとエラーになること",
 	//	CheckFunc:          checkJsonErrorResponse("not_permitted"),
@@ -1856,7 +1946,7 @@ func checkJsonReservationResponse(reserved *JsonReservation) func(res *http.Resp
 	}
 }
 
-func reserveSheet(ctx context.Context, state *State, checker *Checker, userID uint, eventSheet *EventSheet) (*JsonReservation, error) {
+func reserveSheet(ctx context.Context, state *State, checker *Checker, userID uint, eventSheet *EventSheet) (*Reservation, error) {
 	eventID := eventSheet.EventID
 	rank := eventSheet.Rank
 
@@ -1893,16 +1983,15 @@ func reserveSheet(ctx context.Context, state *State, checker *Checker, userID ui
 
 	atomic.AddInt32(&event.Remains, -1)
 
-	return reserved, nil
+	return reservation, nil
 }
 
-func cancelSheet(ctx context.Context, state *State, checker *Checker, userID uint, eventSheet *EventSheet, reserved *JsonReservation) error {
-	eventID := eventSheet.EventID
-	rank := eventSheet.Rank
-	reservationID := reserved.ReservationID
-	sheetNum := reserved.SheetNum
+func cancelSheet(ctx context.Context, state *State, checker *Checker, eventSheet *EventSheet, reservation *Reservation) error {
+	eventID := reservation.EventID
+	rank := reservation.SheetRank
+	sheetNum := reservation.SheetNum
 
-	reservation := state.BeginCancelReservation(reservationID)
+	state.BeginCancelReservation(reservation)
 	logID := state.AppendCancelLog(reservation)
 	err := checker.Play(ctx, &CheckAction{
 		Method:             "DELETE",

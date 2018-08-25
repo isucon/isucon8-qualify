@@ -178,6 +178,7 @@ type Reservation struct {
 
 	// ReserveRequestedAt time.Time
 	ReserveCompletedAt time.Time
+	CancelMtx          trylock.Mutex
 	CancelRequestedAt  time.Time
 	CancelCompletedAt  time.Time
 }
@@ -216,8 +217,9 @@ type EventSheet struct {
 }
 
 type State struct {
-	mtx         sync.Mutex
-	newEventMtx trylock.Mutex
+	mtx                              sync.Mutex
+	newEventMtx                      trylock.Mutex
+	getRandomPublicSoldOutEventRWMtx sync.RWMutex
 
 	users      []*AppUser
 	newUsers   []*AppUser
@@ -297,6 +299,36 @@ func (s *State) PopRandomUser() (*AppUser, *Checker, func()) {
 
 	i := rand.Intn(n)
 	u := s.users[i]
+
+	s.users[i] = s.users[n-1]
+	s.users[n-1] = nil
+	s.users = s.users[:n-1]
+
+	return u, s.getCheckerLocked(u), func() { s.PushUser(u) }
+}
+
+func (s *State) PopUserByID(userID uint) (*AppUser, *Checker, func()) {
+	s.mtx.Lock()
+	defer s.mtx.Unlock()
+
+	n := len(s.users)
+	if n == 0 {
+		log.Println("debug: Empty users")
+		return nil, nil, nil
+	}
+
+	var i int
+	var u *AppUser
+	for i, u = range s.users {
+		if u.ID == userID {
+			break
+		}
+	}
+
+	if u == nil {
+		log.Printf("debug: User ID:%d not found\n", userID)
+		return nil, nil, nil
+	}
 
 	s.users[i] = s.users[n-1]
 	s.users[n-1] = nil
@@ -610,14 +642,21 @@ func (s *State) CommitReservation(reservation *Reservation) {
 	s.reservations[reservation.ID] = reservation
 }
 
-func (s *State) BeginCancelReservation(reservationID uint) *Reservation {
+func (s *State) FindReservationByID(reservationID uint) *Reservation {
 	s.reservationsMtx.Lock()
 	defer s.reservationsMtx.Unlock()
 
 	reservation := s.reservations[reservationID]
 
-	reservation.CancelRequestedAt = time.Now()
 	return reservation
+}
+
+func (s *State) BeginCancelReservation(reservation *Reservation) {
+	s.reservationsMtx.Lock()
+	defer s.reservationsMtx.Unlock()
+
+	reservation.CancelRequestedAt = time.Now()
+	s.reservations[reservation.ID] = reservation
 }
 
 func (s *State) CommitCancelReservation(reservation *Reservation) {
@@ -747,6 +786,20 @@ func FilterReservationsToAllowDelay(src map[uint]*Reservation, timeBefore time.T
 		}
 	}
 	return
+}
+
+func (s *State) GetRandomNonCanceledReservationInEventID(eventID uint) *Reservation {
+	reservations := s.GetReservationsInEventID(eventID)
+
+	filtered := make([]*Reservation, 0, len(reservations))
+	for _, reservation := range reservations {
+		if reservation.CancelRequestedAt.IsZero() && reservation.CancelCompletedAt.IsZero() {
+			filtered = append(filtered, reservation)
+		}
+	}
+
+	i := rand.Intn(len(filtered))
+	return filtered[i]
 }
 
 func (s *State) GetReservationCount() int {
