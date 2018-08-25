@@ -162,6 +162,7 @@ type ReportRecord struct {
 	EventID       uint
 	SheetRank     string
 	SheetNum      uint
+	SheetPrice    uint
 	UserID        uint
 	CanceledAt    time.Time
 }
