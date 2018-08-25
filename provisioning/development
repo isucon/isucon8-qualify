@@ -1,13 +1,19 @@
 [bench]
 XX.XX.XX.XX ansible_ssh_user=isucon-admin
+XX.XX.XX.XX ansible_ssh_user=isucon-admin
+XX.XX.XX.XX ansible_ssh_user=isucon-admin
+XX.XX.XX.XX  ansible_ssh_user=isucon-admin
 
 [webapp1]
 XX.XX.XX.XX ansible_ssh_user=isucon-admin
+XX.XX.XX.XX  ansible_ssh_user=isucon-admin
 
 [webapp2]
-XX.XX.XX.XX ansible_ssh_user=isucon-admin
+XX.XX.XX.XX   ansible_ssh_user=isucon-admin
+XX.XX.XX.XX  ansible_ssh_user=isucon-admin
 
 [webapp3]
+XX.XX.XX.XX  ansible_ssh_user=isucon-admin
 XX.XX.XX.XX ansible_ssh_user=isucon-admin
 
 [all:vars]

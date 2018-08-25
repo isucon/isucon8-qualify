@@ -2,7 +2,8 @@
 - hosts: webapp1
   roles:
     - common
-    - middleware 
-    - go
-    - perl
-    - webapp
+    - install_middleware
+    - install_go
+    - install_perl
+    - deploy_webapp
+    - start_perl_webapp

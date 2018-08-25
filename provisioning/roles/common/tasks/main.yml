@@ -71,21 +71,3 @@
   become: yes
   become_user: isucon
   file: path=/home/isucon/local state=directory
-
-- name: deploy torb
-  become: yes
-  become_user: isucon
-  synchronize:
-    src: ../../../../
-    dest: /home/isucon/torb
-    recursive: yes
-
-- name: chown torb
-  become: yes
-  become_user: root
-  file:
-    dest: /home/isucon/torb
-    owner: isucon
-    group: isucon
-    mode: u=rwX,g=rX,o=rX
-    recurse: yes

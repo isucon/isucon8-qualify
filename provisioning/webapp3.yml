@@ -1,6 +1,8 @@
 ---
-- hosts: webapp2
+- hosts: webapp3
   roles:
     - common
-    - go
-    - perl
+    - install_middleware
+    - install_go
+    - install_perl
+    - deploy_webapp

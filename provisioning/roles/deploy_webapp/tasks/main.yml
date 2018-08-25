@@ -1,5 +1,28 @@
 ---
-- name: Install cpanm
+- name: deploy torb
+  become: yes
+  become_user: isucon
+  synchronize:
+    src: ../../../../
+    dest: /home/isucon/torb
+    recursive: yes
+    rsync_opts:
+      - "--exclude=.git"
+      - "--exclude=.gitignore"
+      - "--exclude=bench"
+      - "--exclude=provisioning"
+
+- name: chown torb
+  become: yes
+  become_user: root
+  file:
+    dest: /home/isucon/torb
+    owner: isucon
+    group: isucon
+    mode: u=rwX,g=rX,o=rX
+    recurse: yes
+
+- name: Install cpanm for torb.perl
   become: yes
   become_user: isucon
   args:
@@ -28,12 +51,3 @@
       
       [Install]
       WantedBy = multi-user.target
-
-- name: systemd restart torb.perl
-  become: yes
-  become_user: root
-  systemd:
-    name: torb.perl
-    state: restarted
-    daemon_reload: yes
-    enabled: yes

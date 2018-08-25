@@ -1,0 +1,9 @@
+---
+- name: systemd restart torb.perl
+  become: yes
+  become_user: root
+  systemd:
+    name: torb.perl
+    state: restarted
+    daemon_reload: yes
+    enabled: yes
