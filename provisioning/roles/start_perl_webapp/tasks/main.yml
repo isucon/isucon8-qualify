@@ -10,8 +10,10 @@
 - name: Run db init
   become: yes
   become_user: isucon
+  args:
+    chdir: /home/isucon/torb
   command: |
-    /home/isucon/torb/db/init.sh
+    db/init.sh
 
 - name: systemd restart h2o
   become: yes

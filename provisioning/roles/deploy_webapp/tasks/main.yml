@@ -19,7 +19,6 @@
     rsync_opts:
       - "--exclude=.git"
       - "--exclude=.gitignore"
-      #- "--exclude=bench"
       - "--exclude=provisioning"
 
 - name: chown torb
