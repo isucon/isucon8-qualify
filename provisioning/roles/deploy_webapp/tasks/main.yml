@@ -1,5 +1,44 @@
 ---
-- name: open tcp 80 port
+- name: Create isucon user on MySQL
+  become: yes
+  become_user: isucon
+  mysql_user:
+    login_user: root
+    name: isucon
+    password: isucon
+    priv: "*.*:ALL"
+    host: localhost
+    state: present
+
+- name: Put default h2o.conf
+  become: yes
+  become_user: root
+  copy:
+    dest: /etc/h2o/h2o.conf
+    content: |
+      user: isucon
+      access-log: /var/log/h2o/access.log
+      error-log: /var/log/h2o/error.log
+      pid-file: /var/run/h2o/h2o.pid
+      hosts:
+        "localhost:80":
+          listen:
+            port: 80
+            host: 0.0.0.0
+          paths:
+            "/favicon.ico":
+              file.file: /home/isucon/torb/webapp/static/favicon.ico
+            "/css":
+              file.dir: /home/isucon/torb/webapp/static/css
+            "/img":
+              file.dir: /home/isucon/torb/webapp/static/img
+            "/js":
+              file.dir: /home/isucon/torb/webapp/static/js
+            "/":
+              proxy.reverse.url: http://127.0.0.1:8080/
+              proxy.preserve-host: ON
+
+- name: iptables open tcp 80 port
   become: yes
   become_user: root
   iptables:
@@ -9,7 +48,7 @@
     destination_port: 80
     jump: ACCEPT
 
-- name: deploy torb
+- name: deploy torb (webapp)
   become: yes
   become_user: isucon
   synchronize:
@@ -30,14 +69,6 @@
     group: isucon
     mode: u=rwX,g=rX,o=rX
     recurse: yes
-
-- name: Install cpanm for torb.perl
-  become: yes
-  become_user: isucon
-  args:
-    chdir: /home/isucon/torb/webapp/perl
-  shell:
-    bash -lc "cpanm --installdeps --force ."
 
 - name: Append torb.perl systemd
   become: yes

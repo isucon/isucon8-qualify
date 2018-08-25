@@ -38,7 +38,7 @@
   with_items:
     - "@Development Tools"
 
-- name: Install Dependencies
+- name: Install packages
   become: yes
   become_user: root
   yum:
@@ -67,7 +67,7 @@
     dest: /home/isucon/xbuild
     version: master
 
-- name: mkdir local
+- name: mkdir /home/isucon/local for xbuild
   become: yes
   become_user: isucon
   file: path=/home/isucon/local state=directory

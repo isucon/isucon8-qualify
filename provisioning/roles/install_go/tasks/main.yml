@@ -1,5 +1,5 @@
 ---
-- name: Install Go
+- name: Install Go 1.10.3
   become: yes
   become_user: isucon
   command: |

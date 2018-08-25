@@ -1,19 +1,19 @@
 ---
-- name: Set sysctl File Limits
+- name: Set sysctl file limits
   become: yes
   become_user: root
   copy:
     src: 50-fs.conf
     dest: /etc/sysctl.d
 
-- name: Set Shell File Limits
+- name: Set shell file limits
   become: yes
   become_user: root
   copy:
     src: 91-nofiles.conf
     dest: /etc/security/limits.d
 
-- name: deploy torb bench
+- name: deploy torb (bench)
   become: yes
   become_user: isucon
   synchronize:
@@ -24,7 +24,6 @@
       - "--exclude=.git"
       - "--exclude=.gitignore"
       - "--exclude=provisioning"
-      - "--exclude=webapp"
 
 - name: chown torb
   become: yes
