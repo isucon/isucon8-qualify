@@ -1,5 +1,5 @@
 ---
-- name: Run gen-initial-dataset
+- name: Run bench/bin/gen-initial-dataset
   become: yes
   become_user: isucon
   args:
@@ -7,7 +7,7 @@
   command: |
     bin/gen-initial-dataset
 
-- name: Run db init
+- name: Run db/init.sh
   become: yes
   become_user: isucon
   args:
@@ -15,7 +15,24 @@
   command: |
     db/init.sh
 
-- name: systemd restart h2o
+- name: Install cpanm for torb.perl
+  become: yes
+  become_user: isucon
+  args:
+    chdir: /home/isucon/torb/webapp/perl
+  shell:
+    bash -lc "cpanm --installdeps --force ."
+
+- name: Restart and enable mariadb
+  become: yes
+  become_user: root
+  systemd:
+    name: mariadb
+    state: restarted
+    daemon_reload: yes
+    enabled: yes
+
+- name: Restart and enable h2o
   become: yes
   become_user: root
   systemd:
