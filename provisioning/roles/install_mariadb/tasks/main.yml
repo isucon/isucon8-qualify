@@ -30,3 +30,14 @@
     name: mariadb
     state: restarted
     daemon_reload: yes
+
+- name: Create isucon user on MySQL
+  become: yes
+  become_user: isucon
+  mysql_user:
+    login_user: root
+    name: isucon
+    password: isucon
+    priv: "*.*:ALL"
+    host: localhost
+    state: present

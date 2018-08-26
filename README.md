@@ -42,7 +42,7 @@ make
 
 ```sh
 cd bench
-./bin/gen-initial-dataset   # isucon8q-initial-dataset.sql.gz ができる
+./bin/gen-initial-dataset   # ../db/isucon8q-initial-dataset.sql.gz ができる
 ```
 
 ### データベース初期化

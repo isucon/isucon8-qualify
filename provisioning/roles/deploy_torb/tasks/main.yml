@@ -1,5 +1,5 @@
 ---
-- name: deploy torb
+- name: deploy torb (without bench)
   become: yes
   become_user: isucon
   synchronize:
@@ -9,6 +9,7 @@
     rsync_opts:
       - "--exclude=.git"
       - "--exclude=.gitignore"
+      - "--exclude=bench"
       - "--exclude=provisioning"
 
 - name: chown torb
