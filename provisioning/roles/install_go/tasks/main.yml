@@ -1,7 +1,24 @@
 ---
+- name: Check Installed Go
+  become: yes
+  become_user: isucon
+  args:
+    chdir: /home/isucon
+  command: /home/isucon/local/go/bin/go version
+  register: go_version_output
+  changed_when: go_version_output is failed
+  ignore_errors: true
+
+- name: Debug go_version_output
+  debug:
+    var: go_version_output
+
 - name: Install Go 1.10.3
   become: yes
   become_user: isucon
+  when: go_version_output is failed or go_version_output.stdout != "go version go1.10.3 linux/amd64"
+  args:
+    chdir: /home/isucon
   command: |
     /home/isucon/xbuild/go-install 1.10.3 /home/isucon/local/go
 
