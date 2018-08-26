@@ -335,17 +335,12 @@ func LoadReserveCancelSheet(ctx context.Context, state *State) error {
 		return err
 	}
 
-	ok := reservation.CancelMtx.TryLock()
-	if ok {
-		defer reservation.CancelMtx.Unlock()
-	} else {
-		log.Printf("debug: loadReserveCancel: reservation:%d is locked to cancel\n", reservation.ID)
-		return nil
-	}
-
-	err = cancelSheet(ctx, state, userChecker, eventSheet, reservation)
+	already_locked, err := cancelSheet(ctx, state, userChecker, eventSheet, reservation)
 	if err != nil {
 		return err
+	}
+	if already_locked {
+		return nil
 	}
 
 	return nil
@@ -833,14 +828,6 @@ func CheckCancelReserveSheet(ctx context.Context, state *State) error {
 	eventID := event.ID
 	rank := reservation.SheetRank
 
-	ok := reservation.CancelMtx.TryLock()
-	if ok {
-		defer reservation.CancelMtx.Unlock()
-	} else {
-		log.Printf("debug: checkCancelReserveSheet: reservation:%d is locked to cancel\n", reservation.ID)
-		return nil
-	}
-
 	cancelUser, cacnelChecker, cancelUserPush := state.PopUserByID(reservation.UserID)
 	if cancelUser == nil {
 		return nil
@@ -866,9 +853,12 @@ func CheckCancelReserveSheet(ctx context.Context, state *State) error {
 	// For simplicity, s.reservedEventSheets are not modified in this method.
 	eventSheet := &EventSheet{eventID, rank, 0}
 
-	err = cancelSheet(ctx, state, cacnelChecker, eventSheet, reservation)
+	already_locked, err := cancelSheet(ctx, state, cacnelChecker, eventSheet, reservation)
 	if err != nil {
 		return err
+	}
+	if already_locked {
+		return nil
 	}
 
 	_, err = reserveSheet(ctx, state, reserveChecker, reserveUser.ID, eventSheet)
@@ -929,17 +919,12 @@ func CheckReserveSheet(ctx context.Context, state *State) error {
 		return err
 	}
 
-	ok := reservation.CancelMtx.TryLock()
-	if ok {
-		defer reservation.CancelMtx.Unlock()
-	} else {
-		log.Printf("debug: checkReserveSheet: reservation:%d is locked to cancel\n", reservation.ID)
-		return nil
-	}
-
-	err = cancelSheet(ctx, state, userChecker, eventSheet, reservation)
+	already_locked, err := cancelSheet(ctx, state, userChecker, eventSheet, reservation)
 	if err != nil {
 		return err
+	}
+	if already_locked {
+		return nil
 	}
 
 	err = userChecker.Play(ctx, &CheckAction{
@@ -1985,21 +1970,31 @@ func reserveSheet(ctx context.Context, state *State, checker *Checker, userID ui
 	return reservation, nil
 }
 
-func cancelSheet(ctx context.Context, state *State, checker *Checker, eventSheet *EventSheet, reservation *Reservation) error {
+func cancelSheet(ctx context.Context, state *State, checker *Checker, eventSheet *EventSheet, reservation *Reservation) (already_locked bool, err error) {
+	// If somebody is canceling, nobody else should not cancel because, otherwise, double cancelation occurs.
+	// To achieve it, we use trylock instead of mutex.Lock()
+	ok := reservation.CancelMtx.TryLock()
+	if ok {
+		defer reservation.CancelMtx.Unlock()
+	} else {
+		log.Printf("debug: reservation:%d is already locked to cancel\n", reservation.ID)
+		return true, nil
+	}
+
 	eventID := reservation.EventID
 	rank := reservation.SheetRank
 	sheetNum := reservation.SheetNum
 
 	state.BeginCancelReservation(reservation)
 	logID := state.AppendCancelLog(reservation)
-	err := checker.Play(ctx, &CheckAction{
+	err = checker.Play(ctx, &CheckAction{
 		Method:             "DELETE",
 		Path:               fmt.Sprintf("/api/events/%d/sheets/%s/%d/reservation", eventID, rank, sheetNum),
 		ExpectedStatusCode: 204,
 		Description:        "キャンセルができること",
 	})
 	if err != nil {
-		return err
+		return false, err
 	}
 
 	state.CommitCancelReservation(reservation)
@@ -2010,5 +2005,5 @@ func cancelSheet(ctx context.Context, state *State, checker *Checker, eventSheet
 	assert(event != nil)
 	event.ReleaseTicket(rank)
 
-	return nil
+	return false, nil
 }
