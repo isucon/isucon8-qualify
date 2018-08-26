@@ -1,20 +1,4 @@
 ---
-- name: Run bench/bin/gen-initial-dataset
-  become: yes
-  become_user: isucon
-  args:
-    chdir: /home/isucon/torb/bench
-  command: |
-    bin/gen-initial-dataset
-
-- name: Run db/init.sh
-  become: yes
-  become_user: isucon
-  args:
-    chdir: /home/isucon/torb
-  command: |
-    db/init.sh
-
 - name: Install cpanm for torb.perl
   become: yes
   become_user: isucon
