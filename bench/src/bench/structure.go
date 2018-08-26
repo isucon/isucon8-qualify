@@ -583,7 +583,7 @@ func (s *State) pushNewEventLocked(event *Event, caller string) {
 	newEventSheets := []*EventSheet{}
 	for _, sheetKind := range DataSet.SheetKinds {
 		for i := uint(0); i < sheetKind.Total; i++ {
-			eventSheet := &EventSheet{event.ID, sheetKind.Rank, event.Price + sheetKind.Price, NonReservedNum}
+			eventSheet := &EventSheet{event.ID, sheetKind.Rank, NonReservedNum, event.Price + sheetKind.Price}
 			newEventSheets = append(newEventSheets, eventSheet)
 		}
 	}
@@ -604,7 +604,7 @@ func (s *State) pushInitialClosedEventLocked(event *Event) {
 
 	for _, sheetKind := range DataSet.SheetKinds {
 		for i := uint(0); i < sheetKind.Total; i++ {
-			eventSheet := &EventSheet{event.ID, sheetKind.Rank, event.Price + sheetKind.Price, i + 1}
+			eventSheet := &EventSheet{event.ID, sheetKind.Rank, i + 1, event.Price + sheetKind.Price}
 			s.reservedEventSheets = append(s.reservedEventSheets, eventSheet)
 		}
 	}
