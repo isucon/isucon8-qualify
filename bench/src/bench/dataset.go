@@ -216,8 +216,14 @@ func prepareReservationsDataSet() {
 	})
 
 	nextID := uint(1)
-	for _, reservation := range DataSet.Reservations {
-		reservation.ID = nextID
+	for _, r := range DataSet.Reservations {
+		r.ID = nextID
+
+		user := DataSet.Users[r.UserID-1]
+		user.Status.AppendRecentReservationID(r.ID)
+		user.Status.AppendRecentEventID(r.EventID)
+		user.Status.TotalPrice += r.Price
+
 		nextID++
 	}
 }

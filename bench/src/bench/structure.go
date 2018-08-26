@@ -469,17 +469,6 @@ func (s *State) pushNewUserLocked(u *AppUser) {
 func (s *State) pushInitialUserLocked(u *AppUser) {
 	s.userMap[u.LoginName] = u
 	s.users = append(s.users, u)
-
-	t := time.Now()
-	for _, r := range DataSet.Reservations {
-		if r.UserID != u.ID || r.Canceled(t) {
-			continue
-		}
-
-		u.Status.AppendRecentEventID(r.EventID)
-		u.Status.AppendRecentReservationID(r.ID)
-		u.Status.TotalPrice += r.Price
-	}
 }
 
 func (s *State) GetChecker(u *AppUser) *Checker {

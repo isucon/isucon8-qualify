@@ -876,7 +876,7 @@ func CheckCancelReserveSheet(ctx context.Context, state *State) error {
 	}
 
 	// For simplicity, s.reservedEventSheets are not modified in this method.
-	eventSheet := &EventSheet{eventID, rank, 0, event.Price + DataSet.SheetKindMap[rank].Price}
+	eventSheet := &EventSheet{eventID, rank, event.Price + DataSet.SheetKindMap[rank].Price, NonReservedNum}
 
 	already_locked, err := cancelSheet(ctx, state, cacnelChecker, reserveUser, eventSheet, reservation)
 	if err != nil {
