@@ -7,5 +7,5 @@
     - install_go
     - install_perl
     - deploy_torb
-    - build_bench
+    - initialize_db
     - start_perl_webapp
