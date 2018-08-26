@@ -669,6 +669,7 @@ func CheckTopPage(ctx context.Context, state *State) error {
 		}
 	}
 
+	// Assume that public events are not modified (closed or private)
 	timeBefore := time.Now().Add(-1 * parameter.AllowableDelay)
 	eventsBeforeRequest := FilterEventsToAllowDelay(FilterPublicEvents(state.GetEvents()), timeBefore)
 
