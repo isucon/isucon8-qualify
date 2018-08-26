@@ -1,0 +1,93 @@
+---
+- name: Create isucon user on MySQL
+  become: yes
+  become_user: isucon
+  mysql_user:
+    login_user: root
+    name: isucon
+    password: isucon
+    priv: "*.*:ALL"
+    host: localhost
+    state: present
+
+- name: Put default h2o.conf
+  become: yes
+  become_user: root
+  copy:
+    dest: /etc/h2o/h2o.conf
+    content: |
+      user: isucon
+      access-log: /var/log/h2o/access.log
+      error-log: /var/log/h2o/error.log
+      pid-file: /var/run/h2o/h2o.pid
+      hosts:
+        "localhost:80":
+          listen:
+            port: 80
+            host: 0.0.0.0
+          paths:
+            "/favicon.ico":
+              file.file: /home/isucon/torb/webapp/static/favicon.ico
+            "/css":
+              file.dir: /home/isucon/torb/webapp/static/css
+            "/img":
+              file.dir: /home/isucon/torb/webapp/static/img
+            "/js":
+              file.dir: /home/isucon/torb/webapp/static/js
+            "/":
+              proxy.reverse.url: http://127.0.0.1:8080/
+              proxy.preserve-host: ON
+
+- name: iptables open tcp 80 port
+  become: yes
+  become_user: root
+  iptables:
+    flush: true
+    chain: INPUT
+    protocol: tcp
+    destination_port: 80
+    jump: ACCEPT
+
+- name: deploy torb (webapp)
+  become: yes
+  become_user: isucon
+  synchronize:
+    src: ../../../../
+    dest: /home/isucon/torb
+    recursive: yes
+    rsync_opts:
+      - "--exclude=.git"
+      - "--exclude=.gitignore"
+      - "--exclude=provisioning"
+
+- name: chown torb
+  become: yes
+  become_user: root
+  file:
+    dest: /home/isucon/torb
+    owner: isucon
+    group: isucon
+    mode: u=rwX,g=rX,o=rX
+    recurse: yes
+
+- name: Append torb.perl systemd
+  become: yes
+  become_user: root
+  blockinfile:
+    create: yes
+    dest: /etc/systemd/system/torb.perl.service
+    content: |
+      [Unit]
+      Description = isucon8 qualifier webapp in perl
+
+      [Service]
+      WorkingDirectory=/home/isucon/torb/webapp/perl
+      EnvironmentFile=/home/isucon/torb/webapp/env.sh
+      ExecStart = /home/isucon/local/perl/bin/plackup -R lib -R app.psgi -R views -p 8080 app.psgi
+      Restart   = always
+      Type      = simple
+      User      = isucon
+      Group     = isucon
+      
+      [Install]
+      WantedBy = multi-user.target

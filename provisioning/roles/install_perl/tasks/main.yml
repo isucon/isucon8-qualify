@@ -1,0 +1,15 @@
+---
+- name: Install Perl
+  become: yes
+  become_user: isucon
+  command: >
+    /home/isucon/xbuild/perl-install 5.28.0 /home/isucon/local/perl
+
+- name: Add PATH for Perl
+  become: yes
+  become_user: isucon
+  blockinfile:
+    marker: "# {mark} ANSIBLE MANAGED BLOCK perl"
+    dest: /home/isucon/.bash_profile
+    content: |
+      export PATH=/home/isucon/local/perl/bin:$PATH

@@ -1,0 +1,10 @@
+---
+- hosts: webapp1
+  roles:
+    - common
+    - install_middleware
+    - install_go
+    - install_perl
+    - deploy_webapp
+    - build_bench
+    - start_perl_webapp

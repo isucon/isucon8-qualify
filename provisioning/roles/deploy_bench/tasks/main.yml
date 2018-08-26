@@ -1,0 +1,36 @@
+---
+- name: Set sysctl file limits
+  become: yes
+  become_user: root
+  copy:
+    src: 50-fs.conf
+    dest: /etc/sysctl.d
+
+- name: Set shell file limits
+  become: yes
+  become_user: root
+  copy:
+    src: 91-nofiles.conf
+    dest: /etc/security/limits.d
+
+- name: deploy torb (bench)
+  become: yes
+  become_user: isucon
+  synchronize:
+    src: ../../../../
+    dest: /home/isucon/torb
+    recursive: yes
+    rsync_opts:
+      - "--exclude=.git"
+      - "--exclude=.gitignore"
+      - "--exclude=provisioning"
+
+- name: chown torb
+  become: yes
+  become_user: root
+  file:
+    dest: /home/isucon/torb
+    owner: isucon
+    group: isucon
+    mode: u=rwX,g=rX,o=rX
+    recurse: yes

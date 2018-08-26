@@ -1,0 +1,16 @@
+---
+- name: Install gb
+  become: yes
+  become_user: isucon
+  args:
+    chdir: /home/isucon/torb/bench
+  shell:
+    bash -lc "go get -u github.com/constabulary/gb/..."
+
+- name: Build bench
+  become: yes
+  become_user: isucon
+  args:
+    chdir: /home/isucon/torb/bench
+  shell:
+    bash -lc "gb vendor restore && make"

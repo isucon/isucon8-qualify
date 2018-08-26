@@ -314,6 +314,17 @@ func LoadMyPage(ctx context.Context, state *State) error {
 
 // 席は(rank 内で)ランダムに割り当てられるため、良い席に当たるまで予約連打して、キャンセルする悪質ユーザがいる
 func LoadReserveCancelSheet(ctx context.Context, state *State) error {
+	user, userChecker, userPush := state.PopRandomUser()
+	if user == nil {
+		return nil
+	}
+	defer userPush()
+
+	err := loginAppUser(ctx, userChecker, user)
+	if err != nil {
+		return err
+	}
+
 	eventSheet, eventSheetPush, err := popOrCreateEventSheet(ctx, state)
 	if err != nil {
 		return err
@@ -321,26 +332,15 @@ func LoadReserveCancelSheet(ctx context.Context, state *State) error {
 	if eventSheet == nil {
 		return nil
 	}
-	defer eventSheetPush()
-
-	user, userChecker, userPush := state.PopRandomUser()
-	if user == nil {
-		return nil
-	}
-	defer userPush()
-
-	err = loginAppUser(ctx, userChecker, user)
-	if err != nil {
-		return err
-	}
 
 	reservation, err := reserveSheet(ctx, state, userChecker, user, eventSheet)
+	if reservation == nil && err == nil {
+		// When we could not get a ticket, throw eventSheet away without pushing back. Then, retry.
+		return LoadReserveCancelSheet(ctx, state)
+	}
+	defer eventSheetPush()
 	if err != nil {
 		return err
-	}
-	if reservation == nil {
-		// retry it
-		return LoadReserveCancelSheet(ctx, state)
 	}
 
 	ok := reservation.CancelMtx.TryLock()
@@ -360,6 +360,17 @@ func LoadReserveCancelSheet(ctx context.Context, state *State) error {
 }
 
 func LoadReserveSheet(ctx context.Context, state *State) error {
+	user, userChecker, userPush := state.PopRandomUser()
+	if user == nil {
+		return nil
+	}
+	defer userPush()
+
+	err := loginAppUser(ctx, userChecker, user)
+	if err != nil {
+		return err
+	}
+
 	eventSheet, eventSheetPush, err := popOrCreateEventSheet(ctx, state)
 	if err != nil {
 		return err
@@ -367,26 +378,15 @@ func LoadReserveSheet(ctx context.Context, state *State) error {
 	if eventSheet == nil {
 		return nil
 	}
-	defer eventSheetPush()
-
-	user, userChecker, userPush := state.PopRandomUser()
-	if user == nil {
-		return nil
-	}
-	defer userPush()
-
-	err = loginAppUser(ctx, userChecker, user)
-	if err != nil {
-		return err
-	}
 
 	reservation, err := reserveSheet(ctx, state, userChecker, user, eventSheet)
+	if reservation == nil && err == nil {
+		// When we could not get a ticket, throw eventSheet away without pushing back. Then, retry.
+		return LoadReserveCancelSheet(ctx, state)
+	}
+	defer eventSheetPush()
 	if err != nil {
 		return err
-	}
-	if reservation == nil {
-		// retry it
-		return LoadReserveSheet(ctx, state)
 	}
 
 	return nil
@@ -880,14 +880,6 @@ func CheckCancelReserveSheet(ctx context.Context, state *State) error {
 		return err
 	}
 
-	// For simplicity, s.reservedEventSheets are not modified in this method.
-	eventSheet := &EventSheet{eventID, rank, 0}
-
-	err = cancelSheet(ctx, state, cacnelChecker, eventSheet, reservation)
-	if err != nil {
-		return err
-	}
-
 	reserveUser, reserveChecker, reserveUserPush := state.PopRandomUser()
 	if reserveUser == nil {
 		return nil
@@ -895,6 +887,14 @@ func CheckCancelReserveSheet(ctx context.Context, state *State) error {
 	defer reserveUserPush()
 
 	err = loginAppUser(ctx, reserveChecker, reserveUser)
+	if err != nil {
+		return err
+	}
+
+	// For simplicity, s.reservedEventSheets are not modified in this method.
+	eventSheet := &EventSheet{eventID, rank, 0}
+
+	err = cancelSheet(ctx, state, cacnelChecker, eventSheet, reservation)
 	if err != nil {
 		return err
 	}
@@ -943,18 +943,18 @@ func CheckReserveSheet(ctx context.Context, state *State) error {
 	if eventSheet == nil {
 		return nil
 	}
-	defer eventSheetPush()
 
 	eventID := eventSheet.EventID
 	rank := eventSheet.Rank
 
 	reservation, err := reserveSheet(ctx, state, userChecker, user, eventSheet)
+	if reservation == nil && err == nil {
+		// When we could not get a ticket, throw eventSheet away without pushing back. Then, retry.
+		return LoadReserveCancelSheet(ctx, state)
+	}
+	defer eventSheetPush()
 	if err != nil {
 		return err
-	}
-	if reservation == nil {
-		// retry it
-		return CheckReserveSheet(ctx, state)
 	}
 
 	ok := reservation.CancelMtx.TryLock()

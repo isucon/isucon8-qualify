@@ -1,0 +1,38 @@
+---
+- name: Install MariaDB
+  become: yes
+  become_user: root
+  yum:
+    pkg: "{{ item }}"
+    state: installed
+  with_items:
+    - mariadb
+    - mariadb-server
+    - mariadb-devel
+    - MySQL-python
+
+- name: Append h2o repository
+  become: yes
+  become_user: root
+  blockinfile:
+    create: yes
+    dest: /etc/yum.repos.d/bintray-tatsushid-h2o-rpm.repo
+    content: |
+      [bintray-tatsushid-h2o-rpm]
+      name=bintray-tatsushid-h2o-rpm
+      baseurl=https://dl.bintray.com/tatsushid/h2o-rpm/centos/$releasever/$basearch/
+      gpgcheck=0
+      repo_gpgcheck=0
+      enabled=1
+
+- name: Install h2o
+  become: yes
+  become_user: root
+  yum:
+    pkg: "{{ item }}"
+    state: installed
+  with_items:
+    - cmake
+    - openssl-devel
+    - libuv
+    - h2o
