@@ -20,7 +20,7 @@
   become_user: isucon
   args:
     chdir: /home/isucon/torb/webapp/perl
-  shell:
+  shell: |
     bash -lc "cpanm --installdeps --force ."
 
 - name: Restart and enable mariadb
