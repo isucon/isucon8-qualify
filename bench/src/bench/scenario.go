@@ -894,12 +894,12 @@ func CheckCancelReserveSheet(ctx context.Context, state *State) error {
 	// For simplicity, s.reservedEventSheets are not modified in this method.
 	eventSheet := &EventSheet{eventID, rank, 0}
 
-	err = cancelSheet(ctx, state, cacnelChecker, eventSheet, reservation)
+	err = cancelSheet(ctx, state, cacnelChecker, reserveUser, eventSheet, reservation)
 	if err != nil {
 		return err
 	}
 
-	_, err = reserveSheet(ctx, state, reserveChecker, reserveUser.ID, eventSheet)
+	_, err = reserveSheet(ctx, state, reserveChecker, reserveUser, eventSheet)
 	if err != nil {
 		return err
 	}
