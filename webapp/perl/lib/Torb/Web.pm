@@ -78,6 +78,7 @@ get '/initialize' => sub {
     my $txn = $self->dbh->txn_scope();
     $self->dbh->query('DELETE FROM users WHERE id > 1000');
     $self->dbh->query('DELETE FROM reservations WHERE id > 1000');
+    $self->dbh->query('UPDATE reservations SET canceled_at = NULL');
     $self->dbh->query('DELETE FROM events WHERE id > 3');
     $self->dbh->query('UPDATE events SET public_fg = 0, closed_fg = 1');
     $self->dbh->query('UPDATE events SET public_fg = 1, closed_fg = 0 WHERE id = 1');
