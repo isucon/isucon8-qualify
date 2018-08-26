@@ -1,0 +1,12 @@
+---
+- name: Install MariaDB
+  become: yes
+  become_user: root
+  yum:
+    pkg: "{{ item }}"
+    state: installed
+  with_items:
+    - mariadb
+    - mariadb-server
+    - mariadb-devel
+    - MySQL-python

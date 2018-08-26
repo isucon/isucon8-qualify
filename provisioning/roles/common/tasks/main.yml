@@ -48,6 +48,7 @@
     - autoconf
     - automake
     - curl
+    - dstat
     - gdbm-devel
     - git
     - jq
