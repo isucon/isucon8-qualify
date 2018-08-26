@@ -46,6 +46,14 @@
     --enable-sysvsem --enable-sysvshm --enable-sysvmsg --enable-mbregex
     --enable-mbstring --enable-pcntl --enable-sockets --with-curl --enable-zip
 
+- name: Put torb.php-fpm.conf
+  become: yes
+  become_user: isucon
+  blockinfile:
+    create: yes
+    src: torb.php-fpm.conf
+    dest: /home/isucon/local/php/etc/torb.php-fpm.conf
+
 - name: Add PATH for PHP
   become: yes
   become_user: isucon

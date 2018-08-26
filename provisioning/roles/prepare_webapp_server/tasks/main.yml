@@ -9,52 +9,32 @@
     destination_port: 80
     jump: ACCEPT
 
-- name: Put default h2o.conf
+- name: Put h2o.conf
   become: yes
   become_user: root
   copy:
+    src: h2o.conf
     dest: /etc/h2o/h2o.conf
-    content: |
-      user: isucon
-      access-log: /var/log/h2o/access.log
-      error-log: /var/log/h2o/error.log
-      pid-file: /var/run/h2o/h2o.pid
-      hosts:
-        "localhost:80":
-          listen:
-            port: 80
-            host: 0.0.0.0
-          paths:
-            "/favicon.ico":
-              file.file: /home/isucon/torb/webapp/static/favicon.ico
-            "/css":
-              file.dir: /home/isucon/torb/webapp/static/css
-            "/img":
-              file.dir: /home/isucon/torb/webapp/static/img
-            "/js":
-              file.dir: /home/isucon/torb/webapp/static/js
-            "/":
-              proxy.reverse.url: http://127.0.0.1:8080/
-              proxy.preserve-host: ON
 
-- name: Append torb.perl systemd
+- name: Put php-h2o.conf
+  become: yes
+  become_user: root
+  copy:
+    src: php-h2o.conf
+    dest: /etc/h2o/php-h2o.conf
+
+- name: Put torb.perl.service
   become: yes
   become_user: root
   blockinfile:
     create: yes
+    src: torb.perl.service
     dest: /etc/systemd/system/torb.perl.service
-    content: |
-      [Unit]
-      Description = isucon8 qualifier webapp in perl
 
-      [Service]
-      WorkingDirectory=/home/isucon/torb/webapp/perl
-      EnvironmentFile=/home/isucon/torb/webapp/env.sh
-      ExecStart = /home/isucon/local/perl/bin/plackup -R lib -R app.psgi -R views -p 8080 app.psgi
-      Restart   = always
-      Type      = simple
-      User      = isucon
-      Group     = isucon
-      
-      [Install]
-      WantedBy = multi-user.target
+- name: Put torb.php.service
+  become: yes
+  become_user: root
+  blockinfile:
+    create: yes
+    src: torb.php.service
+    dest: /etc/systemd/system/torb.php.service

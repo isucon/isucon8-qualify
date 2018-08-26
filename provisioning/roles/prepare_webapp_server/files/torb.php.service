@@ -1,0 +1,16 @@
+[Unit]
+Description = isucon8 qualifier webapp in PHP
+
+[Service]
+WorkingDirectory=/home/isucon/torb/webapp/php
+EnvironmentFile=/home/isucon/torb/webapp/env.sh
+
+ExecStart = /home/isucon/local/php/sbin/php-fpm --fpm-config /home/isucon/local/php/etc/torb.php-fpm.conf
+
+Restart   = always
+Type      = simple
+User      = isucon
+Group     = isucon
+
+[Install]
+WantedBy = multi-user.target
