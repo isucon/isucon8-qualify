@@ -892,7 +892,7 @@ func CheckCancelReserveSheet(ctx context.Context, state *State) error {
 	}
 
 	// For simplicity, s.reservedEventSheets are not modified in this method.
-	eventSheet := &EventSheet{eventID, rank, 0}
+	eventSheet := &EventSheet{eventID, rank, 0, event.Price + DataSet.SheetKindMap[rank].Price}
 
 	err = cancelSheet(ctx, state, cacnelChecker, reserveUser, eventSheet, reservation)
 	if err != nil {
