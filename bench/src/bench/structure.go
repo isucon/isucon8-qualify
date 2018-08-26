@@ -103,7 +103,7 @@ type Event struct {
 	CreatedAt time.Time
 
 	// Remains are decremented before request, and incremented after response.
-	// That is, if timeout occurs, remains in bench could be smaller than server-side, but never larger.
+	// That is, if timeout occurs, remains in bench could be smaller than the server-side, but never be larger.
 	RemainsMtx sync.Mutex
 	Remains    int32
 
@@ -251,10 +251,16 @@ type State struct {
 
 	events []*Event
 
-	// Following xxxEventSheets should not hold ambigous states.
-	// It means that `eventSheets` hold sheets which are not reserved surely, and
-	// `reservedEventSheets` hold sheets which are reserved surely.
-	// In other words, if timeout for reserve/cancel requests are occurred, its eventSheet is thrown away.
+	// Pop from eventSheets before reserve request.
+	// If reserve succeeds, move into reservedEventSheets.
+	// If reserve fails, throw it away instead of pushing back.
+	//
+	// In the case of cancel,
+	// If cancel succeeds, move an event of reservedEventSheets into eventSheets.
+	// If cancel fails, keep it in reservedEventSheets.
+	// (Actually, reservedEventSheets is not used from anywhere currently)
+	//
+	// That is, number of eventSheets coulbe be smaller than the server-side, but never be larger.
 
 	// public && closed does not happen
 	eventSheets         []*EventSheet // public && !closed

@@ -330,10 +330,10 @@ func LoadReserveCancelSheet(ctx context.Context, state *State) error {
 		// When we could not get a ticket, throw eventSheet away without pushing back. Then, retry.
 		return LoadReserveCancelSheet(ctx, state)
 	}
-	defer eventSheetPush()
 	if err != nil {
 		return err
 	}
+	defer eventSheetPush()
 
 	already_locked, err := cancelSheet(ctx, state, userChecker, eventSheet, reservation)
 	if err != nil {
@@ -371,10 +371,10 @@ func LoadReserveSheet(ctx context.Context, state *State) error {
 		// When we could not get a ticket, throw eventSheet away without pushing back. Then, retry.
 		return LoadReserveCancelSheet(ctx, state)
 	}
-	defer eventSheetPush()
 	if err != nil {
 		return err
 	}
+	defer eventSheetPush()
 
 	return nil
 }
@@ -914,10 +914,10 @@ func CheckReserveSheet(ctx context.Context, state *State) error {
 		// When we could not get a ticket, throw eventSheet away without pushing back. Then, retry.
 		return LoadReserveCancelSheet(ctx, state)
 	}
-	defer eventSheetPush()
 	if err != nil {
 		return err
 	}
+	defer eventSheetPush()
 
 	already_locked, err := cancelSheet(ctx, state, userChecker, eventSheet, reservation)
 	if err != nil {
