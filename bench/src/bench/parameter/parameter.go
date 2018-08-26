@@ -24,6 +24,7 @@ var (
 	LoadInitialNumGoroutines = 5.0
 	LoadLevelUpRatio         = 1.5
 	LoadLevelUpInterval      = time.Second
+	LoadStartupTotalWait     = 100 * time.Millisecond
 	CheckEventReportInterval = 5 * time.Second
 	CheckReportInterval      = 31 * time.Second
 	EveryCheckerInterval     = 3 * time.Second

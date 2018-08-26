@@ -231,7 +231,7 @@ func goLoadFuncs(ctx context.Context, state *bench.State, n int) {
 	var totalDelay time.Duration
 	for i := 0; i < n; i++ {
 		// add delay not to fire all goroutines at same time
-		delay := time.Duration(float64(waits[i])/float64(sum)*float64(100)) * time.Millisecond
+		delay := time.Duration(float64(waits[i])/float64(sum)) * parameter.LoadStartupTotalWait
 		time.Sleep(delay)
 		totalDelay += delay
 
@@ -265,7 +265,7 @@ func goLoadLevelUpFuncs(ctx context.Context, state *bench.State, n int) {
 	var totalDelay time.Duration
 	for i := 0; i < n; i++ {
 		// add delay not to fire all goroutines at same time
-		delay := time.Duration(float64(waits[i])/float64(sum)*float64(100)) * time.Millisecond
+		delay := time.Duration(float64(waits[i])/float64(sum)) * parameter.LoadStartupTotalWait
 		time.Sleep(delay)
 		totalDelay += delay
 
