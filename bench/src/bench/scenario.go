@@ -327,13 +327,12 @@ func LoadReserveCancelSheet(ctx context.Context, state *State) error {
 
 	reservation, err := reserveSheet(ctx, state, userChecker, user.ID, eventSheet)
 	if reservation == nil && err == nil {
-		// When we could not get a ticket, throw eventSheet away without pushing back. Then, retry.
-		return LoadReserveCancelSheet(ctx, state)
+		return nil
 	}
 	if err != nil {
 		return err
 	}
-	defer eventSheetPush()
+	defer eventSheetPush() // NOTE: push only after reserve succeeds
 
 	already_locked, err := cancelSheet(ctx, state, userChecker, eventSheet, reservation)
 	if err != nil {
@@ -368,13 +367,12 @@ func LoadReserveSheet(ctx context.Context, state *State) error {
 
 	reservation, err := reserveSheet(ctx, state, userChecker, user.ID, eventSheet)
 	if reservation == nil && err == nil {
-		// When we could not get a ticket, throw eventSheet away without pushing back. Then, retry.
-		return LoadReserveCancelSheet(ctx, state)
+		return nil
 	}
 	if err != nil {
 		return err
 	}
-	defer eventSheetPush()
+	defer eventSheetPush() // NOTE: push only after reserve succeeds
 
 	return nil
 }
@@ -911,13 +909,12 @@ func CheckReserveSheet(ctx context.Context, state *State) error {
 
 	reservation, err := reserveSheet(ctx, state, userChecker, user.ID, eventSheet)
 	if reservation == nil && err == nil {
-		// When we could not get a ticket, throw eventSheet away without pushing back. Then, retry.
-		return LoadReserveCancelSheet(ctx, state)
+		return nil
 	}
 	if err != nil {
 		return err
 	}
-	defer eventSheetPush()
+	defer eventSheetPush() // NOTE: push only after reserve succeeds
 
 	already_locked, err := cancelSheet(ctx, state, userChecker, eventSheet, reservation)
 	if err != nil {
