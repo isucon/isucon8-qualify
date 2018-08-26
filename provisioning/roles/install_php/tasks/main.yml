@@ -1,0 +1,56 @@
+---
+- name: Check Installed PHP
+  become: yes
+  become_user: isucon
+  args:
+    chdir: /home/isucon
+  command: /home/isucon/local/php/bin/php -r 'echo phpversion();'
+  register: php_version_output
+  changed_when: php_version_output is failed
+  ignore_errors: true
+
+- name: Debug php_version_output
+  debug:
+    var: php_version_output
+
+- name: Install packages for PHP
+  become: yes
+  become_user: root
+  yum:
+    pkg: "{{ item }}"
+    state: installed
+  with_items:
+    - bzip2-devel
+    - libcurl-devel
+    - libicu-devel
+    - libjpeg-turbo-devel
+    - libpng-devel
+    - libtidy-devel
+    - libxml2-devel
+    - libxslt-devel
+    - readline-devel
+    - re2c
+
+- name: Install PHP
+  become: yes
+  become_user: isucon
+  when: php_version_output is failed or php_version_output.stdout != "7.2.9"
+  args:
+    chdir: /home/isucon
+  command: >
+    /home/isucon/xbuild/php-install 7.2.9 /home/isucon/local/php --
+    --with-pcre-regex --with-zlib --enable-fpm --enable-pdo --with-pear
+    --with-mysqli=mysqlnd --with-pdo-mysql=mysqlnd --with-openssl
+    --with-pcre-regex --with-pcre-dir --with-libxml-dir --enable-opcache
+    --enable-bcmath --with-bz2 --enable-calendar --enable-cli --enable-shmop
+    --enable-sysvsem --enable-sysvshm --enable-sysvmsg --enable-mbregex
+    --enable-mbstring --enable-pcntl --enable-sockets --with-curl --enable-zip
+
+- name: Add PATH for PHP
+  become: yes
+  become_user: isucon
+  blockinfile:
+    marker: "# {mark} ANSIBLE MANAGED BLOCK php"
+    dest: /home/isucon/.bash_profile
+    content: |
+      export PATH=/home/isucon/local/php/bin:$PATH

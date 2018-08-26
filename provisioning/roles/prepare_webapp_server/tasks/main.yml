@@ -1,4 +1,14 @@
 ---
+- name: iptables open tcp 80 port
+  become: yes
+  become_user: root
+  iptables:
+    flush: true
+    chain: INPUT
+    protocol: tcp
+    destination_port: 80
+    jump: ACCEPT
+
 - name: Create isucon user on MySQL
   become: yes
   become_user: isucon
@@ -37,38 +47,6 @@
             "/":
               proxy.reverse.url: http://127.0.0.1:8080/
               proxy.preserve-host: ON
-
-- name: iptables open tcp 80 port
-  become: yes
-  become_user: root
-  iptables:
-    flush: true
-    chain: INPUT
-    protocol: tcp
-    destination_port: 80
-    jump: ACCEPT
-
-- name: deploy torb (webapp)
-  become: yes
-  become_user: isucon
-  synchronize:
-    src: ../../../../
-    dest: /home/isucon/torb
-    recursive: yes
-    rsync_opts:
-      - "--exclude=.git"
-      - "--exclude=.gitignore"
-      - "--exclude=provisioning"
-
-- name: chown torb
-  become: yes
-  become_user: root
-  file:
-    dest: /home/isucon/torb
-    owner: isucon
-    group: isucon
-    mode: u=rwX,g=rX,o=rX
-    recurse: yes
 
 - name: Append torb.perl systemd
   become: yes

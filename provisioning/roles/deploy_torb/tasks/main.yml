@@ -1,19 +1,5 @@
 ---
-- name: Set sysctl file limits
-  become: yes
-  become_user: root
-  copy:
-    src: 50-fs.conf
-    dest: /etc/sysctl.d
-
-- name: Set shell file limits
-  become: yes
-  become_user: root
-  copy:
-    src: 91-nofiles.conf
-    dest: /etc/security/limits.d
-
-- name: deploy torb (bench)
+- name: deploy torb
   become: yes
   become_user: isucon
   synchronize:
