@@ -814,8 +814,8 @@ func CheckMyPage(ctx context.Context, state *State) error {
 				}
 			}
 
-			if user.Status.TotalPrice != fullUser.TotalPrice {
-				log.Printf("warn: miss match user total price expected=%d got=%d userID=%d\n", user.Status.TotalPrice, fullUser.TotalPrice, fullUser.ID)
+			if user.Status.NegativeTotalPrice <= fullUser.TotalPrice || fullUser.TotalPrice <= user.Status.PositiveTotalPrice {
+				log.Printf("warn: miss match user total price expected=%s got=%d userID=%d\n", user.Status.TotalPriceString(), fullUser.TotalPrice, fullUser.ID)
 				return fatalErrorf("最新の予約総額が取得できません")
 			}
 
@@ -1982,6 +1982,7 @@ func reserveSheet(ctx context.Context, state *State, checker *Checker, user *App
 		CheckFunc: checkJsonReservationResponse(reserved),
 	})
 	if err != nil {
+		user.Status.PositiveTotalPrice += eventSheet.Price
 		return nil, err
 	}
 
@@ -1993,8 +1994,9 @@ func reserveSheet(ctx context.Context, state *State, checker *Checker, user *App
 
 	user.Status.AppendRecentEventID(event.ID)
 	user.Status.AppendRecentReservationID(reserved.ReservationID)
-	user.Status.TotalPrice += eventSheet.Price
+	user.Status.NegativeTotalPrice += eventSheet.Price
 
+	log.Printf("debug: reserve userID:%d(total-price:%s) eventID:%d reservedID:%d(%s-%d) price:%d\n", user.ID, user.Status.TotalPriceString(), event.ID, reserved.ReservationID, reserved.SheetRank, reserved.SheetNum, eventSheet.Price)
 	return reservation, nil
 }
 
@@ -2013,9 +2015,7 @@ func cancelSheet(ctx context.Context, state *State, checker *Checker, user *AppU
 	rank := reservation.SheetRank
 	sheetNum := reservation.SheetNum
 
-	user.Status.AppendRecentEventID(eventID)
-	user.Status.AppendRecentReservationID(reservation.ID)
-	user.Status.TotalPrice -= eventSheet.Price
+	user.Status.NegativeTotalPrice -= eventSheet.Price
 
 	state.BeginCancelReservation(reservation)
 	logID := state.AppendCancelLog(reservation)
@@ -2036,7 +2036,12 @@ func cancelSheet(ctx context.Context, state *State, checker *Checker, user *AppU
 	event := state.FindEventByID(eventID)
 	assert(event != nil)
 
+	user.Status.AppendRecentEventID(eventID)
+	user.Status.AppendRecentReservationID(reservation.ID)
+	user.Status.PositiveTotalPrice -= eventSheet.Price
+
 	event.ReleaseTicket(rank)
 
+	log.Printf("debug: cancel userID:%d(total-price:%s) eventID:%d reservationID:%d(%s-%d) price:%d\n", user.ID, user.Status.TotalPriceString(), event.ID, reservation.ID, reservation.SheetRank, reservation.SheetNum, eventSheet.Price)
 	return false, nil
 }

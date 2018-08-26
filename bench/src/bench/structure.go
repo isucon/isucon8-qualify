@@ -3,6 +3,7 @@ package bench
 import (
 	"log"
 	"math/rand"
+	"strconv"
 	"sync"
 	"time"
 
@@ -91,9 +92,18 @@ type AppUser struct {
 type AppUserStatus struct {
 	Online bool
 
-	TotalPrice           uint
+	PositiveTotalPrice   uint
+	NegativeTotalPrice   uint
 	recentEventIDs       []uint
 	recentReservationIDs []uint
+}
+
+func (s *AppUserStatus) TotalPriceString() string {
+	if s.PositiveTotalPrice == s.NegativeTotalPrice {
+		return strconv.FormatUint(s.NegativeTotalPrice, 10)
+	}
+
+	return strconv.FormatUint(s.PositiveTotalPrice, 10) + "-" + strconv.FormatUint(s.NegativeTotalPrice, 10)
 }
 
 func (s *AppUserStatus) AppendRecentEventID(id uint) {
