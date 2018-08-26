@@ -59,7 +59,7 @@ func checkJsonErrorResponse(errorCode string) func(res *http.Response, body *byt
 	}
 }
 
-func checkEventsList(state *State, events []JsonEvent) error {
+func checkEventList(state *State, eventsBeforeRequest []*Event, events []JsonEvent) error {
 	ok := sort.SliceIsSorted(events, func(i, j int) bool {
 		return events[i].ID < events[j].ID
 	})
@@ -67,75 +67,54 @@ func checkEventsList(state *State, events []JsonEvent) error {
 		return fatalErrorf("イベントの順番が正しくありません")
 	}
 
-	expected := FilterPublicEvents(state.GetEvents())
 	if len(events) == 0 {
-		log.Println("warn: events is empty")
+		log.Println("warn: checkEventList: events is empty")
 		return fatalErrorf("イベントの数が正しくありません")
-	} else if len(events) < len(expected) {
-		// 期待する数に満たない場合は1秒以内の誤差は許容する
-		var missed []*Event
-		for i := len(expected) - 1; i > 0; i-- {
-			if expected[i].ID <= events[len(events)-1].ID {
-				break
-			}
-			missed = expected[i:]
-		}
+	} else if len(events) < len(eventsBeforeRequest) {
+		log.Printf("warn: checkEventList: len(events):%d < len(eventsBeforeRequest):%d\n", len(events), len(eventsBeforeRequest))
+		return fatalErrorf("イベントの数が正しくありません")
+	}
 
-		threshold := time.Now().Add(-1 * parameter.AllowableDelay)
-		for _, e := range missed {
-			if e.CreatedAt.Before(threshold) {
-				log.Printf("warn: missing event is too old id:%d createdAt:%s threshold:%s\n", e.ID, e.CreatedAt, threshold)
-				return fatalErrorf("イベントの数が正しくありません")
-			}
+	eventsMap := map[uint]JsonEvent{}
+	for _, e := range events {
+		eventsMap[e.ID] = e
+	}
+
+	msg := "正しいイベント一覧を取得できません"
+	for _, eventBeforeRequest := range eventsBeforeRequest {
+		e, ok := eventsMap[eventBeforeRequest.ID]
+		if !ok {
+			log.Printf("debug: checkEventList: should exist (eventID:%d)\n", e.ID)
+			return fatalErrorf(msg)
 		}
-	} else if len(events) > len(expected) {
-		// XXX: 期待する数を超えて返ってきた場合はIDがより新しいものであることを確認して無視する
-		// TODO(sonots): This does not cover cases such that younger IDs are timeouted. Fix it.
-		for i := len(events) - 1; i > 0; i-- {
-			if events[i].ID <= expected[len(expected)-1].ID {
-				break
+		if e.Title != eventBeforeRequest.Title {
+			return fatalErrorf("イベント(id:%d)のタイトルが正しくありません", e.ID)
+		}
+		if int(e.Total) != len(DataSet.Sheets) {
+			return fatalErrorf("イベント(id:%d)の総座席数が正しくありません", e.ID)
+		}
+		// TODO(karupa): check remains
+		// if e.Remains != remains {
+		// 	return fatalErrorf("イベント(id:%d)の総残座席数が正しくありません", e.ID)
+		// }
+
+		for _, sheetKind := range DataSet.SheetKinds {
+			rank := sheetKind.Rank
+
+			if e.Sheets[rank].Total != sheetKind.Total {
+				return fatalErrorf("イベント(id:%d)の%s席の総座席数が正しくありません", e.ID, rank)
 			}
-			events = events[:i]
+			if expected := eventBeforeRequest.Price + sheetKind.Price; e.Sheets[rank].Price != expected {
+				return fatalErrorf("イベント(id:%d)の%s席の価格が正しくありません", e.ID, rank)
+			}
+			// TODO(sonots): check remains
+			// if e.Sheets[rank].Remains != eventSheetRank.Remains {
+			// 	log.Printf("[DEBUG] Event(%d) %s: eventsBeforeRequest %d but got %d", e.ID, eventSheetRank.Rank, eventSheetRank.Remains, e.Sheets[eventSheetRank.Rank].Remains)
+			// 	return fatalErrorf("イベント(id:%d)の%s席の残座席数が正しくありません", e.ID, eventSheetRank.Rank)
+			// }
 		}
 	}
 
-	// TODO(sonots): Following checks possibly fail if create event API is timeouted. Fix it.
-	// for i, e := range events {
-	// 	if i == len(expected) {
-	// 		break
-	// 	}
-
-	// 	if e.ID != expected[i].ID {
-	// 		return fatalErrorf("イベントの順番が正しくありません")
-	// 	}
-	// 	if e.Title != expected[i].Title {
-	// 		return fatalErrorf("イベント(id:%d)のタイトルが正しくありません", e.ID)
-	// 	}
-	// 	if int(e.Total) != len(DataSet.Sheets) {
-	// 		return fatalErrorf("イベント(id:%d)の総座席数が正しくありません", e.ID)
-	// 	}
-
-	// 	var remains uint
-	// 	for _, eventSheetRank := range state.GetEventSheetRanksByEventID(e.ID) {
-	// 		if e.Sheets[eventSheetRank.Rank].Total != eventSheetRank.Total {
-	// 			return fatalErrorf("イベント(id:%d)の%s席の総座席数が正しくありません", e.ID, eventSheetRank.Rank)
-	// 		}
-	// 		// TODO(karupa): check remains
-	// 		// if e.Sheets[eventSheetRank.Rank].Remains != eventSheetRank.Remains {
-	// 		// 	log.Printf("[DEBUG] Event(%d) %s: expected %d but got %d", e.ID, eventSheetRank.Rank, eventSheetRank.Remains, e.Sheets[eventSheetRank.Rank].Remains)
-	// 		// 	return fatalErrorf("イベント(id:%d)の%s席の残座席数が正しくありません", e.ID, eventSheetRank.Rank)
-	// 		//}
-	// 		// TODO(karupa): check price
-	// 		// if e.Sheets[eventSheetRank.Rank].Price != eventSheetRank.Price {
-	// 		// 	return fatalErrorf("イベント(id:%d)の%s席の価格が正しくありません", e.ID, eventSheetRank.Rank)
-	// 		// }
-	// 		remains += eventSheetRank.Remains
-	// 	}
-	// 	// TODO(karupa): check remains
-	// 	// if e.Remains != remains {
-	// 	// 	return fatalErrorf("イベント(id:%d)の総残座席数が正しくありません", e.ID)
-	// 	// }
-	// }
 	return nil
 }
 
@@ -690,6 +669,9 @@ func CheckTopPage(ctx context.Context, state *State) error {
 		}
 	}
 
+	timeBefore := time.Now().Add(-1 * parameter.AllowableDelay)
+	eventsBeforeRequest := FilterEventsToAllowDelay(FilterPublicEvents(state.GetEvents()), timeBefore)
+
 	err := checker.Play(ctx, &CheckAction{
 		Method:             "GET",
 		Path:               "/",
@@ -731,7 +713,7 @@ func CheckTopPage(ctx context.Context, state *State) error {
 						return fatalErrorf("イベント一覧のJsonデコードに失敗 %v", err)
 					}
 
-					err = checkEventsList(state, events)
+					err = checkEventList(state, eventsBeforeRequest, events)
 					if err != nil {
 						return err
 					}

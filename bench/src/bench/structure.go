@@ -249,6 +249,8 @@ type State struct {
 	adminMap        map[string]*Administrator
 	adminCheckerMap map[*Administrator]*Checker
 
+	// NOTE: Do not pop any events from events
+	// NOTE: Do not push any events if CreateEvent request fails or timeouts
 	events []*Event
 
 	// Pop from eventSheets before reserve request.
@@ -552,7 +554,6 @@ func (s *State) pushInitialClosedEventLocked(event *Event) {
 	}
 }
 
-// ASSUMPTION: No event is popped from s.events, thus, s.events represents all events.
 func (s *State) FindEventByID(id uint) *Event {
 	s.mtx.Lock()
 	defer s.mtx.Unlock()
@@ -571,6 +572,16 @@ func (s *State) GetEvents() (events []*Event) {
 
 	events = make([]*Event, len(s.events))
 	copy(events, s.events)
+	return
+}
+
+func FilterEventsToAllowDelay(src []*Event, timeBefore time.Time) (filtered []*Event) {
+	filtered = make([]*Event, 0, len(src))
+	for _, e := range src {
+		if e.CreatedAt.Before(timeBefore) {
+			filtered = append(filtered, e)
+		}
+	}
 	return
 }
 
