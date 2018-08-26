@@ -225,7 +225,16 @@ func checkMain(ctx context.Context, state *bench.State) error {
 }
 
 func goLoadFuncs(ctx context.Context, state *bench.State, n int) {
+	sum := (n - 1) * n / 2
+	waits := rand.Perm(n)
+
+	var totalDelay time.Duration
 	for i := 0; i < n; i++ {
+		// add delay not to fire all goroutines at same time
+		delay := time.Duration(float64(waits[i])/float64(sum)*float64(100)) * time.Millisecond
+		time.Sleep(delay)
+		totalDelay += delay
+
 		go func() {
 			for {
 				if ctx.Err() != nil {
@@ -246,10 +255,20 @@ func goLoadFuncs(ctx context.Context, state *bench.State, n int) {
 			}
 		}()
 	}
+	log.Println("debug: goLoadLevelUpFuncs wait totally", totalDelay)
 }
 
 func goLoadLevelUpFuncs(ctx context.Context, state *bench.State, n int) {
+	sum := (n - 1) * n / 2
+	waits := rand.Perm(n)
+
+	var totalDelay time.Duration
 	for i := 0; i < n; i++ {
+		// add delay not to fire all goroutines at same time
+		delay := time.Duration(float64(waits[i])/float64(sum)*float64(100)) * time.Millisecond
+		time.Sleep(delay)
+		totalDelay += delay
+
 		go func() {
 			for {
 				if ctx.Err() != nil {
@@ -270,6 +289,7 @@ func goLoadLevelUpFuncs(ctx context.Context, state *bench.State, n int) {
 			}
 		}()
 	}
+	log.Println("debug: goLoadLevelUpFuncs wait totally", totalDelay)
 }
 
 func loadMain(ctx context.Context, state *bench.State) {
