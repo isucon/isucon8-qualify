@@ -9,17 +9,6 @@
     destination_port: 80
     jump: ACCEPT
 
-- name: Create isucon user on MySQL
-  become: yes
-  become_user: isucon
-  mysql_user:
-    login_user: root
-    name: isucon
-    password: isucon
-    priv: "*.*:ALL"
-    host: localhost
-    state: present
-
 - name: Put default h2o.conf
   become: yes
   become_user: root

@@ -1,20 +1,4 @@
 ---
-- name: Build gen-initial-dataset
-  become: yes
-  become_user: isucon
-  args:
-    chdir: /home/isucon/torb/bench
-  shell:
-    bash -lc "gb vendor restore && make"
-
-- name: Run gen-initial-dataset
-  become: yes
-  become_user: isucon
-  args:
-    chdir: /home/isucon/torb/bench
-  command: |
-    bin/gen-initial-dataset
-
 - name: Run db/init.sh
   become: yes
   become_user: isucon
