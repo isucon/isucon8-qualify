@@ -22,4 +22,3 @@
     chdir: /home/isucon/torb
   command: |
     db/init.sh
-
