@@ -667,6 +667,7 @@ func CheckTopPage(ctx context.Context, state *State) error {
 		if err != nil {
 			return err
 		}
+		// case 2: do nothing
 	}
 
 	// Assume that public events are not modified (closed or private)
