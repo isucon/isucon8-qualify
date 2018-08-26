@@ -31,3 +31,29 @@
     content: |
       export PATH=/home/isucon/local/go/bin:/home/isucon/go/bin:$PATH
       export GOROOT=/home/isucon/local/go
+
+- name: Check Installed gb
+  become: yes
+  become_user: isucon
+  args:
+    chdir: /home/isucon
+  command: /home/isucon/go/bin/gb help
+  register: go_gb_version_output
+  changed_when: go_gb_version_output is failed
+  ignore_errors: true
+
+- name: Debug go_gb_version_output
+  debug:
+    var: go_gb_version_output
+
+- name: Install gb
+  become: yes
+  become_user: isucon
+  when: go_gb_version_output is failed
+  environment:
+    PATH: "/home/isucon/local/go/bin:/home/isucon/go/bin:{{ ansible_env.PATH }}"
+    GOROOT: "/home/isucon/local/go"
+  args:
+    chdir: /home/isucon
+  command:
+    go get -u github.com/constabulary/gb/...

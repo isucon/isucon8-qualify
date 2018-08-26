@@ -4,7 +4,6 @@ import (
 	"log"
 	"math/rand"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"github.com/LK4D4/trylock"
@@ -159,32 +158,50 @@ type Event struct {
 	Price     uint
 	CreatedAt time.Time
 
-	// Modified after response (after committed)
-	Remains int32 // for atomic.AddInt32
+	// Remains are decremented before request, and incremented after response.
+	// That is, if timeout occurs, remains in bench could be smaller than the server-side, but never be larger.
+	RemainsMtx sync.Mutex
+	Remains    int32
 
-	// Modified before requests
+	// Represents remains for each rank
 	RT ReservationTickets
 }
 
 type ReservationTickets struct {
-	S, A, B, C int32 // for atomic.AddInt32, modified before request
+	S, A, B, C int32
 }
 
-func (rt *ReservationTickets) TryGetTicket(rank string) bool {
-	ptr := rt.getPointer(rank)
+// Call this before reserve request
+func (event *Event) TryGetTicket(rank string) bool {
+	event.RemainsMtx.Lock()
+	defer event.RemainsMtx.Unlock()
 
-	ticketID := atomic.AddInt32(ptr, -1)
-	log.Printf("debug: tryGetTicket: rank=%s ticketID=%d\n", rank, ticketID)
-	if ticketID < 0 {
-		atomic.AddInt32(ptr, 1)
+	rankRemains := event.RT.getPointer(rank)
+
+	event.Remains--
+	if event.Remains < 0 {
+		event.Remains++
+	}
+
+	*rankRemains--
+	log.Printf("debug: tryGetTicket: rank=%s ticketID=%d\n", rank, *rankRemains)
+	if *rankRemains < 0 {
+		*rankRemains++
 		return false
 	}
 
 	return true
 }
 
-func (rt *ReservationTickets) Release(rank string) {
-	atomic.AddInt32(rt.getPointer(rank), 1)
+// Call this after cancel response succeeds
+func (event *Event) ReleaseTicket(rank string) {
+	event.RemainsMtx.Lock()
+	defer event.RemainsMtx.Unlock()
+
+	rankRemains := event.RT.getPointer(rank)
+
+	event.Remains++
+	*rankRemains++
 }
 
 func (rt *ReservationTickets) getPointer(rank string) *int32 {
@@ -197,10 +214,9 @@ func (rt *ReservationTickets) getPointer(rank string) *int32 {
 		return &rt.B
 	case "C":
 		return &rt.C
-	default:
-		var devnull int32 // be zero for fallback
-		return &devnull
 	}
+	assert(false)
+	return nil
 }
 
 type SheetKind struct {
@@ -293,10 +309,16 @@ type State struct {
 
 	events []*Event
 
-	// Following xxxEventSheets should not hold ambigous states.
-	// It means that `eventSheets` hold sheets which are not reserved surely, and
-	// `reservedEventSheets` hold sheets which are reserved surely.
-	// In other words, if timeout for reserve/cancel requests are occurred, its eventSheet is thrown away.
+	// Pop from eventSheets before reserve request.
+	// If reserve succeeds, move into reservedEventSheets.
+	// If reserve fails, throw it away instead of pushing back.
+	//
+	// In the case of cancel,
+	// If cancel succeeds, move an event of reservedEventSheets into eventSheets.
+	// If cancel fails, keep it in reservedEventSheets.
+	// (Actually, reservedEventSheets is not used from anywhere currently)
+	//
+	// That is, number of eventSheets coulbe be smaller than the server-side, but never be larger.
 
 	// public && closed does not happen
 	eventSheets         []*EventSheet // public && !closed
