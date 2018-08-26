@@ -1,8 +1,25 @@
 ---
-- name: Install Perl
+- name: Check Installed Perl
   become: yes
   become_user: isucon
-  command: >
+  args:
+    chdir: /home/isucon
+  command: /home/isucon/local/perl/bin/perl -V:version
+  register: perl_version_output
+  changed_when: perl_version_output is failed
+  ignore_errors: true
+
+- name: Debug perl_version_output
+  debug:
+    var: perl_version_output
+
+- name: Install Perl 5.28.0
+  become: yes
+  become_user: isucon
+  when: perl_version_output is failed or perl_version_output.stdout != "version='5.28.0';"
+  args:
+    chdir: /home/isucon
+  command: |
     /home/isucon/xbuild/perl-install 5.28.0 /home/isucon/local/perl
 
 - name: Add PATH for Perl
