@@ -1464,44 +1464,46 @@ func getReportRecords(s *State, reader *csv.Reader) (map[uint]*ReportRecord, err
 
 func checkReportRecord(s *State, records map[uint]*ReportRecord, timeBefore time.Time,
 	reservationsBeforeRequest map[uint]*Reservation) error {
-	msg := "正しいレポートを取得できません"
 
 	for reservationID, reservationBeforeRequest := range reservationsBeforeRequest {
 		// All elements in reservationsBeforeRequest must exist in records
 		record, ok := records[reservationID]
 		if !ok {
 			log.Printf("debug: should exist (reservationID:%d)\n", reservationID)
-			return fatalErrorf(msg)
+			return fatalErrorf("レポートに予約id:%dの行が存在しません", reservationID)
 		}
 
 		event := s.FindEventByID(record.EventID)
 		if event == nil {
 			log.Printf("debug: event id=%d is not found (reservationID:%d)\n", record.EventID, reservationID)
-			return fatalErrorf(msg)
+			return fatalErrorf("レポート(予約id:%d)のイベントidが正しくありません", reservationID)
 		}
 		if expected := event.Price + GetSheetKindByRank(record.SheetRank).Price; record.SheetPrice != expected {
 			log.Printf("debug: price:%d is not expected:%d (reservationID:%d)\n", record.SheetPrice, expected, reservationID)
-			return fatalErrorf(msg)
+			return fatalErrorf("レポート(予約id:%d)のシート価格が正しくありません", reservationID)
 		}
 
-		if reservationBeforeRequest.ID != record.ReservationID ||
-			reservationBeforeRequest.EventID != record.EventID ||
-			reservationBeforeRequest.UserID != record.UserID ||
-			reservationBeforeRequest.SheetRank != record.SheetRank ||
-			reservationBeforeRequest.SheetNum != record.SheetNum {
-			log.Printf("debug: unexpected data ReservationID:%d!=%d EventID:%d!=%d UserID:%d!=%d Rank:%s!=%s Num:%d!=%d\n",
-				reservationBeforeRequest.ID, record.ReservationID,
-				reservationBeforeRequest.EventID, record.EventID,
-				reservationBeforeRequest.UserID, record.UserID,
-				reservationBeforeRequest.SheetRank, record.SheetRank,
-				reservationBeforeRequest.SheetNum, record.SheetNum)
-			return fatalErrorf(msg)
+		if reservationBeforeRequest.EventID != record.EventID {
+			log.Printf("debug: event id=%d is not expected:%d (reservationID:%d)\n", record.EventID, reservationBeforeRequest.EventID, reservationID)
+			return fatalErrorf("レポート(予約id:%d)のイベントidが正しくありません", reservationID)
+		}
+		if reservationBeforeRequest.UserID != record.UserID {
+			log.Printf("debug: user id=%d is not expected:%d (reservationID:%d)\n", record.UserID, reservationBeforeRequest.UserID, reservationID)
+			return fatalErrorf("レポート(予約id:%d)のユーザidが正しくありません", reservationID)
+		}
+		if reservationBeforeRequest.SheetRank != record.SheetRank {
+			log.Printf("debug: sheet rank=%s is not expected:%s (reservationID:%d)\n", record.SheetRank, reservationBeforeRequest.SheetRank, reservationID)
+			return fatalErrorf("レポート(予約id:%d)のシートランクが正しくありません", reservationID)
+		}
+		if reservationBeforeRequest.SheetNum != record.SheetNum {
+			log.Printf("debug: sheet num=%d is not expected:%d (reservationID:%d)\n", record.SheetNum, reservationBeforeRequest.SheetNum, reservationID)
+			return fatalErrorf("レポート(予約id:%d)のシート番号が正しくありません", reservationID)
 		}
 
 		if reservationBeforeRequest.Canceled(timeBefore) {
 			if record.CanceledAt.IsZero() {
 				log.Printf("debug: should have canceledAt (reservationID:%d)\n", reservationID)
-				return fatalErrorf(msg)
+				return fatalErrorf("レポート(予約id:%d)のキャンセル時刻が正しくありません", reservationID)
 			}
 		} else if reservationBeforeRequest.MaybeCanceled(timeBefore) {
 			if record.CanceledAt.IsZero() {
