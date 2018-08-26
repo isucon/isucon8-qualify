@@ -20,7 +20,6 @@ import (
 	"os"
 	"sort"
 	"strconv"
-	"sync/atomic"
 	"time"
 
 	"github.com/PuerkitoBio/goquery"
@@ -1955,7 +1954,7 @@ func reserveSheet(ctx context.Context, state *State, checker *Checker, userID ui
 	event := state.FindEventByID(eventID)
 	assert(event != nil)
 
-	ok := event.RT.TryGetTicket(rank)
+	ok := event.TryGetTicket(rank)
 	if !ok {
 		return nil, nil
 	}
@@ -1983,8 +1982,6 @@ func reserveSheet(ctx context.Context, state *State, checker *Checker, userID ui
 	eventSheet.Num = reserved.SheetNum
 	state.CommitReservation(reservation)
 
-	atomic.AddInt32(&event.Remains, -1)
-
 	return reservation, nil
 }
 
@@ -2011,8 +2008,7 @@ func cancelSheet(ctx context.Context, state *State, checker *Checker, eventSheet
 
 	event := state.FindEventByID(eventID)
 	assert(event != nil)
-	atomic.AddInt32(&event.Remains, 1)
-	event.RT.Release(rank)
+	event.ReleaseTicket(rank)
 
 	return nil
 }
