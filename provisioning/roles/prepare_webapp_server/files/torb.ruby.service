@@ -1,0 +1,16 @@
+[Unit]
+Description = isucon8 qualifier webapp in ruby
+
+[Service]
+WorkingDirectory=/home/isucon/torb/webapp/ruby
+EnvironmentFile=/home/isucon/torb/webapp/env.sh
+
+ExecStart = /home/isucon/local/ruby/bin/bundle exec rackup -p 8080
+
+Restart   = always
+Type      = simple
+User      = isucon
+Group     = isucon
+
+[Install]
+WantedBy = multi-user.target

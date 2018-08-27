@@ -3,6 +3,6 @@
   roles:
     - common
     - install_go
-    - prepare_bench_server
     - deploy_torb
+    - prepare_bench_server
     - build_bench

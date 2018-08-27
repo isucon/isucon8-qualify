@@ -8,6 +8,7 @@
     protocol: tcp
     destination_port: 80
     jump: ACCEPT
+    state: present
 
 - name: Put h2o.conf
   become: yes
@@ -23,13 +24,6 @@
     src: php-h2o.conf
     dest: /etc/h2o/php-h2o.conf
 
-- name: Put torb.perl.service
-  become: yes
-  become_user: root
-  copy:
-    src: torb.perl.service
-    dest: /etc/systemd/system/torb.perl.service
-
 - name: Put torb.nodejs.service
   become: yes
   become_user: root
@@ -37,9 +31,47 @@
     src: torb.nodejs.service
     dest: /etc/systemd/system/torb.nodejs.service
 
+- name: Put torb.perl.service
+  become: yes
+  become_user: root
+  copy:
+    src: torb.perl.service
+    dest: /etc/systemd/system/torb.perl.service
+
 - name: Put torb.php.service
   become: yes
   become_user: root
   copy:
     src: torb.php.service
     dest: /etc/systemd/system/torb.php.service
+
+- name: Put torb.ruby.service
+  become: yes
+  become_user: root
+  copy:
+    src: torb.ruby.service
+    dest: /etc/systemd/system/torb.ruby.service
+
+- name: Install for torb.nodejs
+  become: yes
+  become_user: isucon
+  args:
+    chdir: /home/isucon/torb/webapp/nodejs
+  shell: |
+    bash -lc "npm install"
+
+- name: Install for torb.perl
+  become: yes
+  become_user: isucon
+  args:
+    chdir: /home/isucon/torb/webapp/perl
+  shell: |
+    bash -lc "cpanm --installdeps --notest --quiet --force ."
+
+- name: Install for torb.ruby
+  become: yes
+  become_user: isucon
+  args:
+    chdir: /home/isucon/torb/webapp/ruby
+  shell: |
+    bash -lc "bundle install --path=.bundle"
