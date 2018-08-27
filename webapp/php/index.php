@@ -1,3 +1,3 @@
 <?php
 
-phpinfo();
+print 'Hello torb.php';
