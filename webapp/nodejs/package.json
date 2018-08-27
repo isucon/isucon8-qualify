@@ -1,0 +1,7 @@
+{
+  "name": "torb.nodejs",
+  "version": "0.0.0",
+  "description": "torb.nodejs",
+  "main": "index.js",
+  "license": "MIT"
+}
