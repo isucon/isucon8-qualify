@@ -6,5 +6,6 @@
     - install_mariadb
     - install_go
     - install_perl
+    - prepare_webapp_server
     - deploy_torb
     - initialize_db

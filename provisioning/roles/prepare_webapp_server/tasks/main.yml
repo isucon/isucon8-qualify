@@ -26,15 +26,20 @@
 - name: Put torb.perl.service
   become: yes
   become_user: root
-  blockinfile:
-    create: yes
+  copy:
     src: torb.perl.service
     dest: /etc/systemd/system/torb.perl.service
+
+- name: Put torb.nodejs.service
+  become: yes
+  become_user: root
+  copy:
+    src: torb.nodejs.service
+    dest: /etc/systemd/system/torb.nodejs.service
 
 - name: Put torb.php.service
   become: yes
   become_user: root
-  blockinfile:
-    create: yes
+  copy:
     src: torb.php.service
     dest: /etc/systemd/system/torb.php.service
