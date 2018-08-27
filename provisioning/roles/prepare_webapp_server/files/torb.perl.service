@@ -5,7 +5,7 @@ Description = isucon8 qualifier webapp in perl
 WorkingDirectory=/home/isucon/torb/webapp/perl
 EnvironmentFile=/home/isucon/torb/webapp/env.sh
 
-ExecStart = /home/isucon/local/perl/bin/plackup -R lib -R app.psgi -R views -p 8080 app.psgi
+ExecStart = /home/isucon/torb/webapp/perl/local/bin/plackup -R lib -R app.psgi -R views -p 8080 app.psgi
 
 Restart   = always
 Type      = simple

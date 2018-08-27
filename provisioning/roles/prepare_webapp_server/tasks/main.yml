@@ -88,7 +88,7 @@
   args:
     chdir: /home/isucon/torb/webapp/perl
   shell: |
-    bash -lc "cpanm --installdeps --notest --quiet --force ."
+    bash -lc "carton install"
 
 - name: Install for torb.python
   become: yes
