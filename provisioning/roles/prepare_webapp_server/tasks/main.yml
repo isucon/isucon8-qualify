@@ -31,6 +31,13 @@
     src: torb.nodejs.service
     dest: /etc/systemd/system/torb.nodejs.service
 
+- name: Put torb.go.service
+  become: yes
+  become_user: root
+  copy:
+    src: torb.go.service
+    dest: /etc/systemd/system/torb.go.service
+
 - name: Put torb.perl.service
   become: yes
   become_user: root
@@ -66,6 +73,14 @@
     chdir: /home/isucon/torb/webapp/nodejs
   shell: |
     bash -lc "npm install"
+
+- name: Install for torb.go
+  become: yes
+  become_user: isucon
+  args:
+    chdir: /home/isucon/torb/webapp/go
+  shell: |
+    bash -lc "make clean && make deps && make"
 
 - name: Install for torb.perl
   become: yes
