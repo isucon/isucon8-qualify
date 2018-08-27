@@ -45,6 +45,13 @@
     src: torb.php.service
     dest: /etc/systemd/system/torb.php.service
 
+- name: Put torb.python.service
+  become: yes
+  become_user: root
+  copy:
+    src: torb.python.service
+    dest: /etc/systemd/system/torb.python.service
+
 - name: Put torb.ruby.service
   become: yes
   become_user: root
@@ -67,6 +74,14 @@
     chdir: /home/isucon/torb/webapp/perl
   shell: |
     bash -lc "cpanm --installdeps --notest --quiet --force ."
+
+- name: Install for torb.python
+  become: yes
+  become_user: isucon
+  args:
+    chdir: /home/isucon/torb/webapp/python
+  shell: |
+    bash -lc "sh setup.sh"
 
 - name: Install for torb.ruby
   become: yes
