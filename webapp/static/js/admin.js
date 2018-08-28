@@ -10,10 +10,25 @@ const DOM = {
   eventRegistrationModal: $('#event-registration-modal'),
 };
 
+const Errors = {
+  login_required:        'ログインしてください',
+  duplicated:            'すでに登録済です',
+  forbidden:             '権限がありません',
+  authentication_failed: '認証に失敗しました',
+  not_found:             '存在しません',
+  invalid_rank:          'そのランクを指定することはできません',
+  invalid_event:         'そのイベントを指定することはできません',
+  invalid_sheet:         'そのシートを指定することはできません',
+  not_reserved:          'その席は予約されていません',
+  not_permitted:         'その操作はできません',
+  unwknown:              '不明なエラーです',
+};
+
 function showError(err) {
+  const msg = Errors[err];
   setTimeout(() => {
-    alert(err);
-  }, 100);
+    alert(msg || err);
+  }, 300);
 }
 
 const API = (() => {
@@ -155,8 +170,8 @@ const EventModal = new Vue({
       return this.event.sheets[sheetRank].remains === 0;
     },
     publish() {
-      const message = 'Do you publish this event?';
-      confirm('Edit event', message).then(() => {
+      const message = 'このイベントを公開しますか？';
+      confirm('イベントの公開', message).then(() => {
         return API.Event.edit(this.event.id, true, false);
       }).then((event) => {
         this.event = event;
@@ -165,8 +180,8 @@ const EventModal = new Vue({
       });
     },
     close() {
-      const message = 'Do you close this event? (You CANNOT back to public it.)';
-      confirm('Edit event', message).then(() => {
+      const message = 'このイベントを終了しますか？ (戻すことはできません)';
+      confirm('イベントの終了', message).then(() => {
         return API.Event.edit(this.event.id, false, true);
       }).then((event) => {
         this.event = event;
@@ -175,8 +190,8 @@ const EventModal = new Vue({
       });
     },
     disappear() {
-      const message = 'Do you disappear this event?';
-      confirm('Edit event', message).then(() => {
+      const message = 'このイベントの公開を停止しますか？';
+      confirm('イベントの公開停止', message).then(() => {
         return API.Event.edit(this.event.id, false, false);
       }).then((event) => {
         this.event = event;
@@ -219,7 +234,7 @@ const MenuBar = new Vue({
       DOM.loginModal.modal('show');
     },
     signOut () {
-      confirm('Sign Out?', 'Do you really sign out?').then(() => {
+      confirm('サインアウト', '本当にサインアウトしますか？').then(() => {
         return API.Administrator.logout();
       }).then(() => {
         this.currentAdministrator = null;

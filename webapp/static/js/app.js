@@ -45,8 +45,6 @@ function hideWaitingDialog() {
   waitingDialog.hide();
 }
 
-window.addEventListener("unhandledrejection", showError);
-
 const API = (() => {
   const handleJSON = res => {
     if (res.status === 204) {
@@ -188,8 +186,8 @@ const EventModal = new Vue({
       return this.event.sheets[sheetRank].remains === 0;
     },
     reserveSheet (sheetRank) {
-      const message = sheetRank+': '+this.event.sheets[sheetRank].price+'円';
-      confirm('Sheet Reservation', message).then(() => {
+      const message = sheetRank+'席: '+this.event.sheets[sheetRank].price+'円を予約購入します。よろしいですか？';
+      confirm('席の予約', message).then(() => {
         return showWaitingDialog('Processing...');
       }).then(() => {
         return API.Event.reserveSheet(this.event.id, sheetRank);
@@ -200,14 +198,14 @@ const EventModal = new Vue({
         this.event.sheets[sheetRank].remains--;
         this.event.remains--;
         this.$forceUpdate();
-      }).finally(hideWaitingDialog);
+      }).catch(showError).finally(hideWaitingDialog);
     },
     freeSheet (sheetRank, sheetNum) {
       const sheet = this.event.sheets[sheetRank].detail[sheetNum-1];
       if (!sheet.mine) return;
 
-      const message = 'Do you cancel the sheet reservation?: '+sheetRank+'-'+sheet.num;
-      confirm('Cancel Sheet Reservation', message).then(() => {
+      const message = '予約をキャンセルしますか？: '+sheetRank+'-'+sheet.num;
+      confirm('予約のキャンセル', message).then(() => {
         return showWaitingDialog('Processing...');
       }).then(() => {
         return API.Event.freeSheet(this.event.id, sheetRank, sheetNum);
@@ -217,7 +215,7 @@ const EventModal = new Vue({
         this.event.sheets[sheetRank].remains++;
         this.event.remains++;
         this.$forceUpdate();
-      }).finally(hideWaitingDialog);
+      }).catch(showError).finally(hideWaitingDialog);
     },
   },
 });
@@ -289,7 +287,7 @@ function updateMyPageModal(userId) {
 }
 
 function openMyPageModal(userId) {
-  showWaitingDialog().then(() => updateMyPageModal(userId)).then(() => DOM.myPageModal.modal('show')).finally(hideWaitingDialog);
+  showWaitingDialog().then(() => updateMyPageModal(userId)).then(() => DOM.myPageModal.modal('show')).catch(showError).finally(hideWaitingDialog);
 }
 
 const MenuBar = new Vue({
@@ -308,11 +306,11 @@ const MenuBar = new Vue({
       DOM.loginModal.modal('show');
     },
     signOut () {
-      confirm('Sign Out?', 'Do you really sign out?').then(() => {
+      confirm('サインアウト', '本当にサインアウトしますか?').then(() => {
         return API.User.logout();
       }).then(() => {
         this.currentUser = null;
-      });
+      }).catch(showError);
     },
     showMyPage() {
       openMyPageModal(this.currentUser.id);
@@ -335,7 +333,7 @@ new Vue({
       }).then(user => {
         MenuBar.$data.currentUser = user;
         DOM.loginModal.modal('hide');
-      }).finally(hideWaitingDialog);
+      }).catch(showError).finally(hideWaitingDialog);
     },
   },
 });
@@ -360,7 +358,7 @@ new Vue({
       }).then(user => {
         MenuBar.$data.currentUser = user;
         DOM.registerModal.modal('hide');
-      }).finally(hideWaitingDialog);
+      }).catch(showError).finally(hideWaitingDialog);
     },
   },
 });
