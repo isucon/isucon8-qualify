@@ -1,7 +1,15 @@
 {
   "name": "torb.nodejs",
-  "version": "0.0.0",
+  "version": "1.0.0",
   "description": "torb.nodejs",
-  "main": "index.js",
-  "license": "MIT"
+  "main": "build/index.js",
+  "license": "MIT",
+  "dependencies": {
+    "@types/node": "^10",
+    "fastify": "^1",
+    "source-map-support": "^0.5",
+    "trace-error": "0.0.7",
+    "ts-node": "^7",
+    "typescript": "^3"
+  }
 }
