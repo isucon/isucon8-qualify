@@ -342,11 +342,12 @@ func (s *State) Init() {
 		s.pushInitialAdministratorLocked(u)
 	}
 
+	createdAt := time.Time{}
 	for _, event := range DataSet.Events {
-		s.pushNewEventLocked(event, "Init")
+		s.pushNewEventLocked(event, createdAt, "Init")
 	}
 	for _, event := range DataSet.ClosedEvents {
-		s.pushInitialClosedEventLocked(event)
+		s.pushInitialClosedEventLocked(event, createdAt)
 	}
 
 	s.reservations = map[uint]*Reservation{}
@@ -544,20 +545,20 @@ func (s *State) CreateNewEvent() (*Event, func(caller string)) {
 
 	// NOTE: push() function pushes into s.events, does not push to s.newEvents.
 	// You should call push() after you verify that a new event is successfully created on the server.
-	return event, func(caller string) { s.PushNewEvent(event, caller) }
+	return event, func(caller string) { s.PushNewEvent(event, time.Now(), caller) }
 }
 
-func (s *State) PushNewEvent(event *Event, caller string) {
+func (s *State) PushNewEvent(event *Event, createdAt time.Time, caller string) {
 	s.mtx.Lock()
 	defer s.mtx.Unlock()
 
-	s.pushNewEventLocked(event, caller)
+	s.pushNewEventLocked(event, createdAt, caller)
 }
 
-func (s *State) pushNewEventLocked(event *Event, caller string) {
+func (s *State) pushNewEventLocked(event *Event, createdAt time.Time, caller string) {
 	log.Printf("debug: newEventPush %d %s %d Public:%t Closed:%t Remains:%d (Caller:%s)\n", event.ID, event.Title, event.Price, event.PublicFg, event.ClosedFg, event.Remains, caller)
 
-	event.CreatedAt = time.Now()
+	event.CreatedAt = createdAt
 	s.events = append(s.events, event)
 
 	// already sold-out event
@@ -583,8 +584,8 @@ func (s *State) pushNewEventLocked(event *Event, caller string) {
 }
 
 // Initial closed events are all reserved and closed
-func (s *State) pushInitialClosedEventLocked(event *Event) {
-	event.CreatedAt = time.Now()
+func (s *State) pushInitialClosedEventLocked(event *Event, createdAt time.Time) {
+	event.CreatedAt = createdAt
 	s.events = append(s.events, event)
 
 	for _, sheetKind := range DataSet.SheetKinds {

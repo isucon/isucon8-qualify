@@ -60,15 +60,6 @@ func checkJsonErrorResponse(errorCode string) func(res *http.Response, body *byt
 	}
 }
 
-func checkRemains(remainsBeforeRequest int32, maybeReservedCountBeforeRequest int32, remains int32, remainsAfterResponse int32, maybeCanceledCountAfterResponse int32) error {
-	log.Printf("debug: remainsBeforeRequest:%d - maybeReservedCountBeforeRequest:%d <= remains:%d <= remainsAfterResponse:%d + maybeCanceledCountAfterResponse:%d\n",
-		remainsBeforeRequest, maybeReservedCountBeforeRequest, remains, remainsAfterResponse, maybeCanceledCountAfterResponse)
-	if remainsBeforeRequest-maybeReservedCountBeforeRequest <= remains && remains <= remainsAfterResponse+maybeCanceledCountAfterResponse {
-		return nil
-	}
-	return &fatalError{}
-}
-
 func checkEventList(state *State, eventsBeforeRequest []*Event, events []JsonEvent) error {
 	ok := sort.SliceIsSorted(events, func(i, j int) bool {
 		return events[i].ID < events[j].ID
@@ -96,6 +87,16 @@ func checkEventList(state *State, eventsBeforeRequest []*Event, events []JsonEve
 	}
 
 	msg := "正しいイベント一覧を取得できません"
+
+	checkRemains := func(eventID uint, remainsBeforeRequest int32, maybeReservedCountBeforeRequest int32, remains int32, remainsAfterResponse int32, maybeCanceledCountAfterResponse int32) error {
+		log.Printf("debug: EventID:%d remainsBeforeRequest:%d - maybeReservedCountBeforeRequest:%d <= remains:%d <= remainsAfterResponse:%d + maybeCanceledCountAfterResponse:%d\n",
+			eventID, remainsBeforeRequest, maybeReservedCountBeforeRequest, remains, remainsAfterResponse, maybeCanceledCountAfterResponse)
+		if remainsBeforeRequest-maybeReservedCountBeforeRequest <= remains && remains <= remainsAfterResponse+maybeCanceledCountAfterResponse {
+			return nil
+		}
+		return &fatalError{}
+	}
+
 	for _, eventBeforeRequest := range eventsBeforeRequest {
 		e, ok := eventsMap[eventBeforeRequest.ID]
 		if !ok {
@@ -124,13 +125,13 @@ func checkEventList(state *State, eventsBeforeRequest []*Event, events []JsonEve
 			log.Printf("debug: checkEventList: eventAfterResponse did not exist (eventID:%d)\n", e.ID)
 			continue
 		}
-		err := checkRemains(eventBeforeRequest.Remains, eventBeforeRequest.MaybeReservedCount, int32(e.Remains), eventAfterResponse.Remains, eventAfterResponse.MaybeCanceledCount)
+		err := checkRemains(e.ID, eventBeforeRequest.Remains, eventBeforeRequest.MaybeReservedCount, int32(e.Remains), eventAfterResponse.Remains, eventAfterResponse.MaybeCanceledCount)
 		if err != nil {
 			return fatalErrorf("イベント(id:%d)の総残座席数が正しくありません", e.ID)
 		}
 		for _, sheetKind := range DataSet.SheetKinds {
 			rank := sheetKind.Rank
-			err = checkRemains(*eventBeforeRequest.RT.getPointer(rank), *eventBeforeRequest.MaybeReservedRT.getPointer(rank), int32(e.Sheets[rank].Remains), *eventAfterResponse.RT.getPointer(rank), *eventAfterResponse.MaybeCanceledRT.getPointer(rank))
+			err = checkRemains(e.ID, *eventBeforeRequest.RT.getPointer(rank), *eventBeforeRequest.MaybeReservedRT.getPointer(rank), int32(e.Sheets[rank].Remains), *eventAfterResponse.RT.getPointer(rank), *eventAfterResponse.MaybeCanceledRT.getPointer(rank))
 			if err != nil {
 				return fatalErrorf("イベント(id:%d)の%s席の残座席数が正しくありません", e.ID, rank)
 			}

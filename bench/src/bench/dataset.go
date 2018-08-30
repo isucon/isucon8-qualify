@@ -23,6 +23,7 @@ var (
 	DataPath = "./data"
 	DataSet  BenchDataSet
 	Rng      = rand.New(rand.NewSource(42))
+	JST      = time.FixedZone("Asia/Tokyo", 9*60*60)
 )
 
 func reverse(s string) string {
@@ -188,8 +189,8 @@ func prepareSheetDataSet() {
 }
 
 func prepareReservationsDataSet() {
-	minUnixTimestamp := time.Date(2011, 8, 27, 10, 0, 0, 0, time.Local).Unix()
-	maxUnixTimestamp := time.Date(2017, 10, 21, 10, 0, 0, 0, time.Local).Unix()
+	minUnixTimestamp := time.Date(2011, 8, 27, 10, 0, 0, 0, JST).Unix()
+	maxUnixTimestamp := time.Date(2017, 10, 21, 10, 0, 0, 0, JST).Unix()
 	for _, event := range append(DataSet.Events, DataSet.ClosedEvents...) {
 		if event.Remains > 0 {
 			continue
