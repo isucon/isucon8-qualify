@@ -46,14 +46,15 @@ func checkRedirectStatusCode(res *http.Response, body *bytes.Buffer) error {
 
 func checkJsonErrorResponse(errorCode string) func(res *http.Response, body *bytes.Buffer) error {
 	return func(res *http.Response, body *bytes.Buffer) error {
-		dec := json.NewDecoder(body)
+		bytes := body.Bytes()
 		jsonError := JsonError{}
+		dec := json.NewDecoder(body)
 		err := dec.Decode(&jsonError)
 		if err != nil {
-			return fatalErrorf("Jsonのデコードに失敗 %v", err)
+			return fatalErrorf("Jsonのデコードに失敗 %s %v", string(bytes), err)
 		}
 		if jsonError.Error != errorCode {
-			return fatalErrorf("正しいエラーコードを取得できません")
+			return fatalErrorf("正しいエラーコードを取得できません %s", jsonError.Error)
 		}
 		return nil
 	}
@@ -120,12 +121,13 @@ func checkEventList(state *State, eventsBeforeRequest []*Event, events []JsonEve
 
 func checkJsonFullUserResponse(check func(*JsonFullUser) error) func(res *http.Response, body *bytes.Buffer) error {
 	return func(res *http.Response, body *bytes.Buffer) error {
+		bytes := body.Bytes()
 		dec := json.NewDecoder(body)
 
 		var v JsonFullUser
 		err := dec.Decode(&v)
 		if err != nil {
-			return fatalErrorf("Jsonのデコードに失敗 %v", err)
+			return fatalErrorf("Jsonのデコードに失敗 %s %v", string(bytes), err)
 		}
 
 		return check(&v)
@@ -491,11 +493,12 @@ func CheckStaticFiles(ctx context.Context, state *State) error {
 
 func checkJsonUserCreateResponse(user *AppUser) func(res *http.Response, body *bytes.Buffer) error {
 	return func(res *http.Response, body *bytes.Buffer) error {
+		bytes := body.Bytes()
 		dec := json.NewDecoder(body)
 		jsonUser := JsonUser{}
 		err := dec.Decode(&jsonUser)
 		if err != nil {
-			return fatalErrorf("Jsonのデコードに失敗 %v", err)
+			return fatalErrorf("Jsonのデコードに失敗 %s %v", string(bytes), err)
 		}
 		if jsonUser.Nickname != user.Nickname {
 			log.Printf("warn: expected nickname=%s but got nickname=%s\n", user.Nickname, jsonUser.Nickname)
@@ -509,11 +512,12 @@ func checkJsonUserCreateResponse(user *AppUser) func(res *http.Response, body *b
 
 func checkJsonUserResponse(user *AppUser) func(res *http.Response, body *bytes.Buffer) error {
 	return func(res *http.Response, body *bytes.Buffer) error {
+		bytes := body.Bytes()
 		dec := json.NewDecoder(body)
 		jsonUser := JsonUser{}
 		err := dec.Decode(&jsonUser)
 		if err != nil {
-			return fatalErrorf("Jsonのデコードに失敗 %v", err)
+			return fatalErrorf("Jsonのデコードに失敗 %s %v", string(bytes), err)
 		}
 		if jsonUser.ID != user.ID {
 			log.Printf("warn: expected id=%d but got id=%d\n", user.ID, jsonUser.ID)
@@ -1029,11 +1033,12 @@ func CheckReserveSheet(ctx context.Context, state *State) error {
 
 func checkJsonAdministratorResponse(admin *Administrator) func(res *http.Response, body *bytes.Buffer) error {
 	return func(res *http.Response, body *bytes.Buffer) error {
+		bytes := body.Bytes()
 		dec := json.NewDecoder(body)
 		jsonAdmin := JsonAdministrator{}
 		err := dec.Decode(&jsonAdmin)
 		if err != nil {
-			return fatalErrorf("Jsonのデコードに失敗 %v", err)
+			return fatalErrorf("Jsonのデコードに失敗 %s %v", string(bytes), err)
 		}
 		if jsonAdmin.ID != admin.ID || jsonAdmin.Nickname != admin.Nickname {
 			return fatalErrorf("正しい管理者情報を取得できません")
@@ -1128,11 +1133,12 @@ func CheckAdminLogin(ctx context.Context, state *State) error {
 
 func checkJsonFullEventCreateResponse(event *Event) func(res *http.Response, body *bytes.Buffer) error {
 	return func(res *http.Response, body *bytes.Buffer) error {
+		bytes := body.Bytes()
 		dec := json.NewDecoder(body)
 		jsonEvent := JsonFullEvent{}
 		err := dec.Decode(&jsonEvent)
 		if err != nil {
-			return fatalErrorf("Jsonのデコードに失敗 %v", err)
+			return fatalErrorf("Jsonのデコードに失敗 %s %v", string(bytes), err)
 		}
 		if jsonEvent.Title != event.Title || jsonEvent.Price != event.Price || jsonEvent.Public != event.PublicFg || jsonEvent.Closed != event.ClosedFg {
 			return fatalErrorf("正しいイベントを取得できません")
@@ -1146,11 +1152,12 @@ func checkJsonFullEventCreateResponse(event *Event) func(res *http.Response, bod
 
 func checkJsonFullEventResponse(event *Event) func(res *http.Response, body *bytes.Buffer) error {
 	return func(res *http.Response, body *bytes.Buffer) error {
+		bytes := body.Bytes()
 		dec := json.NewDecoder(body)
 		jsonEvent := JsonFullEvent{}
 		err := dec.Decode(&jsonEvent)
 		if err != nil {
-			return fatalErrorf("Jsonのデコードに失敗 %v", err)
+			return fatalErrorf("Jsonのデコードに失敗 %s %v", string(bytes), err)
 		}
 		if jsonEvent.ID != event.ID || jsonEvent.Title != event.Title || jsonEvent.Price != event.Price || jsonEvent.Public != event.PublicFg {
 			return fatalErrorf("正しいイベントを取得できません")
@@ -1161,11 +1168,12 @@ func checkJsonFullEventResponse(event *Event) func(res *http.Response, body *byt
 
 func checkJsonEventResponse(event *Event) func(res *http.Response, body *bytes.Buffer) error {
 	return func(res *http.Response, body *bytes.Buffer) error {
+		bytes := body.Bytes()
 		dec := json.NewDecoder(body)
 		jsonEvent := JsonEvent{}
 		err := dec.Decode(&jsonEvent)
 		if err != nil {
-			return fatalErrorf("Jsonのデコードに失敗 %v", err)
+			return fatalErrorf("Jsonのデコードに失敗 %s %v", string(bytes), err)
 		}
 		if jsonEvent.ID != event.ID || jsonEvent.Title != event.Title {
 			return fatalErrorf("正しいイベントを取得できません")
@@ -1899,11 +1907,12 @@ func popOrCreateEventSheet(ctx context.Context, state *State) (*EventSheet, func
 
 func checkJsonReservationResponse(reserved *JsonReservation) func(res *http.Response, body *bytes.Buffer) error {
 	return func(res *http.Response, body *bytes.Buffer) error {
+		bytes := body.Bytes()
 		dec := json.NewDecoder(body)
 		resReserved := JsonReservation{}
 		err := dec.Decode(&resReserved)
 		if err != nil {
-			return fatalErrorf("Jsonのデコードに失敗 %v", err)
+			return fatalErrorf("Jsonのデコードに失敗 %s %v", string(bytes), err)
 		}
 		if resReserved.SheetRank != reserved.SheetRank {
 			return fatalErrorf("正しい予約情報を取得できません")
