@@ -326,6 +326,10 @@ func fbadf(w io.Writer, f string, params ...interface{}) {
 			} else {
 				params[i] = strconv.Quote("0")
 			}
+		case uint:
+			params[i] = strconv.FormatInt(int64(v), 10)
+		case string:
+			params[i] = strconv.Quote(v)
 		default:
 			params[i] = strconv.Quote(fmt.Sprint(v))
 		}
@@ -334,6 +338,8 @@ func fbadf(w io.Writer, f string, params ...interface{}) {
 }
 
 func GenerateInitialDataSetSQL(outputPath string) {
+	log.Printf("generate dataset SQL: %s\n", outputPath)
+
 	outFile, err := os.Create(outputPath)
 	must(err)
 	defer outFile.Close()
@@ -389,4 +395,6 @@ func GenerateInitialDataSetSQL(outputPath string) {
 	fbadf(w, ";")
 
 	fbadf(w, "COMMIT;")
+
+	log.Printf("created: %s\n", outputPath)
 }
