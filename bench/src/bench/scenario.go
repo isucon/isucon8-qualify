@@ -1950,6 +1950,7 @@ func reserveSheet(ctx context.Context, state *State, checker *Checker, userID ui
 	state.DeleteReserveLog(logID, reservation)
 	eventSheet.Num = reserved.SheetNum
 	state.CommitReservation(reservation)
+	event.CommitGetTicket(rank)
 
 	return reservation, nil
 }
@@ -1969,6 +1970,10 @@ func cancelSheet(ctx context.Context, state *State, checker *Checker, eventSheet
 	rank := reservation.SheetRank
 	sheetNum := reservation.SheetNum
 
+	event := state.FindEventByID(eventID)
+	assert(event != nil)
+	event.TryReleaseTicket(rank)
+
 	state.BeginCancelReservation(reservation)
 	logID := state.AppendCancelLog(reservation)
 	err = checker.Play(ctx, &CheckAction{
@@ -1984,10 +1989,7 @@ func cancelSheet(ctx context.Context, state *State, checker *Checker, eventSheet
 	state.CommitCancelReservation(reservation)
 	state.DeleteCancelLog(logID, reservation)
 	eventSheet.Num = NonReservedNum
-
-	event := state.FindEventByID(eventID)
-	assert(event != nil)
-	event.ReleaseTicket(rank)
+	event.CommitReleaseTicket(rank)
 
 	return false, nil
 }

@@ -102,13 +102,13 @@ type Event struct {
 	Price     uint
 	CreatedAt time.Time
 
-	// Remains are decremented before request, and incremented after response.
-	// That is, if timeout occurs, remains in bench could be smaller than the server-side, but never be larger.
-	RemainsMtx sync.Mutex
-	Remains    int32
-
-	// Represents remains for each rank
-	RT ReservationTickets
+	RemainsMtx         sync.Mutex
+	Remains            int32              // -- or ++ after reserve or cancel response respectively
+	MaybeReservedCount int32              // ++ before reserve request, -- after reserve response
+	MaybeCanceledCount int32              // ++ before cancel request, -- after cancel response
+	RT                 ReservationTickets // Represents remains for each rank
+	MaybeReservedRT    ReservationTickets
+	MaybeCanceledRT    ReservationTickets
 }
 
 type ReservationTickets struct {
@@ -120,32 +120,72 @@ func (event *Event) TryGetTicket(rank string) bool {
 	event.RemainsMtx.Lock()
 	defer event.RemainsMtx.Unlock()
 
+	event.MaybeReservedCount++
+	*event.MaybeReservedRT.getPointer(rank)++
+
 	rankRemains := event.RT.getPointer(rank)
-
-	event.Remains--
-	if event.Remains < 0 {
-		event.Remains++
-	}
-
-	*rankRemains--
-	log.Printf("debug: tryGetTicket: rank=%s ticketID=%d\n", rank, *rankRemains)
-	if *rankRemains < 0 {
-		*rankRemains++
+	rankMaybeReservedCount := event.MaybeReservedRT.getPointer(rank)
+	log.Printf("debug: tryGetTicket: rank=%s ticketID=%d\n", rank, *rankRemains-*rankMaybeReservedCount)
+	if *rankRemains-*rankMaybeReservedCount < 0 {
 		return false
 	}
 
 	return true
 }
 
-// Call this after cancel response succeeds
-func (event *Event) ReleaseTicket(rank string) {
+// Call this after reserve response
+func (event *Event) CommitGetTicket(rank string) {
 	event.RemainsMtx.Lock()
 	defer event.RemainsMtx.Unlock()
 
+	remains := &event.Remains
 	rankRemains := event.RT.getPointer(rank)
 
-	event.Remains++
+	*remains--
+	if *remains < 0 { // should never happen
+		*remains++
+	} else {
+		event.MaybeReservedCount--
+	}
+
+	*rankRemains--
+	if *rankRemains < 0 { // should never happen
+		*rankRemains++
+	} else {
+		*event.MaybeReservedRT.getPointer(rank)--
+	}
+}
+
+// Call this before cancel request
+func (event *Event) TryReleaseTicket(rank string) {
+	event.RemainsMtx.Lock()
+	defer event.RemainsMtx.Unlock()
+
+	event.MaybeCanceledCount++
+	*event.MaybeCanceledRT.getPointer(rank)++
+}
+
+// Call this after cancel response
+func (event *Event) CommitReleaseTicket(rank string) {
+	event.RemainsMtx.Lock()
+	defer event.RemainsMtx.Unlock()
+
+	remains := &event.Remains
+	rankRemains := event.RT.getPointer(rank)
+
+	*remains++
+	if *remains > int32(DataSet.SheetTotal) { // should never happen
+		*remains--
+	} else {
+		event.MaybeCanceledCount--
+	}
+
 	*rankRemains++
+	if *rankRemains > int32(DataSet.SheetKindMap[rank].Total) { // should never happen
+		*rankRemains--
+	} else {
+		*event.MaybeCanceledRT.getPointer(rank)--
+	}
 }
 
 func (rt *ReservationTickets) getPointer(rank string) *int32 {
@@ -219,6 +259,7 @@ type BenchDataSet struct {
 	Events       []*Event
 	ClosedEvents []*Event
 
+	SheetTotal   uint
 	SheetKinds   []*SheetKind
 	SheetKindMap map[string]*SheetKind
 	Sheets       []*Sheet
@@ -492,7 +533,7 @@ func (s *State) CreateNewEvent() (*Event, func(caller string)) {
 		PublicFg: true,
 		ClosedFg: false,
 		Price:    1000 + uint(rand.Intn(10)*1000),
-		Remains:  int32(SheetTotal),
+		Remains:  int32(DataSet.SheetTotal),
 		RT: ReservationTickets{
 			S: int32(DataSet.SheetKindMap["S"].Total),
 			A: int32(DataSet.SheetKindMap["A"].Total),

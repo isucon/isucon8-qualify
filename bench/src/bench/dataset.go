@@ -25,8 +25,6 @@ var (
 	Rng      = rand.New(rand.NewSource(42))
 )
 
-var SheetTotal uint // calculated in prepareSheetDataSet
-
 func reverse(s string) string {
 	r := []rune(s)
 	for i, j := 0, len(r)-1; i < len(r)/2; i, j = i+1, j-1 {
@@ -119,7 +117,7 @@ func prepareEventDataSet() {
 		remains, _ := strconv.Atoi(line[4])
 
 		// XXX: to calculate ReserveTicket
-		assert(remains == 0 || remains == int(SheetTotal))
+		assert(remains == 0 || remains == int(DataSet.SheetTotal))
 
 		event := &Event{
 			ID:       nextID,
@@ -129,7 +127,7 @@ func prepareEventDataSet() {
 			Price:    uint(price),
 			Remains:  int32(remains),
 		}
-		if remains == int(SheetTotal) {
+		if remains == int(DataSet.SheetTotal) {
 			event.RT.S = int32(DataSet.SheetKindMap["S"].Total)
 			event.RT.A = int32(DataSet.SheetKindMap["A"].Total)
 			event.RT.B = int32(DataSet.SheetKindMap["B"].Total)
@@ -174,7 +172,7 @@ func prepareSheetDataSet() {
 
 	nextID := uint(1)
 	for _, sheetKind := range DataSet.SheetKinds {
-		SheetTotal += sheetKind.Total
+		DataSet.SheetTotal += sheetKind.Total
 		DataSet.SheetKindMap[sheetKind.Rank] = sheetKind
 		for i := uint(0); i < sheetKind.Total; i++ {
 			sheet := &Sheet{
