@@ -102,13 +102,13 @@ type Event struct {
 	Price     uint
 	CreatedAt time.Time
 
-	// Remains are decremented before request, and incremented after response.
-	// That is, if timeout occurs, remains in bench could be smaller than the server-side, but never be larger.
-	RemainsMtx sync.Mutex
-	Remains    int32
-
-	// Represents remains for each rank
-	RT ReservationTickets
+	RemainsMtx         sync.Mutex
+	Remains            int32              // -- or ++ after reserve or cancel response respectively
+	MaybeReservedCount int32              // ++ before reserve request, -- after reserve response
+	MaybeCanceledCount int32              // ++ before cancel request, -- after cancel response
+	RT                 ReservationTickets // Represents remains for each rank
+	MaybeReservedRT    ReservationTickets
+	MaybeCanceledRT    ReservationTickets
 }
 
 type ReservationTickets struct {
@@ -120,32 +120,69 @@ func (event *Event) TryGetTicket(rank string) bool {
 	event.RemainsMtx.Lock()
 	defer event.RemainsMtx.Unlock()
 
+	event.MaybeReservedCount++
+	rankMaybeReservedCount := event.MaybeReservedRT.getPointer(rank)
+	*rankMaybeReservedCount++
+
 	rankRemains := event.RT.getPointer(rank)
-
-	event.Remains--
-	if event.Remains < 0 {
-		event.Remains++
-	}
-
-	*rankRemains--
-	log.Printf("debug: tryGetTicket: rank=%s ticketID=%d\n", rank, *rankRemains)
-	if *rankRemains < 0 {
-		*rankRemains++
-		return false
-	}
-
-	return true
+	ticketID := *rankRemains - *rankMaybeReservedCount
+	log.Printf("debug: tryGetTicket: eventID=%d rank=%s remains=%d maybeReserved=%d ticketID=%d ok:%t\n", event.ID, rank, *rankRemains, *rankMaybeReservedCount, ticketID, ticketID >= 0)
+	return ticketID >= 0
 }
 
-// Call this after cancel response succeeds
-func (event *Event) ReleaseTicket(rank string) {
+// Call this after reserve response
+func (event *Event) CommitGetTicket(rank string) {
 	event.RemainsMtx.Lock()
 	defer event.RemainsMtx.Unlock()
 
+	remains := &event.Remains
 	rankRemains := event.RT.getPointer(rank)
 
-	event.Remains++
+	*remains--
+	if *remains < 0 { // should never happen
+		*remains++
+	} else {
+		event.MaybeReservedCount--
+	}
+
+	*rankRemains--
+	if *rankRemains < 0 { // should never happen
+		*rankRemains++
+	} else {
+		*event.MaybeReservedRT.getPointer(rank)--
+	}
+}
+
+// Call this before cancel request
+func (event *Event) TryReleaseTicket(rank string) {
+	event.RemainsMtx.Lock()
+	defer event.RemainsMtx.Unlock()
+
+	event.MaybeCanceledCount++
+	*event.MaybeCanceledRT.getPointer(rank)++
+}
+
+// Call this after cancel response
+func (event *Event) CommitReleaseTicket(rank string) {
+	event.RemainsMtx.Lock()
+	defer event.RemainsMtx.Unlock()
+
+	remains := &event.Remains
+	rankRemains := event.RT.getPointer(rank)
+
+	*remains++
+	if *remains > int32(DataSet.SheetTotal) { // should never happen
+		*remains--
+	} else {
+		event.MaybeCanceledCount--
+	}
+
 	*rankRemains++
+	if *rankRemains > int32(DataSet.SheetKindMap[rank].Total) { // should never happen
+		*rankRemains--
+	} else {
+		*event.MaybeCanceledRT.getPointer(rank)--
+	}
 }
 
 func (rt *ReservationTickets) getPointer(rank string) *int32 {
@@ -219,6 +256,7 @@ type BenchDataSet struct {
 	Events       []*Event
 	ClosedEvents []*Event
 
+	SheetTotal   uint
 	SheetKinds   []*SheetKind
 	SheetKindMap map[string]*SheetKind
 	Sheets       []*Sheet
@@ -301,11 +339,12 @@ func (s *State) Init() {
 		s.pushInitialAdministratorLocked(u)
 	}
 
+	createdAt := time.Time{}
 	for _, event := range DataSet.Events {
-		s.pushNewEventLocked(event, "Init")
+		s.pushNewEventLocked(event, createdAt, "Init")
 	}
 	for _, event := range DataSet.ClosedEvents {
-		s.pushInitialClosedEventLocked(event)
+		s.pushInitialClosedEventLocked(event, createdAt)
 	}
 
 	s.reservations = map[uint]*Reservation{}
@@ -492,7 +531,7 @@ func (s *State) CreateNewEvent() (*Event, func(caller string)) {
 		PublicFg: true,
 		ClosedFg: false,
 		Price:    1000 + uint(rand.Intn(10)*1000),
-		Remains:  int32(SheetTotal),
+		Remains:  int32(DataSet.SheetTotal),
 		RT: ReservationTickets{
 			S: int32(DataSet.SheetKindMap["S"].Total),
 			A: int32(DataSet.SheetKindMap["A"].Total),
@@ -503,20 +542,20 @@ func (s *State) CreateNewEvent() (*Event, func(caller string)) {
 
 	// NOTE: push() function pushes into s.events, does not push to s.newEvents.
 	// You should call push() after you verify that a new event is successfully created on the server.
-	return event, func(caller string) { s.PushNewEvent(event, caller) }
+	return event, func(caller string) { s.PushNewEvent(event, time.Now(), caller) }
 }
 
-func (s *State) PushNewEvent(event *Event, caller string) {
+func (s *State) PushNewEvent(event *Event, createdAt time.Time, caller string) {
 	s.mtx.Lock()
 	defer s.mtx.Unlock()
 
-	s.pushNewEventLocked(event, caller)
+	s.pushNewEventLocked(event, createdAt, caller)
 }
 
-func (s *State) pushNewEventLocked(event *Event, caller string) {
+func (s *State) pushNewEventLocked(event *Event, createdAt time.Time, caller string) {
 	log.Printf("debug: newEventPush %d %s %d Public:%t Closed:%t Remains:%d (Caller:%s)\n", event.ID, event.Title, event.Price, event.PublicFg, event.ClosedFg, event.Remains, caller)
 
-	event.CreatedAt = time.Now()
+	event.CreatedAt = createdAt
 	s.events = append(s.events, event)
 
 	// already sold-out event
@@ -542,8 +581,8 @@ func (s *State) pushNewEventLocked(event *Event, caller string) {
 }
 
 // Initial closed events are all reserved and closed
-func (s *State) pushInitialClosedEventLocked(event *Event) {
-	event.CreatedAt = time.Now()
+func (s *State) pushInitialClosedEventLocked(event *Event, createdAt time.Time) {
+	event.CreatedAt = createdAt
 	s.events = append(s.events, event)
 
 	for _, sheetKind := range DataSet.SheetKinds {
@@ -566,12 +605,27 @@ func (s *State) FindEventByID(id uint) *Event {
 	return nil
 }
 
+// Returns a shallow copy of s.events
 func (s *State) GetEvents() (events []*Event) {
 	s.mtx.Lock()
 	defer s.mtx.Unlock()
 
 	events = make([]*Event, len(s.events))
 	copy(events, s.events)
+	return
+}
+
+// Returns a deep copy of s.events
+func (s *State) GetEventsCopy() (events []*Event) {
+	s.mtx.Lock()
+	defer s.mtx.Unlock()
+
+	events = make([]*Event, 0, len(s.events))
+	for _, e := range s.events {
+		event := *e // copy
+		events = append(events, &event)
+	}
+
 	return
 }
 

@@ -23,9 +23,8 @@ var (
 	DataPath = "./data"
 	DataSet  BenchDataSet
 	Rng      = rand.New(rand.NewSource(42))
+	JST      = time.FixedZone("Asia/Tokyo", 9*60*60)
 )
-
-var SheetTotal uint // calculated in prepareSheetDataSet
 
 func reverse(s string) string {
 	r := []rune(s)
@@ -119,7 +118,7 @@ func prepareEventDataSet() {
 		remains, _ := strconv.Atoi(line[4])
 
 		// XXX: to calculate ReserveTicket
-		assert(remains == 0 || remains == int(SheetTotal))
+		assert(remains == 0 || remains == int(DataSet.SheetTotal))
 
 		event := &Event{
 			ID:       nextID,
@@ -129,7 +128,7 @@ func prepareEventDataSet() {
 			Price:    uint(price),
 			Remains:  int32(remains),
 		}
-		if remains == int(SheetTotal) {
+		if remains == int(DataSet.SheetTotal) {
 			event.RT.S = int32(DataSet.SheetKindMap["S"].Total)
 			event.RT.A = int32(DataSet.SheetKindMap["A"].Total)
 			event.RT.B = int32(DataSet.SheetKindMap["B"].Total)
@@ -174,7 +173,7 @@ func prepareSheetDataSet() {
 
 	nextID := uint(1)
 	for _, sheetKind := range DataSet.SheetKinds {
-		SheetTotal += sheetKind.Total
+		DataSet.SheetTotal += sheetKind.Total
 		DataSet.SheetKindMap[sheetKind.Rank] = sheetKind
 		for i := uint(0); i < sheetKind.Total; i++ {
 			sheet := &Sheet{
@@ -190,8 +189,8 @@ func prepareSheetDataSet() {
 }
 
 func prepareReservationsDataSet() {
-	minUnixTimestamp := time.Date(2011, 8, 27, 10, 0, 0, 0, time.Local).Unix()
-	maxUnixTimestamp := time.Date(2017, 10, 21, 10, 0, 0, 0, time.Local).Unix()
+	minUnixTimestamp := time.Date(2011, 8, 27, 10, 0, 0, 0, JST).Unix()
+	maxUnixTimestamp := time.Date(2017, 10, 21, 10, 0, 0, 0, JST).Unix()
 	for _, event := range append(DataSet.Events, DataSet.ClosedEvents...) {
 		if event.Remains > 0 {
 			continue
