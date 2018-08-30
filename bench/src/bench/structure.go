@@ -117,8 +117,8 @@ type ReservationTickets struct {
 	S, A, B, C uint
 }
 
-// Returns an optimistic sold-out prediction.
-// Note that a few sheets would actually be remained if some timeout occurs.
+// Returns an optimistic sold-out prediction, I mean that,
+// returns true even if a few sheets are actually remained when some timeout occurs.
 func (e *Event) IsSoldOut() bool {
 	return int32(e.ReserveRequestedCount)-int32(e.CancelCompletedCount) >= int32(DataSet.SheetTotal)
 }
