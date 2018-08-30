@@ -10,21 +10,21 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	// "hash"
-	// "hash/crc32"
+	"hash"
+	"hash/crc32"
 	"io"
 	"log"
 	"math"
 	"math/rand"
 	"net/http"
-	// "os"
+	"os"
 	"sort"
 	"strconv"
 	"time"
 
 	"github.com/PuerkitoBio/goquery"
-	// htmldigest "github.com/karupanerura/go-html-digest"
-	// "golang.org/x/net/html"
+	htmldigest "github.com/karupanerura/go-html-digest"
+	"golang.org/x/net/html"
 )
 
 func checkHTML(f func(*http.Response, *goquery.Document) error) func(*http.Response, *bytes.Buffer) error {
@@ -706,25 +706,24 @@ func CheckTopPage(ctx context.Context, state *State) error {
 		ExpectedStatusCode: 200,
 		Description:        "ページが表示されること",
 		CheckFunc: checkHTML(func(res *http.Response, doc *goquery.Document) error {
-			// h := htmldigest.NewHash(func() hash.Hash {
-			// 	return crc32.NewIEEE()
-			// })
-			// crcSum, err := h.Sum(doc.Nodes[0])
-			// if err != nil {
-			// 	fmt.Fprint(os.Stderr, "HTML: ")
-			// 	_ = html.Render(os.Stderr, doc.Nodes[0])
-			// 	fmt.Fprintln(os.Stderr, "")
-			// 	fmt.Fprintln(os.Stderr, err)
-			// 	return fatalErrorf("チェックサムの生成に失敗しました (主催者に連絡してください)")
-			// }
-			// TODO(sonots): Fix DOM Check. crcSum32 could be different if data-events json key orders are different (for example, perl hash is not ordered hash)
-			// if crcSum32 := JoinCrc32(crcSum); crcSum32 != ExpectedIndexHash {
-			// 	fmt.Fprint(os.Stderr, "HTML: ")
-			// 	_ = html.Render(os.Stderr, doc.Nodes[0])
-			// 	fmt.Fprintln(os.Stderr, "")
-			// 	fmt.Fprintf(os.Stderr, "crcSum32=%d\n", crcSum32)
-			// 	return fatalErrorf("DOM構造が初期状態と一致しません")
-			// }
+			h := htmldigest.NewHash(func() hash.Hash {
+				return crc32.NewIEEE()
+			})
+			crcSum, err := h.Sum(doc.Nodes[0])
+			if err != nil {
+				fmt.Fprint(os.Stderr, "HTML: ")
+				_ = html.Render(os.Stderr, doc.Nodes[0])
+				fmt.Fprintln(os.Stderr, "")
+				fmt.Fprintln(os.Stderr, err)
+				return fatalErrorf("チェックサムの生成に失敗しました (主催者に連絡してください)")
+			}
+			if crcSum32 := JoinCrc32(crcSum); crcSum32 != ExpectedIndexHash {
+				fmt.Fprint(os.Stderr, "HTML: ")
+				_ = html.Render(os.Stderr, doc.Nodes[0])
+				fmt.Fprintln(os.Stderr, "")
+				fmt.Fprintf(os.Stderr, "crcSum32=%d\n", crcSum32)
+				return fatalErrorf("DOM構造が初期状態と一致しません")
+			}
 
 			selection := doc.Find("#app-wrapper")
 			if selection == nil || len(selection.Nodes) == 0 {
