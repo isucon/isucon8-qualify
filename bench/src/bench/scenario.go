@@ -1519,14 +1519,6 @@ func checkReportRecord(s *State, records map[uint]*ReportRecord, timeBefore time
 				log.Printf("warn: should have canceledAt (reservationID:%d) but ignored (race condition)\n", reservationID)
 			}
 		}
-		// TODO(sonots): Add a test to fail if `SELECT FOR UPDATE` is removed.
-		// if reservationRightAfterRequest.CancelRequestedAt.IsZero() {
-		// 	// If `SELECT FOR UPDATE` of the `report` API is removed from webapp, this check would faiil.
-		// 	if !record.CanceledAt.IsZero() {
-		// 		log.Printf("debug: should not have canceledAt (reservationID:%d)\n", reservationID)
-		// 		return fatalErrorf(msg)
-		// 	}
-		// }
 	}
 
 	return nil
