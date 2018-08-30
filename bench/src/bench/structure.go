@@ -135,7 +135,8 @@ func (event *Event) TryGetTicket(rank string) bool {
 	cancelCompletedCount := *event.CancelCompletedRT.getPointer(rank)
 	ticketID := int32(reserveRequestedCount) - int32(cancelCompletedCount)
 	total := int32(DataSet.SheetKindMap[rank].Total)
-	log.Printf("debug: tryGetTicket: eventID=%d rank=%s ticketID=%d ok:%t\n", event.ID, rank, ticketID, ticketID <= total)
+	log.Printf("debug: tryGetTicket: eventID:%d rank:%s ticketID:%d reserveRequestedCount:%d cancelCompletedCount:%d ok:%t\n",
+		event.ID, rank, ticketID, reserveRequestedCount, cancelCompletedCount, ticketID <= total)
 	return ticketID <= total
 }
 
