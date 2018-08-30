@@ -607,12 +607,27 @@ func (s *State) FindEventByID(id uint) *Event {
 	return nil
 }
 
+// Returns a shallow copy of s.events
 func (s *State) GetEvents() (events []*Event) {
 	s.mtx.Lock()
 	defer s.mtx.Unlock()
 
 	events = make([]*Event, len(s.events))
 	copy(events, s.events)
+	return
+}
+
+// Returns a deep copy of s.events
+func (s *State) GetEventsCopy() (events []*Event) {
+	s.mtx.Lock()
+	defer s.mtx.Unlock()
+
+	events = make([]*Event, 0, len(s.events))
+	for _, e := range s.events {
+		event := *e // copy
+		events = append(events, &event)
+	}
+
 	return
 }
 

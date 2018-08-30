@@ -60,6 +60,15 @@ func checkJsonErrorResponse(errorCode string) func(res *http.Response, body *byt
 	}
 }
 
+func checkRemains(remainsBeforeRequest int32, maybeReservedCountBeforeRequest int32, remains int32, remainsAfterResponse int32, maybeCanceledCountAfterResponse int32) error {
+	log.Printf("debug: remainsBeforeRequest:%d - maybeReservedCountBeforeRequest:%d <= remains:%d <= remainsAfterResponse:%d + maybeCanceledCountAfterResponse:%d\n",
+		remainsBeforeRequest, maybeReservedCountBeforeRequest, remains, remainsAfterResponse, maybeCanceledCountAfterResponse)
+	if remainsBeforeRequest-maybeReservedCountBeforeRequest <= remains && remains <= remainsAfterResponse+maybeCanceledCountAfterResponse {
+		return nil
+	}
+	return &fatalError{}
+}
+
 func checkEventList(state *State, eventsBeforeRequest []*Event, events []JsonEvent) error {
 	ok := sort.SliceIsSorted(events, func(i, j int) bool {
 		return events[i].ID < events[j].ID
@@ -81,6 +90,11 @@ func checkEventList(state *State, eventsBeforeRequest []*Event, events []JsonEve
 		eventsMap[e.ID] = e
 	}
 
+	eventsAfterResponseMap := map[uint]*Event{}
+	for _, e := range FilterPublicEvents(state.GetEvents()) {
+		eventsAfterResponseMap[e.ID] = e
+	}
+
 	msg := "正しいイベント一覧を取得できません"
 	for _, eventBeforeRequest := range eventsBeforeRequest {
 		e, ok := eventsMap[eventBeforeRequest.ID]
@@ -94,11 +108,6 @@ func checkEventList(state *State, eventsBeforeRequest []*Event, events []JsonEve
 		if int(e.Total) != len(DataSet.Sheets) {
 			return fatalErrorf("イベント(id:%d)の総座席数が正しくありません", e.ID)
 		}
-		// TODO(karupa): check remains
-		// if e.Remains != remains {
-		// 	return fatalErrorf("イベント(id:%d)の総残座席数が正しくありません", e.ID)
-		// }
-
 		for _, sheetKind := range DataSet.SheetKinds {
 			rank := sheetKind.Rank
 
@@ -108,11 +117,23 @@ func checkEventList(state *State, eventsBeforeRequest []*Event, events []JsonEve
 			if expected := eventBeforeRequest.Price + sheetKind.Price; e.Sheets[rank].Price != expected {
 				return fatalErrorf("イベント(id:%d)の%s席の価格が正しくありません", e.ID, rank)
 			}
-			// TODO(sonots): check remains
-			// if e.Sheets[rank].Remains != eventSheetRank.Remains {
-			// 	log.Printf("[DEBUG] Event(%d) %s: eventsBeforeRequest %d but got %d", e.ID, eventSheetRank.Rank, eventSheetRank.Remains, e.Sheets[eventSheetRank.Rank].Remains)
-			// 	return fatalErrorf("イベント(id:%d)の%s席の残座席数が正しくありません", e.ID, eventSheetRank.Rank)
-			// }
+		}
+
+		eventAfterResponse, ok := eventsAfterResponseMap[e.ID]
+		if !ok { // should never happen
+			log.Printf("debug: checkEventList: eventAfterResponse did not exist (eventID:%d)\n", e.ID)
+			continue
+		}
+		err := checkRemains(eventBeforeRequest.Remains, eventBeforeRequest.MaybeReservedCount, int32(e.Remains), eventAfterResponse.Remains, eventAfterResponse.MaybeCanceledCount)
+		if err != nil {
+			return fatalErrorf("イベント(id:%d)の総残座席数が正しくありません", e.ID)
+		}
+		for _, sheetKind := range DataSet.SheetKinds {
+			rank := sheetKind.Rank
+			err = checkRemains(*eventBeforeRequest.RT.getPointer(rank), *eventBeforeRequest.MaybeReservedRT.getPointer(rank), int32(e.Sheets[rank].Remains), *eventAfterResponse.RT.getPointer(rank), *eventAfterResponse.MaybeCanceledRT.getPointer(rank))
+			if err != nil {
+				return fatalErrorf("イベント(id:%d)の%s席の残座席数が正しくありません", e.ID, rank)
+			}
 		}
 	}
 
@@ -676,7 +697,7 @@ func CheckTopPage(ctx context.Context, state *State) error {
 
 	// Assume that public events are not modified (closed or private)
 	timeBefore := time.Now().Add(-1 * parameter.AllowableDelay)
-	eventsBeforeRequest := FilterEventsToAllowDelay(FilterPublicEvents(state.GetEvents()), timeBefore)
+	eventsBeforeRequest := FilterEventsToAllowDelay(FilterPublicEvents(state.GetEventsCopy()), timeBefore)
 
 	err := checker.Play(ctx, &CheckAction{
 		Method:             "GET",
