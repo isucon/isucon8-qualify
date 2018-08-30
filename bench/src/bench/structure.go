@@ -104,7 +104,7 @@ type Event struct {
 
 	// Remains are decremented before request, and incremented after response.
 	// That is, if timeout occurs, remains in bench could be smaller than the server-side, but never be larger.
-	RemainsMtx sync.Mutex
+	remainsMtx sync.Mutex
 	Remains    int32
 
 	// Represents remains for each rank
@@ -117,8 +117,8 @@ type ReservationTickets struct {
 
 // Call this before reserve request
 func (event *Event) TryGetTicket(rank string) bool {
-	event.RemainsMtx.Lock()
-	defer event.RemainsMtx.Unlock()
+	event.remainsMtx.Lock()
+	defer event.remainsMtx.Unlock()
 
 	rankRemains := event.RT.getPointer(rank)
 
@@ -139,8 +139,8 @@ func (event *Event) TryGetTicket(rank string) bool {
 
 // Call this after cancel response succeeds
 func (event *Event) ReleaseTicket(rank string) {
-	event.RemainsMtx.Lock()
-	defer event.RemainsMtx.Unlock()
+	event.remainsMtx.Lock()
+	defer event.remainsMtx.Unlock()
 
 	rankRemains := event.RT.getPointer(rank)
 
@@ -197,9 +197,13 @@ type Reservation struct {
 
 	// ReserveRequestedAt time.Time
 	ReserveCompletedAt time.Time
-	CancelMtx          trylock.Mutex
+	cancelMtx          trylock.Mutex
 	CancelRequestedAt  time.Time
 	CancelCompletedAt  time.Time
+}
+
+func (r Reservation) CancelMtx() trylock.Mutex {
+	return r.cancelMtx
 }
 
 func (r Reservation) Canceled(timeBefore time.Time) bool {

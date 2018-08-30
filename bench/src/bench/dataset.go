@@ -101,6 +101,30 @@ func prepareAdministratorDataSet() {
 }
 
 func prepareEventDataSet() {
+	const cacheBaseName = "events"
+
+	if err := readDatasetCache(cacheBaseName, &DataSet.Events); err == nil {
+		log.Printf("load cache: %s.gob\n", cacheBaseName)
+	} else if os.IsNotExist(err) {
+		// noting to do
+	} else {
+		// unexpected error
+		must(err)
+	}
+
+	if err := readDatasetCache("closed-"+cacheBaseName, &DataSet.ClosedEvents); err == nil {
+		log.Printf("load cache: %s.gob\n", "closed-"+cacheBaseName)
+	} else if os.IsNotExist(err) {
+		// noting to do
+	} else {
+		// unexpected error
+		must(err)
+	}
+
+	if DataSet.Events != nil && DataSet.ClosedEvents != nil {
+		return
+	}
+
 	nextID := uint(1)
 
 	// Events from event.tsv which are not closed yet
@@ -161,6 +185,9 @@ func prepareEventDataSet() {
 		DataSet.ClosedEvents = append(DataSet.ClosedEvents, event)
 		nextID++
 	}
+
+	must(writeDatasetCache(cacheBaseName, DataSet.Events))
+	must(writeDatasetCache("closed-"+cacheBaseName, DataSet.ClosedEvents))
 }
 
 func prepareSheetDataSet() {
@@ -190,6 +217,17 @@ func prepareSheetDataSet() {
 }
 
 func prepareReservationsDataSet() {
+	const cacheName = "reservations"
+	if err := readDatasetCache(cacheName, &DataSet.Reservations); err == nil {
+		log.Printf("load cache: %s.gob\n", cacheName)
+		return
+	} else if os.IsNotExist(err) {
+		// noting to do
+	} else {
+		// unexpected error
+		must(err)
+	}
+
 	minUnixTimestamp := time.Date(2011, 8, 27, 10, 0, 0, 0, time.Local).Unix()
 	maxUnixTimestamp := time.Date(2017, 10, 21, 10, 0, 0, 0, time.Local).Unix()
 	for _, event := range append(DataSet.Events, DataSet.ClosedEvents...) {
@@ -219,6 +257,8 @@ func prepareReservationsDataSet() {
 		reservation.ID = nextID
 		nextID++
 	}
+
+	must(writeDatasetCache(cacheName, DataSet.Reservations))
 }
 
 func PrepareDataSet() {

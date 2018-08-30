@@ -1956,9 +1956,10 @@ func reserveSheet(ctx context.Context, state *State, checker *Checker, userID ui
 func cancelSheet(ctx context.Context, state *State, checker *Checker, eventSheet *EventSheet, reservation *Reservation) (already_locked bool, err error) {
 	// If somebody is canceling, nobody else should not cancel because, otherwise, double cancelation occurs.
 	// To achieve it, we use trylock instead of mutex.Lock()
-	ok := reservation.CancelMtx.TryLock()
+	mtx := reservation.CancelMtx()
+	ok := mtx.TryLock()
 	if ok {
-		defer reservation.CancelMtx.Unlock()
+		defer mtx.Unlock()
 	} else {
 		log.Printf("debug: reservation:%d is already locked to cancel\n", reservation.ID)
 		return true, nil
