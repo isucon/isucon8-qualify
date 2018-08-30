@@ -874,8 +874,8 @@ func CheckCancelReserveSheet(ctx context.Context, state *State) error {
 		return err
 	}
 
-	// TODO(sonots): 409 check
-	// Make sure we get 409 sold_out, otherwise, let it fail
+	// NOTE: Let me skip 409 check. We do not know how many times we should retry because reserve may timeout.
+	// Retrying forever makes a problem that benchmarker cannot check further scenarios.
 	// err = reserveChecker.Play(ctx, &CheckAction{
 	// 	Method:             "POST",
 	// 	Path:               fmt.Sprintf("/api/events/%d/actions/reserve", eventID),
