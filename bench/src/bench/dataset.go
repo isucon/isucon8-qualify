@@ -237,15 +237,56 @@ func prepareReservationsDataSet() {
 		// already sold-out event
 		for _, sheet := range DataSet.Sheets {
 			userID := uint(Rng.Intn(len(DataSet.Users)) + 1)
+
+			// TODO(sonots): randomize nsec
+			reservedAt := int64(Rng.Int63n(maxUnixTimestamp-minUnixTimestamp) + minUnixTimestamp)
+
 			reservation := &Reservation{
 				EventID:    event.ID,
 				UserID:     userID,
 				SheetID:    sheet.ID,
 				SheetRank:  sheet.Rank,
 				SheetNum:   sheet.Num,
-				ReservedAt: int64(Rng.Int63n(maxUnixTimestamp-minUnixTimestamp) + minUnixTimestamp), // TODO(sonots): randomize nsec
+				ReservedAt: reservedAt,
+				CanceledAt: 0,
 			}
 			DataSet.Reservations = append(DataSet.Reservations, reservation)
+
+			maxCanceled := 20
+			canceledAt := int64(Rng.Int63n(reservedAt-minUnixTimestamp) + minUnixTimestamp)
+			for minUnixTimestamp < canceledAt && canceledAt < reservedAt {
+				if maxCanceled == 0 {
+					break
+				}
+
+				var rng int64 = 86400 * 3
+				if remains := canceledAt - minUnixTimestamp; remains <= 0 {
+					break
+				} else if remains < rng {
+					rng = remains
+				}
+
+				reservedAt = int64(canceledAt - Rng.Int63n(rng))
+
+				userID = uint(Rng.Intn(len(DataSet.Users)) + 1)
+				reservation = &Reservation{
+					EventID:    event.ID,
+					UserID:     userID,
+					SheetID:    sheet.ID,
+					SheetRank:  sheet.Rank,
+					SheetNum:   sheet.Num,
+					ReservedAt: reservedAt,
+					CanceledAt: canceledAt,
+				}
+				DataSet.Reservations = append(DataSet.Reservations, reservation)
+
+				if reservedAt == minUnixTimestamp {
+					break
+				}
+
+				canceledAt = int64(Rng.Int63n(reservedAt-minUnixTimestamp) + minUnixTimestamp)
+				maxCanceled--
+			}
 		}
 	}
 	sort.Slice(DataSet.Reservations, func(i, j int) bool {
@@ -334,11 +375,16 @@ func GenerateInitialDataSetSQL(outputPath string) {
 	// reservation
 	for i, reservation := range DataSet.Reservations {
 		if i%1000 == 0 {
-			fbadf(w, ";INSERT INTO reservations (id, event_id, sheet_id, user_id, reserved_at) VALUES ")
+			fbadf(w, ";INSERT INTO reservations (id, event_id, sheet_id, user_id, reserved_at, canceled_at) VALUES ")
 		} else {
 			fbadf(w, ", ")
 		}
-		fbadf(w, "(%s, %s, %s, %s, %s)", reservation.ID, reservation.EventID, reservation.SheetID, reservation.UserID, time.Unix(reservation.ReservedAt, 0).UTC().Format("2006-01-02 15:04:05"))
+
+		if reservation.CanceledAt > 0 {
+			fbadf(w, "(%s, %s, %s, %s, %s, %s)", reservation.ID, reservation.EventID, reservation.SheetID, reservation.UserID, time.Unix(reservation.ReservedAt, 0).UTC(), time.Unix(reservation.CanceledAt, 0).UTC())
+		} else {
+			fbadf(w, "(%s, %s, %s, %s, %s, NULL)", reservation.ID, reservation.EventID, reservation.SheetID, reservation.UserID, time.Unix(reservation.ReservedAt, 0).UTC())
+		}
 	}
 	fbadf(w, ";")
 

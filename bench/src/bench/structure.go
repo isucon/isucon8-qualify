@@ -194,6 +194,7 @@ type Reservation struct {
 	SheetRank  string
 	SheetNum   uint
 	ReservedAt int64 // Used only in initial reservations. 0 is set for rest because reserve API does not return it
+	CanceledAt int64 // Used only in initial reservations. 0 is set for rest because reserve API does not return it
 
 	// ReserveRequestedAt time.Time
 	ReserveCompletedAt time.Time
