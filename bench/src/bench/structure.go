@@ -102,17 +102,25 @@ type Event struct {
 	Price     uint
 	CreatedAt time.Time
 
-	RemainsMtx         sync.Mutex
-	Remains            int32              // -- or ++ after reserve or cancel response respectively
-	MaybeReservedCount int32              // ++ before reserve request, -- after reserve response
-	MaybeCanceledCount int32              // ++ before cancel request, -- after cancel response
-	RT                 ReservationTickets // Represents remains for each rank
-	MaybeReservedRT    ReservationTickets
-	MaybeCanceledRT    ReservationTickets
+	RemainsMtx            sync.Mutex
+	ReserveRequestedCount uint
+	ReserveCompletedCount uint
+	CancelRequestedCount  uint
+	CancelCompletedCount  uint
+	ReserveRequestedRT    ReservationTickets
+	ReserveCompletedRT    ReservationTickets
+	CancelRequestedRT     ReservationTickets
+	CancelCompletedRT     ReservationTickets
 }
 
 type ReservationTickets struct {
-	S, A, B, C int32
+	S, A, B, C uint
+}
+
+// Returns an optimistic sold-out prediction, I mean that,
+// returns true even if a few sheets are actually remained when some timeout occurs.
+func (e *Event) IsSoldOut() bool {
+	return int32(e.ReserveRequestedCount)-int32(e.CancelCompletedCount) >= int32(DataSet.SheetTotal)
 }
 
 // Call this before reserve request
@@ -120,14 +128,16 @@ func (event *Event) TryGetTicket(rank string) bool {
 	event.RemainsMtx.Lock()
 	defer event.RemainsMtx.Unlock()
 
-	event.MaybeReservedCount++
-	rankMaybeReservedCount := event.MaybeReservedRT.getPointer(rank)
-	*rankMaybeReservedCount++
+	event.ReserveRequestedCount++
+	*event.ReserveRequestedRT.getPointer(rank)++
 
-	rankRemains := event.RT.getPointer(rank)
-	ticketID := *rankRemains - *rankMaybeReservedCount
-	log.Printf("debug: tryGetTicket: eventID=%d rank=%s remains=%d maybeReserved=%d ticketID=%d ok:%t\n", event.ID, rank, *rankRemains, *rankMaybeReservedCount, ticketID, ticketID >= 0)
-	return ticketID >= 0
+	reserveRequestedCount := *event.ReserveRequestedRT.getPointer(rank)
+	cancelCompletedCount := *event.CancelCompletedRT.getPointer(rank)
+	ticketID := int32(reserveRequestedCount) - int32(cancelCompletedCount)
+	total := int32(DataSet.SheetKindMap[rank].Total)
+	log.Printf("debug: tryGetTicket: eventID:%d rank:%s ticketID:%d reserveRequestedCount:%d cancelCompletedCount:%d ok:%t\n",
+		event.ID, rank, ticketID, reserveRequestedCount, cancelCompletedCount, ticketID <= total)
+	return ticketID <= total
 }
 
 // Call this after reserve response
@@ -135,22 +145,8 @@ func (event *Event) CommitGetTicket(rank string) {
 	event.RemainsMtx.Lock()
 	defer event.RemainsMtx.Unlock()
 
-	remains := &event.Remains
-	rankRemains := event.RT.getPointer(rank)
-
-	*remains--
-	if *remains < 0 { // should never happen
-		*remains++
-	} else {
-		event.MaybeReservedCount--
-	}
-
-	*rankRemains--
-	if *rankRemains < 0 { // should never happen
-		*rankRemains++
-	} else {
-		*event.MaybeReservedRT.getPointer(rank)--
-	}
+	event.ReserveCompletedCount++
+	*event.ReserveCompletedRT.getPointer(rank)++
 }
 
 // Call this before cancel request
@@ -158,8 +154,8 @@ func (event *Event) TryReleaseTicket(rank string) {
 	event.RemainsMtx.Lock()
 	defer event.RemainsMtx.Unlock()
 
-	event.MaybeCanceledCount++
-	*event.MaybeCanceledRT.getPointer(rank)++
+	event.CancelRequestedCount++
+	*event.CancelRequestedRT.getPointer(rank)++
 }
 
 // Call this after cancel response
@@ -167,25 +163,11 @@ func (event *Event) CommitReleaseTicket(rank string) {
 	event.RemainsMtx.Lock()
 	defer event.RemainsMtx.Unlock()
 
-	remains := &event.Remains
-	rankRemains := event.RT.getPointer(rank)
-
-	*remains++
-	if *remains > int32(DataSet.SheetTotal) { // should never happen
-		*remains--
-	} else {
-		event.MaybeCanceledCount--
-	}
-
-	*rankRemains++
-	if *rankRemains > int32(DataSet.SheetKindMap[rank].Total) { // should never happen
-		*rankRemains--
-	} else {
-		*event.MaybeCanceledRT.getPointer(rank)--
-	}
+	event.CancelCompletedCount++
+	*event.CancelCompletedRT.getPointer(rank)++
 }
 
-func (rt *ReservationTickets) getPointer(rank string) *int32 {
+func (rt *ReservationTickets) getPointer(rank string) *uint {
 	switch rank {
 	case "S":
 		return &rt.S
@@ -531,13 +513,6 @@ func (s *State) CreateNewEvent() (*Event, func(caller string)) {
 		PublicFg: true,
 		ClosedFg: false,
 		Price:    1000 + uint(rand.Intn(10)*1000),
-		Remains:  int32(DataSet.SheetTotal),
-		RT: ReservationTickets{
-			S: int32(DataSet.SheetKindMap["S"].Total),
-			A: int32(DataSet.SheetKindMap["A"].Total),
-			B: int32(DataSet.SheetKindMap["B"].Total),
-			C: int32(DataSet.SheetKindMap["C"].Total),
-		},
 	}
 
 	// NOTE: push() function pushes into s.events, does not push to s.newEvents.
@@ -553,13 +528,12 @@ func (s *State) PushNewEvent(event *Event, createdAt time.Time, caller string) {
 }
 
 func (s *State) pushNewEventLocked(event *Event, createdAt time.Time, caller string) {
-	log.Printf("debug: newEventPush %d %s %d Public:%t Closed:%t Remains:%d (Caller:%s)\n", event.ID, event.Title, event.Price, event.PublicFg, event.ClosedFg, event.Remains, caller)
+	log.Printf("debug: newEventPush %d %s %d Public:%t Closed:%t (Caller:%s)\n", event.ID, event.Title, event.Price, event.PublicFg, event.ClosedFg, caller)
 
 	event.CreatedAt = createdAt
 	s.events = append(s.events, event)
 
-	// already sold-out event
-	if event.Remains <= 0 {
+	if event.IsSoldOut() {
 		return
 	}
 
@@ -654,10 +628,9 @@ func FilterPublicEvents(src []*Event) (filtered []*Event) {
 func FilterSoldOutEvents(src []*Event) (filtered []*Event) {
 	filtered = make([]*Event, 0, len(src))
 	for _, e := range src {
-		if e.Remains > 0 {
-			continue
+		if e.IsSoldOut() {
+			filtered = append(filtered, e)
 		}
-		filtered = append(filtered, e)
 	}
 	return
 }

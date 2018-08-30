@@ -126,18 +126,18 @@ func prepareEventDataSet() {
 			PublicFg: publicFg,
 			ClosedFg: closedFg,
 			Price:    uint(price),
-			Remains:  int32(remains),
 		}
-		if remains == int(DataSet.SheetTotal) {
-			event.RT.S = int32(DataSet.SheetKindMap["S"].Total)
-			event.RT.A = int32(DataSet.SheetKindMap["A"].Total)
-			event.RT.B = int32(DataSet.SheetKindMap["B"].Total)
-			event.RT.C = int32(DataSet.SheetKindMap["C"].Total)
-		} else {
-			event.RT.S = 0
-			event.RT.A = 0
-			event.RT.B = 0
-			event.RT.C = 0
+		if remains == 0 {
+			event.ReserveRequestedCount = DataSet.SheetTotal
+			event.ReserveCompletedCount = DataSet.SheetTotal
+			event.ReserveRequestedRT.S = DataSet.SheetKindMap["S"].Total
+			event.ReserveRequestedRT.A = DataSet.SheetKindMap["A"].Total
+			event.ReserveRequestedRT.B = DataSet.SheetKindMap["B"].Total
+			event.ReserveRequestedRT.C = DataSet.SheetKindMap["C"].Total
+			event.ReserveCompletedRT.S = DataSet.SheetKindMap["S"].Total
+			event.ReserveCompletedRT.A = DataSet.SheetKindMap["A"].Total
+			event.ReserveCompletedRT.B = DataSet.SheetKindMap["B"].Total
+			event.ReserveCompletedRT.C = DataSet.SheetKindMap["C"].Total
 		}
 
 		DataSet.Events = append(DataSet.Events, event)
@@ -154,8 +154,20 @@ func prepareEventDataSet() {
 			PublicFg: false,
 			ClosedFg: true,
 			Price:    uint(1000 + i/priceStrides*1000),
-			Remains:  0,
-			RT:       ReservationTickets{0, 0, 0, 0},
+			ReserveRequestedCount: DataSet.SheetTotal,
+			ReserveCompletedCount: DataSet.SheetTotal,
+			ReserveRequestedRT: ReservationTickets{
+				DataSet.SheetKindMap["S"].Total,
+				DataSet.SheetKindMap["A"].Total,
+				DataSet.SheetKindMap["B"].Total,
+				DataSet.SheetKindMap["C"].Total,
+			},
+			ReserveCompletedRT: ReservationTickets{
+				DataSet.SheetKindMap["S"].Total,
+				DataSet.SheetKindMap["A"].Total,
+				DataSet.SheetKindMap["B"].Total,
+				DataSet.SheetKindMap["C"].Total,
+			},
 		}
 		DataSet.ClosedEvents = append(DataSet.ClosedEvents, event)
 		nextID++
@@ -192,10 +204,9 @@ func prepareReservationsDataSet() {
 	minUnixTimestamp := time.Date(2011, 8, 27, 10, 0, 0, 0, JST).Unix()
 	maxUnixTimestamp := time.Date(2017, 10, 21, 10, 0, 0, 0, JST).Unix()
 	for _, event := range append(DataSet.Events, DataSet.ClosedEvents...) {
-		if event.Remains > 0 {
+		if !event.IsSoldOut() {
 			continue
 		}
-		// already sold-out event
 		for _, sheet := range DataSet.Sheets {
 			userID := uint(Rng.Intn(len(DataSet.Users)) + 1)
 			reservation := &Reservation{
