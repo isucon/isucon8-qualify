@@ -91,22 +91,22 @@ func checkEventList(state *State, eventsBeforeRequest []*Event, events []JsonEve
 	checkRemains := func(
 		eventID uint,
 		total uint,
-		reserveRequestedCountAfterResponse uint,
 		cancelCompletedCountBeforeRequest uint,
+		reserveRequestedCountAfterResponse uint,
 		remains uint,
-		reserveCompletedCountBeforeResponse uint,
-		cancelRequestedCountAfterResponse uint) error {
-		log.Printf("debug: EventID:%d total:%d-reserveRequestedCountAfterResponse:%d+cancelCompletedCountBeforeRequest:%d <= remains:%d <= total:%d-reserveCompletedCountBeforeResponse:%d+cancelRequestedCountAfterResponse:%d",
+		cancelRequestedCountAfterResponse uint,
+		reserveCompletedCountBeforeResponse uint) error {
+		log.Printf("debug: EventID:%d total:%d+cancelCompletedCountBeforeRequest:%d-reserveRequestedCountAfterResponse:%d <= remains:%d <= total:%d+cancelRequestedCountAfterResponse:%d-reserveCompletedCountBeforeResponse:%d",
 			eventID,
 			total,
-			reserveRequestedCountAfterResponse,
 			cancelCompletedCountBeforeRequest,
+			reserveRequestedCountAfterResponse,
 			remains,
 			total,
-			reserveCompletedCountBeforeResponse,
-			cancelRequestedCountAfterResponse)
-		if total-reserveRequestedCountAfterResponse+cancelCompletedCountBeforeRequest <= remains &&
-			remains <= total-reserveCompletedCountBeforeResponse+cancelRequestedCountAfterResponse {
+			cancelRequestedCountAfterResponse,
+			reserveCompletedCountBeforeResponse)
+		if int32(total)+int32(cancelCompletedCountBeforeRequest)-int32(reserveRequestedCountAfterResponse) <= int32(remains) &&
+			int32(remains) <= int32(total)+int32(cancelRequestedCountAfterResponse)-int32(reserveCompletedCountBeforeResponse) {
 			return nil
 		}
 		return &fatalError{}
@@ -143,11 +143,11 @@ func checkEventList(state *State, eventsBeforeRequest []*Event, events []JsonEve
 		err := checkRemains(
 			e.ID,
 			DataSet.SheetTotal,
-			eventAfterResponse.ReserveRequestedCount,
 			eventBeforeRequest.CancelCompletedCount,
+			eventAfterResponse.ReserveRequestedCount,
 			e.Remains,
-			eventBeforeRequest.ReserveCompletedCount,
-			eventAfterResponse.CancelRequestedCount)
+			eventAfterResponse.CancelRequestedCount,
+			eventBeforeRequest.ReserveCompletedCount)
 		if err != nil {
 			return fatalErrorf("イベント(id:%d)の総残座席数が正しくありません", e.ID)
 		}
@@ -156,11 +156,11 @@ func checkEventList(state *State, eventsBeforeRequest []*Event, events []JsonEve
 			err = checkRemains(
 				e.ID,
 				DataSet.SheetKindMap[rank].Total,
-				*eventAfterResponse.ReserveRequestedRT.getPointer(rank),
 				*eventBeforeRequest.CancelCompletedRT.getPointer(rank),
+				*eventAfterResponse.ReserveRequestedRT.getPointer(rank),
 				e.Sheets[rank].Remains,
-				*eventBeforeRequest.ReserveCompletedRT.getPointer(rank),
-				*eventAfterResponse.CancelRequestedRT.getPointer(rank))
+				*eventAfterResponse.CancelRequestedRT.getPointer(rank),
+				*eventBeforeRequest.ReserveCompletedRT.getPointer(rank))
 			if err != nil {
 				return fatalErrorf("イベント(id:%d)の%s席の残座席数が正しくありません", e.ID, rank)
 			}

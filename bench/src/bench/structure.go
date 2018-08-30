@@ -120,7 +120,7 @@ type ReservationTickets struct {
 // Returns an optimistic sold-out prediction.
 // Note that a few sheets would actually be remained if some timeout occurs.
 func (e *Event) IsSoldOut() bool {
-	return e.ReserveRequestedCount-e.CancelCompletedCount >= DataSet.SheetTotal
+	return int32(e.ReserveRequestedCount)-int32(e.CancelCompletedCount) >= int32(DataSet.SheetTotal)
 }
 
 // Call this before reserve request
