@@ -121,16 +121,13 @@ func (event *Event) TryGetTicket(rank string) bool {
 	defer event.RemainsMtx.Unlock()
 
 	event.MaybeReservedCount++
-	*event.MaybeReservedRT.getPointer(rank)++
+	rankMaybeReservedCount := event.MaybeReservedRT.getPointer(rank)
+	*rankMaybeReservedCount++
 
 	rankRemains := event.RT.getPointer(rank)
-	rankMaybeReservedCount := event.MaybeReservedRT.getPointer(rank)
-	log.Printf("debug: tryGetTicket: rank=%s ticketID=%d\n", rank, *rankRemains-*rankMaybeReservedCount)
-	if *rankRemains-*rankMaybeReservedCount < 0 {
-		return false
-	}
-
-	return true
+	ticketID := *rankRemains - *rankMaybeReservedCount
+	log.Printf("debug: tryGetTicket: eventID=%d rank=%s remains=%d maybeReserved=%d ticketID=%d ok:%t\n", event.ID, rank, *rankRemains, *rankMaybeReservedCount, ticketID, ticketID >= 0)
+	return ticketID >= 0
 }
 
 // Call this after reserve response
