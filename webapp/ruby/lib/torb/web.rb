@@ -139,6 +139,24 @@ module Torb
       def halt_with_error(status = 500, error = 'unknown')
         halt status, { error: error }.to_json
       end
+
+      def render_report_csv(reports)
+        reports = reports.sort_by { |report| report[:sold_at] }
+
+        keys = %i[reservation_id event_id rank num price user_id sold_at canceled_at]
+        body = keys.join(',')
+        body << "\n"
+        reports.each do |report|
+          body << report.values_at(*keys).join(',')
+          body << "\n"
+        end
+
+        headers({
+          'Content-Type'        => 'text/csv; charset=UTF-8',
+          'Content-Disposition' => 'attachment; filename="report.csv"',
+        })
+        body
+      end
     end
 
     get '/' do
@@ -389,6 +407,26 @@ module Torb
 
       event = get_event(event_id)
       event.to_json
+    end
+
+    get '/admin/api/reports/events/:id/sales', admin_login_required: true do |event_id|
+      event = get_event(event_id)
+
+      reservations = db.xquery('SELECT r.*, s.rank AS sheet_rank, s.num AS sheet_num, s.price AS sheet_price, e.price AS event_price FROM reservations r INNER JOIN sheets s ON s.id = r.sheet_id INNER JOIN events e ON e.id = r.event_id WHERE r.event_id = ? ORDER BY reserved_at ASC FOR UPDATE', event['id'])
+      reports = reservations.map do |reservation|
+        {
+          reservation_id: reservation['id'],
+          event_id:       event['id'],
+          rank:           reservation['sheet_rank'],
+          num:            reservation['sheet_num'],
+          user_id:        reservation['user_id'],
+          sold_at:        reservation['reserved_at'].iso8601,
+          canceled_at:    reservation['canceled_at']&.iso8601 || '',
+          price:          reservation['event_price'] + reservation['sheet_price'],
+        }
+      end
+
+      render_report_csv(reports)
     end
   end
 end
