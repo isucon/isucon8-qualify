@@ -101,12 +101,44 @@ module Torb
         return unless user_id
         db.xquery('SELECT id, nickname FROM users WHERE id = ?', user_id).first
       end
+
+      def body_params
+        @body_params ||= JSON.parse(request.body.tap(&:rewind).read)
+      end
     end
 
     get '/' do
       @user   = get_login_user
       @events = get_events.map(&method(:sanitize_event))
       erb :index
+    end
+
+    post '/api/users' do
+      content_type :json
+
+      nickname   = body_params['nickname']
+      login_name = body_params['login_name']
+      password   = body_params['password']
+
+      db.query('BEGIN')
+      begin
+        duplicated = db.xquery('SELECT * FROM users WHERE login_name = ?', login_name).first
+        if duplicated
+          db.query('ROLLBACK')
+          halt 409, { error: 'duplicated' }.to_json
+        end
+
+        db.xquery('INSERT INTO users (login_name, pass_hash, nickname) VALUES (?, SHA2(?, 256), ?)', login_name, password, nickname)
+        user_id = db.last_id
+        db.query('COMMIT')
+      rescue => e
+        warn "rollback by: #{e}"
+        db.query('ROLLBACK')
+        halt 500, { error: 'unknown' }.to_json
+      end
+
+      status 201
+      { id: user_id, nickname: nickname }.to_json
     end
   end
 end
