@@ -21,10 +21,13 @@ module Torb
     set :login_required, ->(value) do
       condition do
         if value && !get_login_user
-          content_type :json
-          halt 401, { error: 'login_required' }.to_json
+          halt_with_error 401, 'login_required'
         end
       end
+    end
+
+    before '/api/*' do
+      content_type :json
     end
 
     helpers do
@@ -114,6 +117,10 @@ module Torb
       def body_params
         @body_params ||= JSON.parse(request.body.tap(&:rewind).read)
       end
+
+      def halt_with_error(status = 500, error = 'unknown')
+        halt status, { error: error }.to_json
+      end
     end
 
     get '/' do
@@ -123,8 +130,6 @@ module Torb
     end
 
     post '/api/users' do
-      content_type :json
-
       nickname   = body_params['nickname']
       login_name = body_params['login_name']
       password   = body_params['password']
@@ -134,7 +139,7 @@ module Torb
         duplicated = db.xquery('SELECT * FROM users WHERE login_name = ?', login_name).first
         if duplicated
           db.query('ROLLBACK')
-          halt 409, { error: 'duplicated' }.to_json
+          halt_with_error 409, 'duplicated'
         end
 
         db.xquery('INSERT INTO users (login_name, pass_hash, nickname) VALUES (?, SHA2(?, 256), ?)', login_name, password, nickname)
@@ -143,7 +148,7 @@ module Torb
       rescue => e
         warn "rollback by: #{e}"
         db.query('ROLLBACK')
-        halt 500, { error: 'unknown' }.to_json
+        halt_with_error
       end
 
       status 201
@@ -151,14 +156,12 @@ module Torb
     end
 
     post '/api/actions/login' do
-      content_type :json
-
       login_name = body_params['login_name']
       password   = body_params['password']
 
       user      = db.xquery('SELECT * FROM users WHERE login_name = ?', login_name).first
       pass_hash = db.xquery('SELECT SHA2(?, 256)', password).first["SHA2('password', 256)"]
-      halt 401, { error: 'authentication_failed' }.to_json if user.nil? || pass_hash != user['pass_hash']
+      halt_with_error 401, 'authentication_failed' if user.nil? || pass_hash != user['pass_hash']
 
       session['user_id'] = user['id']
 
@@ -169,6 +172,15 @@ module Torb
     post '/api/actions/logout', login_required: true do
       session.delete('user_id')
       status 204
+    end
+
+    get '/api/events/:id' do |event_id|
+      user = get_login_user || {}
+      event = get_event(event_id, user['id'])
+      halt_with_error 404, 'not_found' if event.nil? || !event['public']
+
+      event = sanitize_event(event)
+      event.to_json
     end
   end
 end
