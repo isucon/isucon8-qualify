@@ -364,5 +364,31 @@ module Torb
 
       event.to_json
     end
+
+    post '/admin/api/events/:id/actions/edit', admin_login_required: true do |event_id|
+      public = body_params['public'] ? 1 : 0
+      closed = body_params['closed'] ? 1 : 0
+      public = 0 if closed == 1
+
+      event = get_event(event_id)
+      halt_with_error 404, 'not_found' unless event
+
+      if event['closed']
+        halt_with_error 400, 'cannot_edit_closed_event'
+      elsif event['public'] && closed == 1
+        halt_with_error 400, 'cannot_close_public_event'
+      end
+
+      db.query('BEGIN')
+      begin
+        db.xquery('UPDATE events SET public_fg = ?, closed_fg = ? WHERE id = ?', public, closed, event['id'])
+        db.query('COMMIT')
+      rescue
+        db.query('ROLLBACK')
+      end
+
+      event = get_event(event_id)
+      event.to_json
+    end
   end
 end
