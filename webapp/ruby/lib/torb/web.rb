@@ -26,6 +26,14 @@ module Torb
       end
     end
 
+    set :admin_login_required, ->(value) do
+      condition do
+        if value && !get_login_administrator
+          halt_with_error 401, 'admin_login_required'
+        end
+      end
+    end
+
     before '/api/*|/admin/api/*' do
       content_type :json
     end
@@ -320,6 +328,11 @@ module Torb
 
       administrator = get_login_administrator
       administrator.to_json
+    end
+
+    post '/admin/api/actions/logout', admin_login_required: true do
+      session.delete('administrator_id')
+      status 204
     end
   end
 end
