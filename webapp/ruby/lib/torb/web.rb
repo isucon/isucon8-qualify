@@ -334,5 +334,10 @@ module Torb
       session.delete('administrator_id')
       status 204
     end
+
+    get '/admin/api/events', admin_login_required: true do
+      events = get_events(->(_) { true })
+      events.to_json
+    end
   end
 end
