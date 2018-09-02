@@ -115,7 +115,7 @@ module Torb
       end
 
       def validate_rank(rank)
-        db.xquery('SELECT COUNT(*) FROM sheets WHERE `rank` = ?', rank).first['COUNT(*)'] > 0
+        db.xquery('SELECT COUNT(*) AS total_sheets FROM sheets WHERE `rank` = ?', rank).first['total_sheets'] > 0
       end
 
       def body_params
@@ -159,12 +159,52 @@ module Torb
       { id: user_id, nickname: nickname }.to_json
     end
 
+    get '/api/users/:id', login_required: true do |user_id|
+      user = db.xquery('SELECT id, nickname FROM users WHERE id = ?', user_id).first
+      if user['id'] != get_login_user['id']
+        halt_with_error 403, 'forbidden'
+      end
+
+      rows = db.xquery('SELECT r.*, s.rank AS sheet_rank, s.num AS sheet_num FROM reservations r INNER JOIN sheets s ON s.id = r.sheet_id WHERE r.user_id = ? ORDER BY IFNULL(r.canceled_at, r.reserved_at) DESC LIMIT 5', user['id'])
+      recent_reservations = rows.map do |row|
+        event = get_event(row['event_id'])
+        price = event['sheets'][row['sheet_rank']]['price']
+        event.delete('sheets')
+        event.delete('total')
+        event.delete('remains')
+
+        {
+          id:          row['id'],
+          event:       event,
+          sheet_rank:  row['sheet_rank'],
+          sheet_num:   row['sheet_num'],
+          price:       price,
+          reserved_at: row['reserved_at'].to_i,
+          canceled_at: row['canceled_at']&.to_i,
+        }
+      end
+
+      user['recent_reservations'] = recent_reservations
+      user['total_price'] = db.xquery('SELECT IFNULL(SUM(e.price + s.price), 0) AS total_price FROM reservations r INNER JOIN sheets s ON s.id = r.sheet_id INNER JOIN events e ON e.id = r.event_id WHERE r.user_id = ? AND r.canceled_at IS NULL', user['id']).first['total_price']
+
+      rows = db.xquery('SELECT DISTINCT event_id FROM reservations WHERE user_id = ? ORDER BY IFNULL(canceled_at, reserved_at) DESC LIMIT 5', user['id'])
+      recent_events = rows.map do |row|
+        event = get_event(row['event_id'])
+        event['sheets'].each { |_, sheet| sheet.delete('detail') }
+        event
+      end
+      user['recent_events'] = recent_events
+
+      user.to_json
+    end
+
+
     post '/api/actions/login' do
       login_name = body_params['login_name']
       password   = body_params['password']
 
       user      = db.xquery('SELECT * FROM users WHERE login_name = ?', login_name).first
-      pass_hash = db.xquery('SELECT SHA2(?, 256)', password).first["SHA2('password', 256)"]
+      pass_hash = db.xquery('SELECT SHA2(?, 256) AS pass_hash', password).first['pass_hash']
       halt_with_error 401, 'authentication_failed' if user.nil? || pass_hash != user['pass_hash']
 
       session['user_id'] = user['id']
