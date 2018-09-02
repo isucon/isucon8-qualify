@@ -140,5 +140,21 @@ module Torb
       status 201
       { id: user_id, nickname: nickname }.to_json
     end
+
+    post '/api/actions/login' do
+      content_type :json
+
+      login_name = body_params['login_name']
+      password   = body_params['password']
+
+      user      = db.xquery('SELECT * FROM users WHERE login_name = ?', login_name).first
+      pass_hash = db.xquery('SELECT SHA2(?, 256)', password).first["SHA2('password', 256)"]
+      halt 401, { error: 'authentication_failed' }.to_json if user.nil? || pass_hash != user['pass_hash']
+
+      session['user_id'] = user['id']
+
+      user = get_login_user
+      user.to_json
+    end
   end
 end
