@@ -114,6 +114,12 @@ module Torb
         db.xquery('SELECT id, nickname FROM users WHERE id = ?', user_id).first
       end
 
+      def get_login_administrator
+        administrator_id = session['administrator_id']
+        return unless administrator_id
+        db.xquery('SELECT id, nickname FROM administrators WHERE id = ?', administrator_id).first
+      end
+
       def validate_rank(rank)
         db.xquery('SELECT COUNT(*) AS total_sheets FROM sheets WHERE `rank` = ?', rank).first['total_sheets'] > 0
       end
@@ -293,6 +299,13 @@ module Torb
       end
 
       status 204
+    end
+
+    get '/admin/' do
+      @administrator = get_login_administrator
+      @events = get_events(->(_) { true }) if @administrator
+
+      erb :admin
     end
   end
 end
