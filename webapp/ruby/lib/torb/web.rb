@@ -340,6 +340,24 @@ module Torb
       events.to_json
     end
 
+    post '/admin/api/events', admin_login_required: true do
+      title  = body_params['title']
+      public = body_params['public'] == '1' ? 1 : 0
+      price  = body_params['price']
+
+      db.query('BEGIN')
+      begin
+        db.xquery('INSERT INTO events (title, public_fg, closed_fg, price) VALUES (?, ?, 0, ?)', title, public, price)
+        event_id = db.last_id
+        db.query('COMMIT')
+      rescue
+        db.query('ROLLBACK')
+      end
+
+      event = get_event(event_id)
+      event&.to_json
+    end
+
     get '/admin/api/events/:id', admin_login_required: true do |event_id|
       event = get_event(event_id)
       halt_with_error 404, 'not_found' unless event
