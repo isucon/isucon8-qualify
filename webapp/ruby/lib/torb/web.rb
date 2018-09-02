@@ -15,6 +15,7 @@ module Torb
     set :public_folder, File.expand_path('../static', root)
     set :sessions, key: 'torb_session', expire_after: 3600
     set :session_secret, 'tagomoris'
+    set :protection, frame_options: :deny
 
     set :erb, escape_html: true
 
