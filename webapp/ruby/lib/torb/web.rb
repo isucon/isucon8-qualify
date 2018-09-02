@@ -428,5 +428,23 @@ module Torb
 
       render_report_csv(reports)
     end
+
+    get '/admin/api/reports/sales', admin_login_required: true do
+      reservations = db.query('SELECT r.*, s.rank AS sheet_rank, s.num AS sheet_num, s.price AS sheet_price, e.id AS event_id, e.price AS event_price FROM reservations r INNER JOIN sheets s ON s.id = r.sheet_id INNER JOIN events e ON e.id = r.event_id ORDER BY reserved_at ASC FOR UPDATE')
+      reports = reservations.map do |reservation|
+        {
+          reservation_id: reservation['id'],
+          event_id:       reservation['event_id'],
+          rank:           reservation['sheet_rank'],
+          num:            reservation['sheet_num'],
+          user_id:        reservation['user_id'],
+          sold_at:        reservation['reserved_at'].iso8601,
+          canceled_at:    reservation['canceled_at']&.iso8601 || '',
+          price:          reservation['event_price'] + reservation['sheet_price'],
+        }
+      end
+
+      render_report_csv(reports)
+    end
   end
 end
