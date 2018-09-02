@@ -339,5 +339,12 @@ module Torb
       events = get_events(->(_) { true })
       events.to_json
     end
+
+    get '/admin/api/events/:id', admin_login_required: true do |event_id|
+      event = get_event(event_id)
+      halt_with_error 404, 'not_found' unless event
+
+      event.to_json
+    end
   end
 end
