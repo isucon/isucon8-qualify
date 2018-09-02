@@ -26,7 +26,7 @@ module Torb
       end
     end
 
-    before '/api/*' do
+    before '/api/*|/admin/api/*' do
       content_type :json
     end
 
@@ -306,6 +306,20 @@ module Torb
       @events = get_events(->(_) { true }) if @administrator
 
       erb :admin
+    end
+
+    post '/admin/api/actions/login' do
+      login_name = body_params['login_name']
+      password   = body_params['password']
+
+      administrator = db.xquery('SELECT * FROM administrators WHERE login_name = ?', login_name).first
+      pass_hash     = db.xquery('SELECT SHA2(?, 256) AS pass_hash', password).first['pass_hash']
+      halt_with_error 401, 'authentication_failed' if administrator.nil? || pass_hash != administrator['pass_hash']
+
+      session['administrator_id'] = administrator['id']
+
+      administrator = get_login_administrator
+      administrator.to_json
     end
   end
 end
