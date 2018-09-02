@@ -165,6 +165,21 @@ module Torb
       erb :index
     end
 
+    get '/initialize' do
+      db.query('BEGIN')
+      db.query('DELETE FROM users WHERE id > 1000')
+      db.query('DELETE FROM reservations WHERE id > 1000')
+      db.query('UPDATE reservations SET canceled_at = NULL')
+      db.query('DELETE FROM events WHERE id > 3')
+      db.query('UPDATE events SET public_fg = 0, closed_fg = 1')
+      db.query('UPDATE events SET public_fg = 1, closed_fg = 0 WHERE id = 1')
+      db.query('UPDATE events SET public_fg = 1, closed_fg = 0 WHERE id = 2')
+      db.query('UPDATE events SET public_fg = 0, closed_fg = 0 WHERE id = 3')
+      db.query('COMMIT')
+
+      status 204
+    end
+
     post '/api/users' do
       nickname   = body_params['nickname']
       login_name = body_params['login_name']
