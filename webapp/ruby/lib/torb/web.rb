@@ -18,6 +18,15 @@ module Torb
 
     set :erb, escape_html: true
 
+    set :login_required, ->(value) do
+      condition do
+        if value && !get_login_user
+          content_type :json
+          halt 401, { error: 'login_required' }.to_json
+        end
+      end
+    end
+
     helpers do
       def db
         Thread.current[:db] ||= Mysql2::Client.new(
@@ -155,6 +164,11 @@ module Torb
 
       user = get_login_user
       user.to_json
+    end
+
+    post '/api/actions/logout', login_required: true do
+      session.delete('user_id')
+      status 204
     end
   end
 end
