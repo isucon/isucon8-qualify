@@ -174,6 +174,11 @@ module Torb
       status 204
     end
 
+    get '/api/events' do
+      events = get_events.map(&method(:sanitize_event))
+      events.to_json
+    end
+
     get '/api/events/:id' do |event_id|
       user = get_login_user || {}
       event = get_event(event_id, user['id'])
