@@ -7,4 +7,4 @@ export DB_PORT=3306
 export DB_USER=isucon
 export DB_PASS=isucon
 
-exec rackup -p 8080
+exec puma -p 8080 -v
