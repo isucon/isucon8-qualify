@@ -812,6 +812,98 @@ func CheckTopPage(ctx context.Context, state *State) error {
 	return nil
 }
 
+func CheckAdminTopPage(ctx context.Context, state *State) error {
+	admin, checker, push := state.PopRandomAdministrator()
+	if admin == nil {
+		return nil
+	}
+	defer push()
+
+	err := loginAdministrator(ctx, checker, admin)
+	if err != nil {
+		return err
+	}
+
+	timeBefore := time.Now().Add(-1 * parameter.AllowableDelay)
+	eventsBeforeRequest := FilterEventsToAllowDelay(state.GetCopiedEvents(), timeBefore)
+
+	err = checker.Play(ctx, &CheckAction{
+		Method:             "GET",
+		Path:               "/admin/",
+		ExpectedStatusCode: 200,
+		Description:        "ページが表示されること",
+		CheckFunc: checkHTML(func(res *http.Response, doc *goquery.Document) error {
+			h := htmldigest.NewHash(func() hash.Hash {
+				return crc32.NewIEEE()
+			})
+			crcSum, err := h.Sum(doc.Nodes[0])
+			if err != nil {
+				fmt.Fprint(os.Stderr, "HTML: ")
+				_ = html.Render(os.Stderr, doc.Nodes[0])
+				fmt.Fprintln(os.Stderr, "")
+				fmt.Fprintln(os.Stderr, err)
+				return fatalErrorf("チェックサムの生成に失敗しました (主催者に連絡してください)")
+			}
+			if crcSum32 := JoinCrc32(crcSum); crcSum32 != ExpectedAdminHash {
+				fmt.Fprint(os.Stderr, "HTML: ")
+				_ = html.Render(os.Stderr, doc.Nodes[0])
+				fmt.Fprintln(os.Stderr, "")
+				fmt.Fprintf(os.Stderr, "crcSum32=%d\n", crcSum32)
+				return fatalErrorf("DOM構造が初期状態と一致しません")
+			}
+
+			selection := doc.Find("#app-wrapper")
+			if selection == nil || len(selection.Nodes) == 0 {
+				return fatalErrorf("app-wrapperが見つかりません")
+			}
+
+			var found int
+			node := selection.Nodes[0]
+			for _, attr := range node.Attr {
+				switch attr.Key {
+				case "data-events":
+					var events []JsonEvent
+					err := json.Unmarshal([]byte(attr.Val), &events)
+					if err != nil {
+						return fatalErrorf("イベント一覧のJsonデコードに失敗 %v", err)
+					}
+
+					err = checkEventList(state, eventsBeforeRequest, events)
+					if err != nil {
+						return err
+					}
+
+					found++
+				case "data-administrator":
+					var u *JsonAdministrator
+					err := json.Unmarshal([]byte(attr.Val), &u)
+					if err != nil {
+						return fatalErrorf("管理者情報のJsonデコードに失敗 %v", err)
+					}
+					if u == nil {
+						return fatalErrorf("管理者情報がnull")
+					}
+					if u.ID != admin.ID || u.Nickname != admin.Nickname {
+						return fatalErrorf("管理者情報が違います")
+					}
+
+					found++
+				}
+			}
+
+			if found != 2 {
+				return fatalErrorf("app-wrapperにdata-eventsまたはdata-administratorがありません")
+			}
+			return nil
+		}),
+	})
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func CheckMyPage(ctx context.Context, state *State) error {
 	user, checker, push := state.PopRandomUser()
 	if user == nil {
