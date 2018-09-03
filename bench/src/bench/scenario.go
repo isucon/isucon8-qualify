@@ -60,7 +60,7 @@ func checkJsonErrorResponse(errorCode string) func(res *http.Response, body *byt
 	}
 }
 
-func checkEventList(state *State, eventsBeforeRequest []*Event, events []JsonEvent) error {
+func checkEventList(state *State, eventsBeforeRequest []*Event, events []JsonEvent, eventsAfterResponse []*Event) error {
 	ok := sort.SliceIsSorted(events, func(i, j int) bool {
 		return events[i].ID < events[j].ID
 	})
@@ -82,7 +82,7 @@ func checkEventList(state *State, eventsBeforeRequest []*Event, events []JsonEve
 	}
 
 	eventsAfterResponseMap := map[uint]*Event{}
-	for _, e := range FilterPublicEvents(state.GetEvents()) {
+	for _, e := range eventsAfterResponse {
 		eventsAfterResponseMap[e.ID] = e
 	}
 
@@ -770,7 +770,8 @@ func CheckTopPage(ctx context.Context, state *State) error {
 						return fatalErrorf("イベント一覧のJsonデコードに失敗 %s %v", attr.Val, err)
 					}
 
-					err = checkEventList(state, eventsBeforeRequest, events)
+					eventsAfterResponse := FilterPublicEvents(state.GetEvents())
+					err = checkEventList(state, eventsBeforeRequest, events, eventsAfterResponse)
 					if err != nil {
 						return err
 					}
@@ -868,7 +869,8 @@ func CheckAdminTopPage(ctx context.Context, state *State) error {
 						return fatalErrorf("イベント一覧のJsonデコードに失敗 %s %v", attr.Val, err)
 					}
 
-					err = checkEventList(state, eventsBeforeRequest, events)
+					eventsAfterResponse := state.GetEvents()
+					err = checkEventList(state, eventsBeforeRequest, events, eventsAfterResponse)
 					if err != nil {
 						return err
 					}
