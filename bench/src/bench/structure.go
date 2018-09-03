@@ -246,8 +246,12 @@ type State struct {
 	closedEventSheets   []*EventSheet // !public && closed
 	reservedEventSheets []*EventSheet // flag does not matter, all reserved sheets come here
 
-	reservationsMtx sync.Mutex
-	reservations    map[uint]*Reservation // key: reservation id
+	reservationsMtx       sync.Mutex
+	reservations          map[uint]*Reservation // key: reservation id
+	ReserveRequestedCount uint
+	ReserveCompletedCount uint
+	CancelRequestedCount  uint
+	CancelCompletedCount  uint
 
 	// Like a transactional log for reserve/cancel API.
 	// A log is removed after we verified that the reserve/cancel API request succeeded.
@@ -767,29 +771,27 @@ func (s *State) GetReservationCountInEventID(eventID uint) int {
 	return len(s.GetReservationsInEventID(eventID))
 }
 
-func (s *State) MaybeReservedCount() int {
+func (s *State) GetReserveRequestedCount() uint {
 	s.reserveLogMtx.Lock()
 	defer s.reserveLogMtx.Unlock()
 
-	return len(s.reserveLog)
+	return s.ReserveRequestedCount
 }
 
-func (s *State) MaybeReservedCountInEventID(eventID uint) int {
-	s.reserveLogMtx.Lock()
-	defer s.reserveLogMtx.Unlock()
+func (e *Event) GetReserveRequestedCount() uint {
+	e.RemainsMtx.Lock()
+	defer e.RemainsMtx.Unlock()
 
-	// filtered reservedLog
-	filtered := make([]*Reservation, 0, len(s.reserveLog))
-	for _, reservation := range s.reserveLog {
-		if reservation.EventID != eventID {
-			continue
-		}
-		filtered = append(filtered, reservation)
-	}
-	return len(filtered)
+	return e.ReserveRequestedCount
 }
 
 func (s *State) BeginReservation(reservation *Reservation) (logID uint64) {
+	{
+		s.reservationsMtx.Lock()
+		defer s.reservationsMtx.Unlock()
+
+		s.ReserveRequestedCount++
+	}
 	{
 		event := s.FindEventByID(reservation.EventID)
 		rank := reservation.SheetRank
@@ -811,6 +813,7 @@ func (s *State) CommitReservation(logID uint64, reservation *Reservation) {
 
 		reservation.ReserveCompletedAt = time.Now()
 		s.reservations[reservation.ID] = reservation
+		s.ReserveCompletedCount++
 	}
 	{
 		event := s.FindEventByID(reservation.EventID)
@@ -833,6 +836,7 @@ func (s *State) BeginCancelation(reservation *Reservation) (logID uint64) {
 
 		reservation.CancelRequestedAt = time.Now()
 		s.reservations[reservation.ID] = reservation
+		s.CancelRequestedCount++
 	}
 	{
 		event := s.FindEventByID(reservation.EventID)
@@ -855,6 +859,7 @@ func (s *State) CommitCancelation(logID uint64, reservation *Reservation) {
 
 		reservation.CancelCompletedAt = time.Now()
 		s.reservations[reservation.ID] = reservation
+		s.CancelCompletedCount++
 	}
 	{
 		event := s.FindEventByID(reservation.EventID)
