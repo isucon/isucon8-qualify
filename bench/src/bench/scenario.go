@@ -767,7 +767,7 @@ func CheckTopPage(ctx context.Context, state *State) error {
 					var events []JsonEvent
 					err := json.Unmarshal([]byte(attr.Val), &events)
 					if err != nil {
-						return fatalErrorf("イベント一覧のJsonデコードに失敗 %v", err)
+						return fatalErrorf("イベント一覧のJsonデコードに失敗 %s %v", attr.Val, err)
 					}
 
 					err = checkEventList(state, eventsBeforeRequest, events)
@@ -781,7 +781,7 @@ func CheckTopPage(ctx context.Context, state *State) error {
 						var u *JsonUser
 						err := json.Unmarshal([]byte(attr.Val), &u)
 						if err != nil {
-							return fatalErrorf("ログインユーザーのJsonデコードに失敗 %v", err)
+							return fatalErrorf("ログインユーザーのJsonデコードに失敗 %s %v", attr.Val, err)
 						}
 						if u == nil {
 							return fatalErrorf("ログインユーザーがnull")
@@ -865,7 +865,7 @@ func CheckAdminTopPage(ctx context.Context, state *State) error {
 					var events []JsonEvent
 					err := json.Unmarshal([]byte(attr.Val), &events)
 					if err != nil {
-						return fatalErrorf("イベント一覧のJsonデコードに失敗 %v", err)
+						return fatalErrorf("イベント一覧のJsonデコードに失敗 %s %v", attr.Val, err)
 					}
 
 					err = checkEventList(state, eventsBeforeRequest, events)
@@ -878,7 +878,7 @@ func CheckAdminTopPage(ctx context.Context, state *State) error {
 					var u *JsonAdministrator
 					err := json.Unmarshal([]byte(attr.Val), &u)
 					if err != nil {
-						return fatalErrorf("管理者情報のJsonデコードに失敗 %v", err)
+						return fatalErrorf("管理者情報のJsonデコードに失敗 %s %v", attr.Val, err)
 					}
 					if u == nil {
 						return fatalErrorf("管理者情報がnull")
