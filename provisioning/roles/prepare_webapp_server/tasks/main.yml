@@ -1,14 +1,12 @@
 ---
-- name: iptables open tcp 80 port
+- name: firewalld open tcp 80 port
   become: yes
   become_user: root
-  iptables:
-    flush: true
-    chain: INPUT
-    protocol: tcp
-    destination_port: 80
-    jump: ACCEPT
-    state: present
+  firewalld:
+    immediate: true
+    permanent: true
+    service: http
+    state: enabled
 
 - name: Put h2o.conf
   become: yes
