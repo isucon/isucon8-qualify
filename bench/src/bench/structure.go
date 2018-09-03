@@ -102,7 +102,7 @@ type Event struct {
 	Price     uint
 	CreatedAt time.Time
 
-	RemainsMtx            sync.Mutex
+	reservationMtx        sync.Mutex
 	ReserveRequestedCount uint
 	ReserveCompletedCount uint
 	CancelRequestedCount  uint
@@ -768,8 +768,8 @@ func (s *State) GetReserveRequestedCount() uint {
 }
 
 func (e *Event) GetReserveRequestedCount() uint {
-	e.RemainsMtx.Lock()
-	defer e.RemainsMtx.Unlock()
+	e.reservationMtx.Lock()
+	defer e.reservationMtx.Unlock()
 
 	return e.ReserveRequestedCount
 }
@@ -785,8 +785,8 @@ func (s *State) BeginReservation(reservation *Reservation) (logID uint64) {
 		event := s.FindEventByID(reservation.EventID)
 		rank := reservation.SheetRank
 
-		event.RemainsMtx.Lock()
-		defer event.RemainsMtx.Unlock()
+		event.reservationMtx.Lock()
+		defer event.reservationMtx.Unlock()
 
 		event.ReserveRequestedCount++
 		*event.ReserveRequestedRT.getPointer(rank)++
@@ -808,8 +808,8 @@ func (s *State) CommitReservation(logID uint64, reservation *Reservation) {
 		event := s.FindEventByID(reservation.EventID)
 		rank := reservation.SheetRank
 
-		event.RemainsMtx.Lock()
-		defer event.RemainsMtx.Unlock()
+		event.reservationMtx.Lock()
+		defer event.reservationMtx.Unlock()
 
 		event.ReserveCompletedCount++
 		*event.ReserveCompletedRT.getPointer(rank)++
@@ -831,8 +831,8 @@ func (s *State) BeginCancelation(reservation *Reservation) (logID uint64) {
 		event := s.FindEventByID(reservation.EventID)
 		rank := reservation.SheetRank
 
-		event.RemainsMtx.Lock()
-		defer event.RemainsMtx.Unlock()
+		event.reservationMtx.Lock()
+		defer event.reservationMtx.Unlock()
 
 		event.CancelRequestedCount++
 		*event.CancelRequestedRT.getPointer(rank)++
@@ -854,8 +854,8 @@ func (s *State) CommitCancelation(logID uint64, reservation *Reservation) {
 		event := s.FindEventByID(reservation.EventID)
 		rank := reservation.SheetRank
 
-		event.RemainsMtx.Lock()
-		defer event.RemainsMtx.Unlock()
+		event.reservationMtx.Lock()
+		defer event.reservationMtx.Unlock()
 
 		event.CancelCompletedCount++
 		*event.CancelCompletedRT.getPointer(rank)++
