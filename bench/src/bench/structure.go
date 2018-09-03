@@ -805,6 +805,7 @@ func (s *State) CommitReservation(logID uint64, reservation *Reservation) {
 		reservation.ReserveCompletedAt = time.Now()
 		s.reservations[reservation.ID] = reservation
 		s.ReserveCompletedCount++
+		assert(uint(len(s.reservations)) == s.ReserveCompletedCount)
 	}
 	{
 		event := s.FindEventByID(reservation.EventID)

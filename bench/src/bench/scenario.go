@@ -1575,10 +1575,16 @@ func checkReportRecord(s *State, records map[uint]*ReportRecord, timeBefore time
 	return nil
 }
 
-func checkReportCount(reservationCountBeforeRequest int, reportCount int, reservationCountAfterResponse int, reserveRequestedCountAfterResponse uint) error {
-	log.Printf("debug: reservationCountBeforeRequest:%d <= reportCount:%d <= reservationCountAfterResponse:%d + reserveRequestedCountAfterResponse:%d\n",
-		reservationCountBeforeRequest, reportCount, reservationCountAfterResponse, reserveRequestedCountAfterResponse)
-	if reservationCountBeforeRequest <= reportCount && reportCount <= reservationCountAfterResponse+int(reserveRequestedCountAfterResponse) {
+func checkReportCount(
+	reserveCompletedCountBeforeRequest int,
+	reportCount int,
+	reserveRequestedCountAfterResponse uint) error {
+	log.Printf("debug: reserveCompletedCountBeforeRequest:%d <= reportCount:%d <= reserveRequestedCountAfterResponse:%d\n",
+		reserveCompletedCountBeforeRequest,
+		reportCount,
+		reserveRequestedCountAfterResponse)
+	if reserveCompletedCountBeforeRequest <= reportCount &&
+		reportCount <= int(reserveRequestedCountAfterResponse) {
 		return nil
 	}
 	return fatalErrorf("レポートの数が正しくありません")
@@ -1586,7 +1592,6 @@ func checkReportCount(reservationCountBeforeRequest int, reportCount int, reserv
 
 func checkReportResponse(s *State, timeBefore time.Time, reservationsBeforeRequest map[uint]*Reservation) func(res *http.Response, body *bytes.Buffer) error {
 	return func(res *http.Response, body *bytes.Buffer) error {
-		reservationsAfterResponse := s.GetReservations()
 		reserveRequestedCountAfterResponse := s.GetReserveRequestedCount()
 
 		log.Println("debug:", body)
@@ -1607,7 +1612,7 @@ func checkReportResponse(s *State, timeBefore time.Time, reservationsBeforeReque
 			return err
 		}
 
-		err = checkReportCount(len(reservationsBeforeRequest), len(records), len(reservationsAfterResponse), reserveRequestedCountAfterResponse)
+		err = checkReportCount(len(reservationsBeforeRequest), len(records), reserveRequestedCountAfterResponse)
 		if err != nil {
 			return err
 		}
@@ -1618,11 +1623,6 @@ func checkReportResponse(s *State, timeBefore time.Time, reservationsBeforeReque
 
 func checkEventReportResponse(s *State, event *Event, timeBefore time.Time, reservationsBeforeRequest map[uint]*Reservation) func(res *http.Response, body *bytes.Buffer) error {
 	return func(res *http.Response, body *bytes.Buffer) error {
-		// NOTE: s.GetReservationsInEventID() returns a shallow copy, so, the state of each reservation
-		// could be changed during runtime. However, the state of reservation can be changed
-		//  only by `cancel` API, and it is locked by SELECT FOR UPDATE of the `report` API on
-		// the webapp side, thus, we assume no update of reversations during runtime occurs.
-		reservationsAfterResponse := s.GetReservationsInEventID(event.ID)
 		reserveRequestedCountAfterResponse := event.GetReserveRequestedCount()
 
 		log.Printf("debug: checkEventReport %d\n", event.ID)
@@ -1652,7 +1652,7 @@ func checkEventReportResponse(s *State, event *Event, timeBefore time.Time, rese
 			return err
 		}
 
-		err = checkReportCount(len(reservationsBeforeRequest), len(records), len(reservationsAfterResponse), reserveRequestedCountAfterResponse)
+		err = checkReportCount(len(reservationsBeforeRequest), len(records), reserveRequestedCountAfterResponse)
 		if err != nil {
 			return err
 		}
