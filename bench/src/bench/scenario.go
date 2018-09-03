@@ -1971,17 +1971,10 @@ func reserveSheet(ctx context.Context, state *State, checker *Checker, userID ui
 	eventID := eventSheet.EventID
 	rank := eventSheet.Rank
 
-	event := state.FindEventByID(eventID)
-	assert(event != nil)
-
-	ok := event.TryGetTicket(rank)
-	if !ok {
-		return nil, nil
-	}
-
 	reserved := &JsonReservation{ReservationID: 0, SheetRank: rank, SheetNum: 0}
 	reservation := &Reservation{ID: 0, EventID: eventID, UserID: userID, SheetRank: rank, SheetNum: 0}
-	logID := state.AppendReserveLog(reservation)
+	logID := state.BeginReservation(reservation)
+
 	err := checker.Play(ctx, &CheckAction{
 		Method:             "POST",
 		Path:               fmt.Sprintf("/api/events/%d/actions/reserve", eventID),
@@ -1998,10 +1991,8 @@ func reserveSheet(ctx context.Context, state *State, checker *Checker, userID ui
 
 	reservation.ID = reserved.ReservationID
 	reservation.SheetNum = reserved.SheetNum
-	state.DeleteReserveLog(logID, reservation)
+	state.CommitReservation(logID, reservation)
 	eventSheet.Num = reserved.SheetNum
-	state.CommitReservation(reservation)
-	event.CommitGetTicket(rank)
 
 	return reservation, nil
 }
@@ -2021,12 +2012,8 @@ func cancelSheet(ctx context.Context, state *State, checker *Checker, eventSheet
 	rank := reservation.SheetRank
 	sheetNum := reservation.SheetNum
 
-	event := state.FindEventByID(eventID)
-	assert(event != nil)
-	event.TryReleaseTicket(rank)
+	logID := state.BeginCancelation(reservation)
 
-	state.BeginCancelReservation(reservation)
-	logID := state.AppendCancelLog(reservation)
 	err = checker.Play(ctx, &CheckAction{
 		Method:             "DELETE",
 		Path:               fmt.Sprintf("/api/events/%d/sheets/%s/%d/reservation", eventID, rank, sheetNum),
@@ -2037,10 +2024,8 @@ func cancelSheet(ctx context.Context, state *State, checker *Checker, eventSheet
 		return false, err
 	}
 
-	state.CommitCancelReservation(reservation)
-	state.DeleteCancelLog(logID, reservation)
+	state.CommitCancelation(logID, reservation)
 	eventSheet.Num = NonReservedNum
-	event.CommitReleaseTicket(rank)
 
 	return false, nil
 }
