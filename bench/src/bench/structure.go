@@ -246,13 +246,15 @@ type State struct {
 	closedEventSheets   []*EventSheet // !public && closed
 	reservedEventSheets []*EventSheet // flag does not matter, all reserved sheets come here
 
-	reservationsMtx       sync.Mutex
+	reservationMtx        sync.Mutex
 	reservations          map[uint]*Reservation // key: reservation id
 	ReserveRequestedCount uint
 	ReserveCompletedCount uint
 	CancelRequestedCount  uint
 	CancelCompletedCount  uint
 
+	// TODO(sonots): Remove later if we've completed without using this anymore.
+	//
 	// Like a transactional log for reserve/cancel API.
 	// A log is removed after we verified that the reserve/cancel API request succeeded.
 	// If a request is timeouted or failed by any reasons, the log remains kept.
@@ -663,8 +665,8 @@ func GetRandomSheetNum(sheetRank string) uint {
 }
 
 func (s *State) FindReservationByID(reservationID uint) *Reservation {
-	s.reservationsMtx.Lock()
-	defer s.reservationsMtx.Unlock()
+	s.reservationMtx.Lock()
+	defer s.reservationMtx.Unlock()
 
 	reservation := s.reservations[reservationID]
 
@@ -673,8 +675,8 @@ func (s *State) FindReservationByID(reservationID uint) *Reservation {
 
 // Returns a shallow copy of s.reservations
 func (s *State) GetReservations() map[uint]*Reservation {
-	s.reservationsMtx.Lock()
-	defer s.reservationsMtx.Unlock()
+	s.reservationMtx.Lock()
+	defer s.reservationMtx.Unlock()
 
 	reservations := make(map[uint]*Reservation, len(s.reservations))
 	for id, reservation := range s.reservations {
@@ -688,8 +690,8 @@ func (s *State) GetReservations() map[uint]*Reservation {
 // NOTE: This could be slow if s.reservations are large, but we assume that
 // len(s.reservations) are less than 10,000 even in very fast webapp implementation.
 func (s *State) GetReservationsCopy() map[uint]*Reservation {
-	s.reservationsMtx.Lock()
-	defer s.reservationsMtx.Unlock()
+	s.reservationMtx.Lock()
+	defer s.reservationMtx.Unlock()
 
 	t := time.Now()
 
@@ -706,8 +708,8 @@ func (s *State) GetReservationsCopy() map[uint]*Reservation {
 
 // Returns a filtered shallow copy
 func (s *State) GetReservationsInEventID(eventID uint) map[uint]*Reservation {
-	s.reservationsMtx.Lock()
-	defer s.reservationsMtx.Unlock()
+	s.reservationMtx.Lock()
+	defer s.reservationMtx.Unlock()
 
 	filtered := make(map[uint]*Reservation, len(s.reservations))
 	for id, reservation := range s.reservations {
@@ -721,8 +723,8 @@ func (s *State) GetReservationsInEventID(eventID uint) map[uint]*Reservation {
 
 // Returns a filtered deep copy
 func (s *State) GetReservationsCopyInEventID(eventID uint) map[uint]*Reservation {
-	s.reservationsMtx.Lock()
-	defer s.reservationsMtx.Unlock()
+	s.reservationMtx.Lock()
+	defer s.reservationMtx.Unlock()
 
 	filtered := make(map[uint]*Reservation, len(s.reservations))
 	for id, r := range s.reservations {
@@ -776,8 +778,8 @@ func (e *Event) GetReserveRequestedCount() uint {
 
 func (s *State) BeginReservation(reservation *Reservation) (logID uint64) {
 	{
-		s.reservationsMtx.Lock()
-		defer s.reservationsMtx.Unlock()
+		s.reservationMtx.Lock()
+		defer s.reservationMtx.Unlock()
 
 		s.ReserveRequestedCount++
 	}
@@ -797,8 +799,8 @@ func (s *State) BeginReservation(reservation *Reservation) (logID uint64) {
 
 func (s *State) CommitReservation(logID uint64, reservation *Reservation) {
 	{
-		s.reservationsMtx.Lock()
-		defer s.reservationsMtx.Unlock()
+		s.reservationMtx.Lock()
+		defer s.reservationMtx.Unlock()
 
 		reservation.ReserveCompletedAt = time.Now()
 		s.reservations[reservation.ID] = reservation
@@ -820,8 +822,8 @@ func (s *State) CommitReservation(logID uint64, reservation *Reservation) {
 
 func (s *State) BeginCancelation(reservation *Reservation) (logID uint64) {
 	{
-		s.reservationsMtx.Lock()
-		defer s.reservationsMtx.Unlock()
+		s.reservationMtx.Lock()
+		defer s.reservationMtx.Unlock()
 
 		reservation.CancelRequestedAt = time.Now()
 		s.reservations[reservation.ID] = reservation
@@ -843,8 +845,8 @@ func (s *State) BeginCancelation(reservation *Reservation) (logID uint64) {
 
 func (s *State) CommitCancelation(logID uint64, reservation *Reservation) {
 	{
-		s.reservationsMtx.Lock()
-		defer s.reservationsMtx.Unlock()
+		s.reservationMtx.Lock()
+		defer s.reservationMtx.Unlock()
 
 		reservation.CancelCompletedAt = time.Now()
 		s.reservations[reservation.ID] = reservation
