@@ -760,17 +760,6 @@ func (s *State) GetRandomNonCanceledReservationInEventID(eventID uint) *Reservat
 	return filtered[i]
 }
 
-func (s *State) GetReservationCount() int {
-	s.reservationsMtx.Lock()
-	defer s.reservationsMtx.Unlock()
-
-	return len(s.reservations)
-}
-
-func (s *State) GetReservationCountInEventID(eventID uint) int {
-	return len(s.GetReservationsInEventID(eventID))
-}
-
 func (s *State) GetReserveRequestedCount() uint {
 	s.reserveLogMtx.Lock()
 	defer s.reserveLogMtx.Unlock()
