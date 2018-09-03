@@ -248,10 +248,10 @@ type State struct {
 
 	reservationMtx        sync.Mutex
 	reservations          map[uint]*Reservation // key: reservation id
-	ReserveRequestedCount uint
-	ReserveCompletedCount uint
-	CancelRequestedCount  uint
-	CancelCompletedCount  uint
+	reserveRequestedCount uint
+	reserveCompletedCount uint
+	cancelRequestedCount  uint
+	cancelCompletedCount  uint
 
 	// TODO(sonots): Remove later if we've completed without using this anymore.
 	//
@@ -295,8 +295,8 @@ func (s *State) Init() {
 	for _, reservation := range DataSet.Reservations {
 		s.reservations[reservation.ID] = reservation
 	}
-	s.ReserveRequestedCount = uint(len(s.reservations))
-	s.ReserveCompletedCount = uint(len(s.reservations))
+	s.reserveRequestedCount = uint(len(s.reservations))
+	s.reserveCompletedCount = uint(len(s.reservations))
 	// NOTE: Need to init cancel counts if initial data contains cancels.
 
 	s.reserveLogID = 0
@@ -769,7 +769,7 @@ func (s *State) GetReserveRequestedCount() uint {
 	s.reserveLogMtx.Lock()
 	defer s.reserveLogMtx.Unlock()
 
-	return s.ReserveRequestedCount
+	return s.reserveRequestedCount
 }
 
 func (e *Event) GetReserveRequestedCount() uint {
@@ -784,7 +784,7 @@ func (s *State) BeginReservation(reservation *Reservation) (logID uint64) {
 		s.reservationMtx.Lock()
 		defer s.reservationMtx.Unlock()
 
-		s.ReserveRequestedCount++
+		s.reserveRequestedCount++
 	}
 	{
 		event := s.FindEventByID(reservation.EventID)
@@ -807,8 +807,8 @@ func (s *State) CommitReservation(logID uint64, reservation *Reservation) {
 
 		reservation.ReserveCompletedAt = time.Now()
 		s.reservations[reservation.ID] = reservation
-		s.ReserveCompletedCount++
-		assert(uint(len(s.reservations)) == s.ReserveCompletedCount)
+		s.reserveCompletedCount++
+		assert(uint(len(s.reservations)) == s.reserveCompletedCount)
 	}
 	{
 		event := s.FindEventByID(reservation.EventID)
@@ -831,7 +831,7 @@ func (s *State) BeginCancelation(reservation *Reservation) (logID uint64) {
 
 		reservation.CancelRequestedAt = time.Now()
 		s.reservations[reservation.ID] = reservation
-		s.CancelRequestedCount++
+		s.cancelRequestedCount++
 	}
 	{
 		event := s.FindEventByID(reservation.EventID)
@@ -854,7 +854,7 @@ func (s *State) CommitCancelation(logID uint64, reservation *Reservation) {
 
 		reservation.CancelCompletedAt = time.Now()
 		s.reservations[reservation.ID] = reservation
-		s.CancelCompletedCount++
+		s.cancelCompletedCount++
 	}
 	{
 		event := s.FindEventByID(reservation.EventID)
