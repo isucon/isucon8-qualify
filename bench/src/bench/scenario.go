@@ -727,7 +727,7 @@ func CheckTopPage(ctx context.Context, state *State) error {
 
 	// Assume that public events are not modified (closed or private)
 	timeBefore := time.Now().Add(-1 * parameter.AllowableDelay)
-	eventsBeforeRequest := FilterEventsToAllowDelay(FilterPublicEvents(state.GetEventsCopy()), timeBefore)
+	eventsBeforeRequest := FilterEventsToAllowDelay(FilterPublicEvents(state.GetCopiedEvents()), timeBefore)
 
 	err := checker.Play(ctx, &CheckAction{
 		Method:             "GET",
@@ -1674,7 +1674,7 @@ func CheckReport(ctx context.Context, state *State) error {
 	}
 
 	timeBefore := time.Now().Add(-1 * parameter.AllowableDelay)
-	reservationsBeforeRequest := FilterReservationsToAllowDelay(state.GetReservationsCopy(), timeBefore)
+	reservationsBeforeRequest := FilterReservationsToAllowDelay(state.GetCopiedReservations(), timeBefore)
 
 	err = checker.Play(ctx, &CheckAction{
 		Method:             "GET",
@@ -1713,7 +1713,7 @@ func CheckEventReport(ctx context.Context, state *State) error {
 	}
 
 	timeBefore := time.Now().Add(-1 * parameter.AllowableDelay)
-	reservationsBeforeRequest := FilterReservationsToAllowDelay(state.GetReservationsCopyInEventID(event.ID), timeBefore)
+	reservationsBeforeRequest := FilterReservationsToAllowDelay(state.GetCopiedReservationsInEventID(event.ID), timeBefore)
 
 	err = checker.Play(ctx, &CheckAction{
 		Method:             "GET",

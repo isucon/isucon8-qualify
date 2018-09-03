@@ -552,7 +552,7 @@ func (s *State) GetEvents() (events []*Event) {
 }
 
 // Returns a deep copy of s.events
-func (s *State) GetEventsCopy() (events []*Event) {
+func (s *State) GetCopiedEvents() (events []*Event) {
 	s.mtx.Lock()
 	defer s.mtx.Unlock()
 
@@ -689,7 +689,7 @@ func (s *State) GetReservations() map[uint]*Reservation {
 // Returns a deep copy of s.reservations
 // NOTE: This could be slow if s.reservations are large, but we assume that
 // len(s.reservations) are less than 10,000 even in very fast webapp implementation.
-func (s *State) GetReservationsCopy() map[uint]*Reservation {
+func (s *State) GetCopiedReservations() map[uint]*Reservation {
 	s.reservationMtx.Lock()
 	defer s.reservationMtx.Unlock()
 
@@ -701,7 +701,7 @@ func (s *State) GetReservationsCopy() map[uint]*Reservation {
 		reservations[id] = &reservation
 	}
 
-	log.Println("debug: GetReservationsCopy", time.Since(t))
+	log.Println("debug: GetCopiedReservations", time.Since(t))
 
 	return reservations
 }
@@ -722,7 +722,7 @@ func (s *State) GetReservationsInEventID(eventID uint) map[uint]*Reservation {
 }
 
 // Returns a filtered deep copy
-func (s *State) GetReservationsCopyInEventID(eventID uint) map[uint]*Reservation {
+func (s *State) GetCopiedReservationsInEventID(eventID uint) map[uint]*Reservation {
 	s.reservationMtx.Lock()
 	defer s.reservationMtx.Unlock()
 
