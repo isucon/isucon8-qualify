@@ -295,6 +295,9 @@ func (s *State) Init() {
 	for _, reservation := range DataSet.Reservations {
 		s.reservations[reservation.ID] = reservation
 	}
+	s.ReserveRequestedCount = uint(len(s.reservations))
+	s.ReserveCompletedCount = uint(len(s.reservations))
+	// NOTE: Need to init cancel counts if initial data contains cancels.
 
 	s.reserveLogID = 0
 	s.reserveLog = map[uint64]*Reservation{}
