@@ -62,7 +62,7 @@ $container['dbh'] = function (): PDOWrapper {
     $user = getenv('DB_USER');
     $password = getenv('DB_PASS');
 
-    $dsn = "mysql:host={$host};port={$port};dbname={$database}";
+    $dsn = "mysql:host={$host};port={$port};dbname={$database};charset=utf8mb4;";
     $pdo = new PDO(
         $dsn,
         $user,
