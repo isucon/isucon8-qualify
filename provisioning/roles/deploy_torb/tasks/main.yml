@@ -5,6 +5,7 @@
   synchronize:
     src: ../../../../
     dest: /home/isucon/torb
+    delete: yes
     recursive: yes
     rsync_opts:
       - "--exclude=.git"
@@ -13,7 +14,15 @@
       - "--exclude=admin"
       - "--exclude=bench"
       - "--exclude=provisioning"
+      - "--exclude=bench/vendor/src"
+      - "--exclude=webapp/*/run_local.sh"
+      - "--exclude=webapp/go/vendor/src"
+      - "--exclude=webapp/go/torb"
       - "--exclude=webapp/perl/local"
+      - "--exclude=webapp/perl/t"
+      - "--exclude=webapp/php/run_local.php"
+      - "--exclude=webapp/php/vendor"
+      - "--exclude=webapp/ruby/.bundle"
 
 - name: chown torb
   become: yes
