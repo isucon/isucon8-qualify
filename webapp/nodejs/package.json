@@ -2,14 +2,25 @@
   "name": "torb.nodejs",
   "version": "1.0.0",
   "description": "torb.nodejs",
-  "main": "build/index.js",
   "license": "MIT",
+  "engines": {
+    "node": "^10"
+  },
   "dependencies": {
     "@types/node": "^10",
-    "fastify": "^1",
-    "source-map-support": "^0.5",
-    "trace-error": "0.0.7",
-    "ts-node": "^7",
-    "typescript": "^3"
+    "ejs": "*",
+    "fastify": "*",
+    "fastify-cookie": "*",
+    "fastify-mysql": "*",
+    "fastify-plugin": "*",
+    "fastify-session": "*",
+    "fastify-static": "*",
+    "point-of-view": "*",
+    "trace-error": "*",
+    "ts-node": "*",
+    "typescript": "*"
+  },
+  "devDependencies": {
+    "ts-node-dev": "*"
   }
 }
