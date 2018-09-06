@@ -47,13 +47,14 @@ module Torb
           password: ENV['DB_PASS'],
           database: ENV['DB_DATABASE'],
           database_timezone: :utc,
+          cast_booleans: true,
           reconnect: true,
           init_command: 'SET SESSION sql_mode="STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION"',
         )
       end
 
       def get_events(where = nil)
-        where ||= ->(e) { e['public_fg'] == 1 }
+        where ||= ->(e) { e['public_fg'] }
 
         db.query('BEGIN')
         begin
@@ -106,8 +107,8 @@ module Torb
           sheet.delete('rank')
         end
 
-        event['public'] = (event.delete('public_fg') == 1)
-        event['closed'] = (event.delete('closed_fg') == 1)
+        event['public'] = event.delete('public_fg')
+        event['closed'] = event.delete('closed_fg')
 
         event
       end
@@ -379,12 +380,12 @@ module Torb
 
     post '/admin/api/events', admin_login_required: true do
       title  = body_params['title']
-      public = body_params['public'] == '1' ? 1 : 0
+      public = (body_params['public'] == '1')
       price  = body_params['price']
 
       db.query('BEGIN')
       begin
-        db.xquery('INSERT INTO events (title, public_fg, closed_fg, price) VALUES (?, ?, 0, ?)', title, public, price)
+        db.xquery('INSERT INTO events (title, public_fg, closed_fg, price) VALUES (?, ?, 0, ?)', title, public ? 1 : 0, price)
         event_id = db.last_id
         db.query('COMMIT')
       rescue
@@ -403,22 +404,22 @@ module Torb
     end
 
     post '/admin/api/events/:id/actions/edit', admin_login_required: true do |event_id|
-      public = body_params['public'] ? 1 : 0
-      closed = body_params['closed'] ? 1 : 0
-      public = 0 if closed == 1
+      public = body_params['public']
+      closed = body_params['closed']
+      public = false if closed
 
       event = get_event(event_id)
       halt_with_error 404, 'not_found' unless event
 
       if event['closed']
         halt_with_error 400, 'cannot_edit_closed_event'
-      elsif event['public'] && closed == 1
+      elsif event['public'] && closed
         halt_with_error 400, 'cannot_close_public_event'
       end
 
       db.query('BEGIN')
       begin
-        db.xquery('UPDATE events SET public_fg = ?, closed_fg = ? WHERE id = ?', public, closed, event['id'])
+        db.xquery('UPDATE events SET public_fg = ?, closed_fg = ? WHERE id = ?', public ? 1 : 0, closed ? 1 : 0, event['id'])
         db.query('COMMIT')
       rescue
         db.query('ROLLBACK')
