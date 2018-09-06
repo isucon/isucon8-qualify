@@ -20,6 +20,7 @@
       - "--exclude=webapp/go/torb"
       - "--exclude=webapp/perl/local"
       - "--exclude=webapp/perl/t"
+      - "--exclude=webapp/php/run_local.php"
       - "--exclude=webapp/php/vendor"
       - "--exclude=webapp/ruby/.bundle"
 
