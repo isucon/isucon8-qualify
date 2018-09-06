@@ -1328,9 +1328,15 @@ func checkJsonEventResponse(event *Event) func(res *http.Response, body *bytes.B
 }
 
 func eventPostJSON(event *Event) map[string]interface{} {
+	var public string
+	if event.PublicFg {
+		public = "1"
+	} else {
+		public = "0"
+	}
 	return map[string]interface{}{
 		"title":  event.Title,
-		"public": event.PublicFg,
+		"public": public,
 		"price":  event.Price,
 	}
 }
@@ -1338,6 +1344,7 @@ func eventPostJSON(event *Event) map[string]interface{} {
 func eventEditJSON(event *Event) map[string]bool {
 	return map[string]bool{
 		"public": event.PublicFg,
+		"closed": event.ClosedFg,
 	}
 }
 
