@@ -9,6 +9,8 @@
     rsync_opts:
       - "--exclude=.git"
       - "--exclude=.gitignore"
+      - "--exclude=README.md"
+      - "--exclude=admin"
       - "--exclude=bench"
       - "--exclude=provisioning"
       - "--exclude=webapp/perl/local"
