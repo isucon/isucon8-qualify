@@ -1338,6 +1338,7 @@ func eventPostJSON(event *Event) map[string]interface{} {
 func eventEditJSON(event *Event) map[string]bool {
 	return map[string]bool{
 		"public": event.PublicFg,
+		"closed": event.ClosedFg,
 	}
 }
 
