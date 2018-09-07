@@ -752,13 +752,10 @@ func main() {
 	e.POST("/admin/api/events", func(c echo.Context) error {
 		var params struct {
 			Title  string `json:"title"`
-			Public string `json:"public"`
+			Public bool   `json:"public"`
 			Price  int    `json:"price"`
 		}
 		c.Bind(&params)
-		if params.Public == "" {
-			params.Public = "0"
-		}
 
 		tx, err := db.Begin()
 		if err != nil {
