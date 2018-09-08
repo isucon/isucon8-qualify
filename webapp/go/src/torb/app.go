@@ -699,7 +699,7 @@ func main() {
 		if administrator != nil {
 			var err error
 			if events, err = getEvents(true); err != nil {
-				return nil
+				return err
 			}
 		}
 		return c.Render(200, "admin.tmpl", echo.Map{
