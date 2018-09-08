@@ -380,7 +380,7 @@ module Torb
 
     post '/admin/api/events', admin_login_required: true do
       title  = body_params['title']
-      public = (body_params['public'] == '1')
+      public = body_params['public'] || false
       price  = body_params['price']
 
       db.query('BEGIN')
