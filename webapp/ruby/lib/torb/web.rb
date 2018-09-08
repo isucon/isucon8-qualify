@@ -385,7 +385,7 @@ module Torb
 
       db.query('BEGIN')
       begin
-        db.xquery('INSERT INTO events (title, public_fg, closed_fg, price) VALUES (?, ?, 0, ?)', title, public ? 1 : 0, price)
+        db.xquery('INSERT INTO events (title, public_fg, closed_fg, price) VALUES (?, ?, 0, ?)', title, public, price)
         event_id = db.last_id
         db.query('COMMIT')
       rescue
@@ -404,8 +404,8 @@ module Torb
     end
 
     post '/admin/api/events/:id/actions/edit', admin_login_required: true do |event_id|
-      public = body_params['public']
-      closed = body_params['closed']
+      public = body_params['public'] || false
+      closed = body_params['closed'] || false
       public = false if closed
 
       event = get_event(event_id)
@@ -419,7 +419,7 @@ module Torb
 
       db.query('BEGIN')
       begin
-        db.xquery('UPDATE events SET public_fg = ?, closed_fg = ? WHERE id = ?', public ? 1 : 0, closed ? 1 : 0, event['id'])
+        db.xquery('UPDATE events SET public_fg = ?, closed_fg = ? WHERE id = ?', public, closed, event['id'])
         db.query('COMMIT')
       rescue
         db.query('ROLLBACK')
