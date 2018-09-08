@@ -1,7 +1,3 @@
-class Torb
-  def call(env)
-    [200, {'Content-Type' => 'text/html'}, ['Hello torb.ruby']]
-  end
-end
+require_relative 'lib/torb/web'
 
-run Torb.new
+run Torb::Web
