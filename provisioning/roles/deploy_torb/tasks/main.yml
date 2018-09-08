@@ -1,9 +1,16 @@
 ---
+- name: mkdir /home/isucon/torb
+  become: yes
+  become_user: isucon
+  file:
+    path=/home/isucon/torb
+    state=directory
+
 - name: deploy torb (without bench)
   become: yes
   become_user: isucon
   synchronize:
-    src: ../../../../
+    src: ../../../..
     dest: /home/isucon/torb
     delete: yes
     recursive: yes
