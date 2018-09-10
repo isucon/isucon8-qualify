@@ -8,12 +8,12 @@
   },
   "dependencies": {
     "@types/node": "^10",
+    "cookie-signature": "^1.1.0",
     "ejs": "*",
     "fastify": "*",
     "fastify-cookie": "*",
     "fastify-mysql": "*",
     "fastify-plugin": "*",
-    "fastify-session": "*",
     "fastify-static": "*",
     "point-of-view": "*",
     "trace-error": "*",
