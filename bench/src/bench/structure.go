@@ -54,7 +54,7 @@ type JsonFullEvent struct {
 }
 
 type JsonReservation struct {
-	ReservationID uint   `json:"reservation_id"`
+	ReservationID uint   `json:"id"`
 	SheetRank     string `json:"sheet_rank"`
 	SheetNum      uint   `json:"sheet_num"`
 }
