@@ -1,0 +1,44 @@
+: cascade "include/admin/layout_simple.tx"
+
+: override content -> {
+
+<div class="container has-text-centered">
+  <div class="column is-4 is-offset-4">
+    : if $is_error {
+      <article class="message is-danger">
+        <div class="message-header">
+          <p>Oops!</p>
+        </div>
+        <div class="message-body">
+           <strong>Login FAILED!!</strong><br>
+        </div>
+      </article>
+    : }
+    <h3 class="title has-text-white">Administrator Login</h3>
+    <p class="subtitle has-text-white">Are you ISUCON master??</p>
+    <div class="box">
+      <form method="post">
+        <div class="field">
+          <p class="control has-icons-left has-icons-right">
+            <input class="input" type="text" name="name" placeholder="Username">
+            <span class="icon is-small is-left">
+              <i class="fas fa-id-card-alt"></i>
+            </span>
+          </p>
+        </div>
+
+        <div class="field">
+          <p class="control has-icons-left">
+            <input class="input" type="password" name="password" placeholder="Password">
+            <span class="icon is-small is-left">
+              <i class="fas fa-lock"></i>
+            </span>
+          </p>
+        </div>
+        <button class="button is-block is-danger is-large is-fullwidth">Login</button>
+      </form>
+    </div>
+  </div>
+</div>
+
+: }

@@ -1,0 +1,15 @@
+body {
+    font-family: 'Open Sans', arial, serif-sans;
+}
+
+nav.navbar {
+    border-top: 4px solid #276cda;
+    margin-bottom: 1rem;
+}
+
+.is-simple-layout {
+    background-color: #F2F6FA;
+    font-family: 'Open Sans', arial, serif;
+    font-size: 14px;
+    font-weight: 300;
+}

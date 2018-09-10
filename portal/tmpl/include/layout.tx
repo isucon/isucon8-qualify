@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title><: $title || 'ISUCON8 Portal' :></title>
+  <meta http-equiv="Content-Style-Type" content="text/css">
+  <meta http-equiv="Content-Script-Type" content="text/javascript">
+  <meta name="viewport" content="width=device-width, minimum-scale=1.0, maximum-scale=1.0">
+  <link href="<: static_file('/static/css/bulma.min.css') :>" rel="stylesheet" type="text/css">
+  <link href="<: static_file('/static/css/fontawesome.css') :>" rel="stylesheet" type="text/css">
+  <link href="https://fonts.googleapis.com/css?family=Open+Sans:300,400,700" rel="stylesheet">
+  <link href="<: static_file('/static/css/main.css') :>" rel="stylesheet" type="text/css" media="screen">
+  <script src="<: static_file('/static/js/main.js') :>"></script>
+</head>
+<body>
+    <!-- START NAV -->
+    <nav class="navbar is-danger">
+        <div class="container">
+            <div class="navbar-brand">
+                <a class="navbar-item brand-text" href="/">ISUCON8</a>
+                <div class="navbar-burger burger" data-target="navMenu">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                </div>
+            </div>
+            <div id="navMenu" class="navbar-menu">
+                <div class="navbar-start">
+                    <a class="navbar-item" href="admin.html">Home</a>
+                    <a class="navbar-item" href="admin.html">Orders</a>
+                    <a class="navbar-item" href="admin.html">Payments</a>
+                    <a class="navbar-item" href="admin.html">Exceptions</a>
+                </div>
+
+            </div>
+        </div>
+    </nav>
+    <!-- END NAV -->
+    <: block content -> { } :>
+</body>
+</html>
