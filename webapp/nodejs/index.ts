@@ -3,7 +3,6 @@ import createFastify, { FastifyRequest } from "fastify";
 import fastifyMysql from "fastify-mysql";
 import fastifyCookie from "fastify-cookie";
 import fastifyStatic from "fastify-static";
-import cookieSignature from "cookie-signature";
 import pointOfView from "point-of-view";
 import ejs from "ejs";
 import path from "path";
@@ -159,7 +158,7 @@ async function getEvent(eventId: number, loginUserId?: number): Promise<Event | 
     event.total++;
     event.sheets[sheet.rank].total++;
 
-    const reservation = await fastify.mysql.query("SELECT * FROM reservations WHERE event_id = ? AND sheet_id = ? AND canceled_at IS NULL GROUP BY event_id, sheet_id HAVING reserved_at = MIN(reserved_at)", [event.id, sheet.id]);
+    const [[reservation]] = await fastify.mysql.query("SELECT * FROM reservations WHERE event_id = ? AND sheet_id = ? AND canceled_at IS NULL GROUP BY event_id, sheet_id HAVING reserved_at = MIN(reserved_at)", [event.id, sheet.id]);
     if (reservation) {
       if (loginUserId && reservation.userId === loginUserId) {
         sheet.mine = true;
@@ -316,7 +315,9 @@ fastify.get("/api/users/:id", { beforeHandler: loginRequired }, async (request, 
   }
 
   user.recent_reservations = recentReservations;
-  user.total_price = await fastify.mysql.query("SELECT IFNULL(SUM(e.price + s.price), 0) FROM reservations r INNER JOIN sheets s ON s.id = r.sheet_id INNER JOIN events e ON e.id = r.event_id WHERE r.user_id = ? AND r.canceled_at IS NULL", user.id);
+
+  const [[totalPriceRow]] = await fastify.mysql.query("SELECT IFNULL(SUM(e.price + s.price), 0) FROM reservations r INNER JOIN sheets s ON s.id = r.sheet_id INNER JOIN events e ON e.id = r.event_id WHERE r.user_id = ? AND r.canceled_at IS NULL", user.id);
+  [user.total_price] = Object.values(totalPriceRow);
 
   const recentEvents: Array<any> = [];
   {
@@ -395,20 +396,20 @@ fastify.post("/api/events/:id/actions/reserve", { beforeHandler: loginRequired }
     return resError(reply, "invalid_rank", 400);
   }
 
-  let sheet: any;
+  let sheetRow: any;
   let reservationId: any;
 
   while (true) {
-    sheet = await conn.query("SELECT * FROM sheets WHERE id NOT IN (SELECT sheet_id FROM reservations WHERE event_id = ? AND canceled_at IS NULL FOR UPDATE) AND `rank` = ? ORDER BY RAND() LIMIT 1", [event.id, rank]);
+    [[sheetRow]] = await conn.query("SELECT * FROM sheets WHERE id NOT IN (SELECT sheet_id FROM reservations WHERE event_id = ? AND canceled_at IS NULL FOR UPDATE) AND `rank` = ? ORDER BY RAND() LIMIT 1", [event.id, rank]);
 
-    if (!sheet) {
+    if (!sheetRow) {
       conn.relese();
       return resError(reply, "sold_out", 409);
     }
 
     await conn.beginTransaction();
     try {
-      const [result] = await conn.query("INSERT INTO reservations (event_id, sheet_id, user_id, reserved_at) VALUES (?, ?, ?, ?)", [event.id, sheet.id, user.id, new Date()]);
+      const [result] = await conn.query("INSERT INTO reservations (event_id, sheet_id, user_id, reserved_at) VALUES (?, ?, ?, ?)", [event.id, sheetRow.id, user.id, new Date()]);
       reservationId = result.insertId;
       await conn.commit();
     } catch (e) {
@@ -424,7 +425,7 @@ fastify.post("/api/events/:id/actions/reserve", { beforeHandler: loginRequired }
   reply.code(202).send({
     reservation_id: reservationId,
     sheet_rank: rank,
-    sheet_num: sheet.num,
+    sheet_num: sheetRow.num,
   });
 });
 
