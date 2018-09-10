@@ -46,20 +46,21 @@ func checkRedirectStatusCode(res *http.Response, body *bytes.Buffer) error {
 
 func checkJsonErrorResponse(errorCode string) func(res *http.Response, body *bytes.Buffer) error {
 	return func(res *http.Response, body *bytes.Buffer) error {
-		dec := json.NewDecoder(body)
+		bytes := body.Bytes()
 		jsonError := JsonError{}
+		dec := json.NewDecoder(body)
 		err := dec.Decode(&jsonError)
 		if err != nil {
-			return fatalErrorf("Jsonのデコードに失敗 %v", err)
+			return fatalErrorf("Jsonのデコードに失敗 %s %v", string(bytes), err)
 		}
 		if jsonError.Error != errorCode {
-			return fatalErrorf("正しいエラーコードを取得できません")
+			return fatalErrorf("正しいエラーコードを取得できません %s", jsonError.Error)
 		}
 		return nil
 	}
 }
 
-func checkEventsList(state *State, events []JsonEvent) error {
+func checkEventList(state *State, eventsBeforeRequest []*Event, events []JsonEvent, eventsAfterResponse []*Event) error {
 	ok := sort.SliceIsSorted(events, func(i, j int) bool {
 		return events[i].ID < events[j].ID
 	})
@@ -67,86 +68,117 @@ func checkEventsList(state *State, events []JsonEvent) error {
 		return fatalErrorf("イベントの順番が正しくありません")
 	}
 
-	expected := FilterPublicEvents(state.GetEvents())
 	if len(events) == 0 {
-		log.Println("warn: events is empty")
+		log.Println("warn: checkEventList: events is empty")
 		return fatalErrorf("イベントの数が正しくありません")
-	} else if len(events) < len(expected) {
-		// 期待する数に満たない場合は1秒以内の誤差は許容する
-		var missed []*Event
-		for i := len(expected) - 1; i > 0; i-- {
-			if expected[i].ID <= events[len(events)-1].ID {
-				break
+	} else if len(events) < len(eventsBeforeRequest) {
+		log.Printf("warn: checkEventList: len(events):%d < len(eventsBeforeRequest):%d\n", len(events), len(eventsBeforeRequest))
+		return fatalErrorf("イベントの数が正しくありません")
+	}
+
+	eventsMap := map[uint]JsonEvent{}
+	for _, e := range events {
+		eventsMap[e.ID] = e
+	}
+
+	eventsAfterResponseMap := map[uint]*Event{}
+	for _, e := range eventsAfterResponse {
+		eventsAfterResponseMap[e.ID] = e
+	}
+
+	msg := "正しいイベント一覧を取得できません"
+
+	checkRemains := func(
+		eventID uint,
+		total uint,
+		cancelCompletedCountBeforeRequest uint,
+		reserveRequestedCountAfterResponse uint,
+		remains uint,
+		cancelRequestedCountAfterResponse uint,
+		reserveCompletedCountBeforeResponse uint) error {
+		log.Printf("debug: EventID:%d total:%d+cancelCompletedCountBeforeRequest:%d-reserveRequestedCountAfterResponse:%d <= remains:%d <= total:%d+cancelRequestedCountAfterResponse:%d-reserveCompletedCountBeforeResponse:%d",
+			eventID,
+			total,
+			cancelCompletedCountBeforeRequest,
+			reserveRequestedCountAfterResponse,
+			remains,
+			total,
+			cancelRequestedCountAfterResponse,
+			reserveCompletedCountBeforeResponse)
+		if int32(total)+int32(cancelCompletedCountBeforeRequest)-int32(reserveRequestedCountAfterResponse) <= int32(remains) &&
+			int32(remains) <= int32(total)+int32(cancelRequestedCountAfterResponse)-int32(reserveCompletedCountBeforeResponse) {
+			return nil
+		}
+		return &fatalError{}
+	}
+
+	for _, eventBeforeRequest := range eventsBeforeRequest {
+		e, ok := eventsMap[eventBeforeRequest.ID]
+		if !ok {
+			log.Printf("debug: checkEventList: should exist (eventID:%d)\n", e.ID)
+			return fatalErrorf(msg)
+		}
+		if e.Title != eventBeforeRequest.Title {
+			return fatalErrorf("イベント(id:%d)のタイトルが正しくありません", e.ID)
+		}
+		if int(e.Total) != len(DataSet.Sheets) {
+			return fatalErrorf("イベント(id:%d)の総座席数が正しくありません", e.ID)
+		}
+		for _, sheetKind := range DataSet.SheetKinds {
+			rank := sheetKind.Rank
+
+			if e.Sheets[rank].Total != sheetKind.Total {
+				return fatalErrorf("イベント(id:%d)の%s席の総座席数が正しくありません", e.ID, rank)
 			}
-			missed = expected[i:]
+			if expected := eventBeforeRequest.Price + sheetKind.Price; e.Sheets[rank].Price != expected {
+				return fatalErrorf("イベント(id:%d)の%s席の価格が正しくありません", e.ID, rank)
+			}
 		}
 
-		threshold := time.Now().Add(-1 * parameter.AllowableDelay)
-		for _, e := range missed {
-			if e.CreatedAt.Before(threshold) {
-				log.Printf("warn: missing event is too old id:%d createdAt:%s threshold:%s\n", e.ID, e.CreatedAt, threshold)
-				return fatalErrorf("イベントの数が正しくありません")
-			}
+		eventAfterResponse, ok := eventsAfterResponseMap[e.ID]
+		if !ok { // should never happen
+			log.Printf("debug: checkEventList: eventAfterResponse did not exist (eventID:%d)\n", e.ID)
+			continue
 		}
-	} else if len(events) > len(expected) {
-		// XXX: 期待する数を超えて返ってきた場合はIDがより新しいものであることを確認して無視する
-		// TODO(sonots): This does not cover cases such that younger IDs are timeouted. Fix it.
-		for i := len(events) - 1; i > 0; i-- {
-			if events[i].ID <= expected[len(expected)-1].ID {
-				break
+		err := checkRemains(
+			e.ID,
+			DataSet.SheetTotal,
+			eventBeforeRequest.CancelCompletedCount,
+			eventAfterResponse.ReserveRequestedCount,
+			e.Remains,
+			eventAfterResponse.CancelRequestedCount,
+			eventBeforeRequest.ReserveCompletedCount)
+		if err != nil {
+			return fatalErrorf("イベント(id:%d)の総残座席数が正しくありません", e.ID)
+		}
+		for _, sheetKind := range DataSet.SheetKinds {
+			rank := sheetKind.Rank
+			err = checkRemains(
+				e.ID,
+				DataSet.SheetKindMap[rank].Total,
+				*eventBeforeRequest.CancelCompletedRT.getPointer(rank),
+				*eventAfterResponse.ReserveRequestedRT.getPointer(rank),
+				e.Sheets[rank].Remains,
+				*eventAfterResponse.CancelRequestedRT.getPointer(rank),
+				*eventBeforeRequest.ReserveCompletedRT.getPointer(rank))
+			if err != nil {
+				return fatalErrorf("イベント(id:%d)の%s席の残座席数が正しくありません", e.ID, rank)
 			}
-			events = events[:i]
 		}
 	}
 
-	// TODO(sonots): Following checks possibly fail if create event API is timeouted. Fix it.
-	// for i, e := range events {
-	// 	if i == len(expected) {
-	// 		break
-	// 	}
-
-	// 	if e.ID != expected[i].ID {
-	// 		return fatalErrorf("イベントの順番が正しくありません")
-	// 	}
-	// 	if e.Title != expected[i].Title {
-	// 		return fatalErrorf("イベント(id:%d)のタイトルが正しくありません", e.ID)
-	// 	}
-	// 	if int(e.Total) != len(DataSet.Sheets) {
-	// 		return fatalErrorf("イベント(id:%d)の総座席数が正しくありません", e.ID)
-	// 	}
-
-	// 	var remains uint
-	// 	for _, eventSheetRank := range state.GetEventSheetRanksByEventID(e.ID) {
-	// 		if e.Sheets[eventSheetRank.Rank].Total != eventSheetRank.Total {
-	// 			return fatalErrorf("イベント(id:%d)の%s席の総座席数が正しくありません", e.ID, eventSheetRank.Rank)
-	// 		}
-	// 		// TODO(karupa): check remains
-	// 		// if e.Sheets[eventSheetRank.Rank].Remains != eventSheetRank.Remains {
-	// 		// 	log.Printf("[DEBUG] Event(%d) %s: expected %d but got %d", e.ID, eventSheetRank.Rank, eventSheetRank.Remains, e.Sheets[eventSheetRank.Rank].Remains)
-	// 		// 	return fatalErrorf("イベント(id:%d)の%s席の残座席数が正しくありません", e.ID, eventSheetRank.Rank)
-	// 		//}
-	// 		// TODO(karupa): check price
-	// 		// if e.Sheets[eventSheetRank.Rank].Price != eventSheetRank.Price {
-	// 		// 	return fatalErrorf("イベント(id:%d)の%s席の価格が正しくありません", e.ID, eventSheetRank.Rank)
-	// 		// }
-	// 		remains += eventSheetRank.Remains
-	// 	}
-	// 	// TODO(karupa): check remains
-	// 	// if e.Remains != remains {
-	// 	// 	return fatalErrorf("イベント(id:%d)の総残座席数が正しくありません", e.ID)
-	// 	// }
-	// }
 	return nil
 }
 
 func checkJsonFullUserResponse(user *AppUser, check func(*JsonFullUser) error) func(res *http.Response, body *bytes.Buffer) error {
 	return func(res *http.Response, body *bytes.Buffer) error {
+		bytes := body.Bytes()
 		dec := json.NewDecoder(body)
 
 		var v JsonFullUser
 		err := dec.Decode(&v)
 		if err != nil {
-			return fatalErrorf("Jsonのデコードに失敗 %v", err)
+			return fatalErrorf("Jsonのデコードに失敗 %s %v", string(bytes), err)
 		}
 		if user.ID != v.ID {
 			log.Printf("warn: expected id=%d but got id=%d\n", user.ID, v.ID)
@@ -519,11 +551,12 @@ func CheckStaticFiles(ctx context.Context, state *State) error {
 
 func checkJsonUserCreateResponse(user *AppUser) func(res *http.Response, body *bytes.Buffer) error {
 	return func(res *http.Response, body *bytes.Buffer) error {
+		bytes := body.Bytes()
 		dec := json.NewDecoder(body)
 		jsonUser := JsonUser{}
 		err := dec.Decode(&jsonUser)
 		if err != nil {
-			return fatalErrorf("Jsonのデコードに失敗 %v", err)
+			return fatalErrorf("Jsonのデコードに失敗 %s %v", string(bytes), err)
 		}
 		if jsonUser.Nickname != user.Nickname {
 			log.Printf("warn: expected nickname=%s but got nickname=%s\n", user.Nickname, jsonUser.Nickname)
@@ -537,11 +570,12 @@ func checkJsonUserCreateResponse(user *AppUser) func(res *http.Response, body *b
 
 func checkJsonUserResponse(user *AppUser) func(res *http.Response, body *bytes.Buffer) error {
 	return func(res *http.Response, body *bytes.Buffer) error {
+		bytes := body.Bytes()
 		dec := json.NewDecoder(body)
 		jsonUser := JsonUser{}
 		err := dec.Decode(&jsonUser)
 		if err != nil {
-			return fatalErrorf("Jsonのデコードに失敗 %v", err)
+			return fatalErrorf("Jsonのデコードに失敗 %s %v", string(bytes), err)
 		}
 		if jsonUser.ID != user.ID {
 			log.Printf("warn: expected id=%d but got id=%d\n", user.ID, jsonUser.ID)
@@ -695,7 +729,12 @@ func CheckTopPage(ctx context.Context, state *State) error {
 		if err != nil {
 			return err
 		}
+		// case 2: do nothing
 	}
+
+	// Assume that public events are not modified (closed or private)
+	timeBefore := time.Now().Add(-1 * parameter.AllowableDelay)
+	eventsBeforeRequest := FilterEventsToAllowDelay(FilterPublicEvents(state.GetCopiedEvents()), timeBefore)
 
 	err := checker.Play(ctx, &CheckAction{
 		Method:             "GET",
@@ -735,10 +774,11 @@ func CheckTopPage(ctx context.Context, state *State) error {
 					var events []JsonEvent
 					err := json.Unmarshal([]byte(attr.Val), &events)
 					if err != nil {
-						return fatalErrorf("イベント一覧のJsonデコードに失敗 %v", err)
+						return fatalErrorf("イベント一覧のJsonデコードに失敗 %s %v", attr.Val, err)
 					}
 
-					err = checkEventsList(state, events)
+					eventsAfterResponse := FilterPublicEvents(state.GetEvents())
+					err = checkEventList(state, eventsBeforeRequest, events, eventsAfterResponse)
 					if err != nil {
 						return err
 					}
@@ -749,7 +789,7 @@ func CheckTopPage(ctx context.Context, state *State) error {
 						var u *JsonUser
 						err := json.Unmarshal([]byte(attr.Val), &u)
 						if err != nil {
-							return fatalErrorf("ログインユーザーのJsonデコードに失敗 %v", err)
+							return fatalErrorf("ログインユーザーのJsonデコードに失敗 %s %v", attr.Val, err)
 						}
 						if u == nil {
 							return fatalErrorf("ログインユーザーがnull")
@@ -769,6 +809,99 @@ func CheckTopPage(ctx context.Context, state *State) error {
 
 			if found != 2 {
 				return fatalErrorf("app-wrapperにdata-eventsまたはdata-login-userがありません")
+			}
+			return nil
+		}),
+	})
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func CheckAdminTopPage(ctx context.Context, state *State) error {
+	admin, checker, push := state.PopRandomAdministrator()
+	if admin == nil {
+		return nil
+	}
+	defer push()
+
+	err := loginAdministrator(ctx, checker, admin)
+	if err != nil {
+		return err
+	}
+
+	timeBefore := time.Now().Add(-1 * parameter.AllowableDelay)
+	eventsBeforeRequest := FilterEventsToAllowDelay(state.GetCopiedEvents(), timeBefore)
+
+	err = checker.Play(ctx, &CheckAction{
+		Method:             "GET",
+		Path:               "/admin/",
+		ExpectedStatusCode: 200,
+		Description:        "ページが表示されること",
+		CheckFunc: checkHTML(func(res *http.Response, doc *goquery.Document) error {
+			h := htmldigest.NewHash(func() hash.Hash {
+				return crc32.NewIEEE()
+			})
+			crcSum, err := h.Sum(doc.Nodes[0])
+			if err != nil {
+				fmt.Fprint(os.Stderr, "HTML: ")
+				_ = html.Render(os.Stderr, doc.Nodes[0])
+				fmt.Fprintln(os.Stderr, "")
+				fmt.Fprintln(os.Stderr, err)
+				return fatalErrorf("チェックサムの生成に失敗しました (主催者に連絡してください)")
+			}
+			if crcSum32 := JoinCrc32(crcSum); crcSum32 != ExpectedAdminHash {
+				fmt.Fprint(os.Stderr, "HTML: ")
+				_ = html.Render(os.Stderr, doc.Nodes[0])
+				fmt.Fprintln(os.Stderr, "")
+				fmt.Fprintf(os.Stderr, "crcSum32=%d\n", crcSum32)
+				return fatalErrorf("DOM構造が初期状態と一致しません")
+			}
+
+			selection := doc.Find("#app-wrapper")
+			if selection == nil || len(selection.Nodes) == 0 {
+				return fatalErrorf("app-wrapperが見つかりません")
+			}
+
+			var found int
+			node := selection.Nodes[0]
+			for _, attr := range node.Attr {
+				switch attr.Key {
+				case "data-events":
+					var events []JsonEvent
+					err := json.Unmarshal([]byte(attr.Val), &events)
+					if err != nil {
+						return fatalErrorf("イベント一覧のJsonデコードに失敗 %s %v", attr.Val, err)
+					}
+
+					eventsAfterResponse := state.GetEvents()
+					err = checkEventList(state, eventsBeforeRequest, events, eventsAfterResponse)
+					if err != nil {
+						return err
+					}
+
+					found++
+				case "data-administrator":
+					var u *JsonAdministrator
+					err := json.Unmarshal([]byte(attr.Val), &u)
+					if err != nil {
+						return fatalErrorf("管理者情報のJsonデコードに失敗 %s %v", attr.Val, err)
+					}
+					if u == nil {
+						return fatalErrorf("管理者情報がnull")
+					}
+					if u.ID != admin.ID || u.Nickname != admin.Nickname {
+						return fatalErrorf("管理者情報が違います")
+					}
+
+					found++
+				}
+			}
+
+			if found != 2 {
+				return fatalErrorf("app-wrapperにdata-eventsまたはdata-administratorがありません")
 			}
 			return nil
 		}),
@@ -814,7 +947,7 @@ func CheckMyPage(ctx context.Context, state *State) error {
 				}
 			}
 
-			if user.Status.NegativeTotalPrice <= fullUser.TotalPrice || fullUser.TotalPrice <= user.Status.PositiveTotalPrice {
+			if !(user.Status.NegativeTotalPrice <= fullUser.TotalPrice || fullUser.TotalPrice <= user.Status.PositiveTotalPrice) {
 				log.Printf("warn: miss match user total price expected=%s got=%d userID=%d\n", user.Status.TotalPriceString(), fullUser.TotalPrice, fullUser.ID)
 				return fatalErrorf("最新の予約総額が取得できません")
 			}
@@ -891,8 +1024,8 @@ func CheckCancelReserveSheet(ctx context.Context, state *State) error {
 		return err
 	}
 
-	// TODO(sonots): 409 check
-	// Make sure we get 409 sold_out, otherwise, let it fail
+	// NOTE: Let me skip 409 check. We do not know how many times we should retry because reserve may timeout.
+	// Retrying forever makes a problem that benchmarker cannot check further scenarios.
 	// err = reserveChecker.Play(ctx, &CheckAction{
 	// 	Method:             "POST",
 	// 	Path:               fmt.Sprintf("/api/events/%d/actions/reserve", eventID),
@@ -1072,11 +1205,12 @@ func CheckReserveSheet(ctx context.Context, state *State) error {
 
 func checkJsonAdministratorResponse(admin *Administrator) func(res *http.Response, body *bytes.Buffer) error {
 	return func(res *http.Response, body *bytes.Buffer) error {
+		bytes := body.Bytes()
 		dec := json.NewDecoder(body)
 		jsonAdmin := JsonAdministrator{}
 		err := dec.Decode(&jsonAdmin)
 		if err != nil {
-			return fatalErrorf("Jsonのデコードに失敗 %v", err)
+			return fatalErrorf("Jsonのデコードに失敗 %s %v", string(bytes), err)
 		}
 		if jsonAdmin.ID != admin.ID || jsonAdmin.Nickname != admin.Nickname {
 			return fatalErrorf("正しい管理者情報を取得できません")
@@ -1171,11 +1305,12 @@ func CheckAdminLogin(ctx context.Context, state *State) error {
 
 func checkJsonFullEventCreateResponse(event *Event) func(res *http.Response, body *bytes.Buffer) error {
 	return func(res *http.Response, body *bytes.Buffer) error {
+		bytes := body.Bytes()
 		dec := json.NewDecoder(body)
 		jsonEvent := JsonFullEvent{}
 		err := dec.Decode(&jsonEvent)
 		if err != nil {
-			return fatalErrorf("Jsonのデコードに失敗 %v", err)
+			return fatalErrorf("Jsonのデコードに失敗 %s %v", string(bytes), err)
 		}
 		if jsonEvent.Title != event.Title || jsonEvent.Price != event.Price || jsonEvent.Public != event.PublicFg || jsonEvent.Closed != event.ClosedFg {
 			return fatalErrorf("正しいイベントを取得できません")
@@ -1189,11 +1324,12 @@ func checkJsonFullEventCreateResponse(event *Event) func(res *http.Response, bod
 
 func checkJsonFullEventResponse(event *Event) func(res *http.Response, body *bytes.Buffer) error {
 	return func(res *http.Response, body *bytes.Buffer) error {
+		bytes := body.Bytes()
 		dec := json.NewDecoder(body)
 		jsonEvent := JsonFullEvent{}
 		err := dec.Decode(&jsonEvent)
 		if err != nil {
-			return fatalErrorf("Jsonのデコードに失敗 %v", err)
+			return fatalErrorf("Jsonのデコードに失敗 %s %v", string(bytes), err)
 		}
 		if jsonEvent.ID != event.ID || jsonEvent.Title != event.Title || jsonEvent.Price != event.Price || jsonEvent.Public != event.PublicFg {
 			return fatalErrorf("正しいイベントを取得できません")
@@ -1204,11 +1340,12 @@ func checkJsonFullEventResponse(event *Event) func(res *http.Response, body *byt
 
 func checkJsonEventResponse(event *Event) func(res *http.Response, body *bytes.Buffer) error {
 	return func(res *http.Response, body *bytes.Buffer) error {
+		bytes := body.Bytes()
 		dec := json.NewDecoder(body)
 		jsonEvent := JsonEvent{}
 		err := dec.Decode(&jsonEvent)
 		if err != nil {
-			return fatalErrorf("Jsonのデコードに失敗 %v", err)
+			return fatalErrorf("Jsonのデコードに失敗 %s %v", string(bytes), err)
 		}
 		if jsonEvent.ID != event.ID || jsonEvent.Title != event.Title {
 			return fatalErrorf("正しいイベントを取得できません")
@@ -1228,6 +1365,7 @@ func eventPostJSON(event *Event) map[string]interface{} {
 func eventEditJSON(event *Event) map[string]bool {
 	return map[string]bool{
 		"public": event.PublicFg,
+		"closed": event.ClosedFg,
 	}
 }
 
@@ -1508,67 +1646,67 @@ func getReportRecords(s *State, reader *csv.Reader) (map[uint]*ReportRecord, err
 
 func checkReportRecord(s *State, records map[uint]*ReportRecord, timeBefore time.Time,
 	reservationsBeforeRequest map[uint]*Reservation) error {
-	msg := "正しいレポートを取得できません"
 
 	for reservationID, reservationBeforeRequest := range reservationsBeforeRequest {
 		// All elements in reservationsBeforeRequest must exist in records
 		record, ok := records[reservationID]
 		if !ok {
 			log.Printf("debug: should exist (reservationID:%d)\n", reservationID)
-			return fatalErrorf(msg)
+			return fatalErrorf("レポートに予約id:%dの行が存在しません", reservationID)
 		}
 
 		event := s.FindEventByID(record.EventID)
 		if event == nil {
 			log.Printf("debug: event id=%d is not found (reservationID:%d)\n", record.EventID, reservationID)
-			return fatalErrorf(msg)
+			return fatalErrorf("レポート(予約id:%d)のイベントidが正しくありません", reservationID)
 		}
 		if expected := event.Price + GetSheetKindByRank(record.SheetRank).Price; record.SheetPrice != expected {
 			log.Printf("debug: price:%d is not expected:%d (reservationID:%d)\n", record.SheetPrice, expected, reservationID)
-			return fatalErrorf(msg)
+			return fatalErrorf("レポート(予約id:%d)のシート価格が正しくありません", reservationID)
 		}
 
-		if reservationBeforeRequest.ID != record.ReservationID ||
-			reservationBeforeRequest.EventID != record.EventID ||
-			reservationBeforeRequest.UserID != record.UserID ||
-			reservationBeforeRequest.SheetRank != record.SheetRank ||
-			reservationBeforeRequest.SheetNum != record.SheetNum {
-			log.Printf("debug: unexpected data ReservationID:%d!=%d EventID:%d!=%d UserID:%d!=%d Rank:%s!=%s Num:%d!=%d\n",
-				reservationBeforeRequest.ID, record.ReservationID,
-				reservationBeforeRequest.EventID, record.EventID,
-				reservationBeforeRequest.UserID, record.UserID,
-				reservationBeforeRequest.SheetRank, record.SheetRank,
-				reservationBeforeRequest.SheetNum, record.SheetNum)
-			return fatalErrorf(msg)
+		if reservationBeforeRequest.EventID != record.EventID {
+			log.Printf("debug: event id=%d is not expected:%d (reservationID:%d)\n", record.EventID, reservationBeforeRequest.EventID, reservationID)
+			return fatalErrorf("レポート(予約id:%d)のイベントidが正しくありません", reservationID)
+		}
+		if reservationBeforeRequest.UserID != record.UserID {
+			log.Printf("debug: user id=%d is not expected:%d (reservationID:%d)\n", record.UserID, reservationBeforeRequest.UserID, reservationID)
+			return fatalErrorf("レポート(予約id:%d)のユーザidが正しくありません", reservationID)
+		}
+		if reservationBeforeRequest.SheetRank != record.SheetRank {
+			log.Printf("debug: sheet rank=%s is not expected:%s (reservationID:%d)\n", record.SheetRank, reservationBeforeRequest.SheetRank, reservationID)
+			return fatalErrorf("レポート(予約id:%d)のシートランクが正しくありません", reservationID)
+		}
+		if reservationBeforeRequest.SheetNum != record.SheetNum {
+			log.Printf("debug: sheet num=%d is not expected:%d (reservationID:%d)\n", record.SheetNum, reservationBeforeRequest.SheetNum, reservationID)
+			return fatalErrorf("レポート(予約id:%d)のシート番号が正しくありません", reservationID)
 		}
 
 		if reservationBeforeRequest.Canceled(timeBefore) {
 			if record.CanceledAt.IsZero() {
 				log.Printf("debug: should have canceledAt (reservationID:%d)\n", reservationID)
-				return fatalErrorf(msg)
+				return fatalErrorf("レポート(予約id:%d)のキャンセル時刻が正しくありません", reservationID)
 			}
 		} else if reservationBeforeRequest.MaybeCanceled(timeBefore) {
 			if record.CanceledAt.IsZero() {
 				log.Printf("warn: should have canceledAt (reservationID:%d) but ignored (race condition)\n", reservationID)
 			}
 		}
-		// TODO(sonots): Add a test to fail if `SELECT FOR UPDATE` is removed.
-		// if reservationRightAfterRequest.CancelRequestedAt.IsZero() {
-		// 	// If `SELECT FOR UPDATE` of the `report` API is removed from webapp, this check would faiil.
-		// 	if !record.CanceledAt.IsZero() {
-		// 		log.Printf("debug: should not have canceledAt (reservationID:%d)\n", reservationID)
-		// 		return fatalErrorf(msg)
-		// 	}
-		// }
 	}
 
 	return nil
 }
 
-func checkReportCount(reservationCountBeforeRequest int, reportCount int, reservationCountAfterResponse int, maybeReservedCountAfterResponse int) error {
-	log.Printf("debug: reservationCountBeforeRequest:%d <= reportCount:%d <= reservationCountAfterResponse:%d + maybeReservedCountAfterResponse:%d\n",
-		reservationCountBeforeRequest, reportCount, reservationCountAfterResponse, maybeReservedCountAfterResponse)
-	if reservationCountBeforeRequest <= reportCount && reportCount <= reservationCountAfterResponse+maybeReservedCountAfterResponse {
+func checkReportCount(
+	reserveCompletedCountBeforeRequest int,
+	reportCount int,
+	reserveRequestedCountAfterResponse uint) error {
+	log.Printf("debug: reserveCompletedCountBeforeRequest:%d <= reportCount:%d <= reserveRequestedCountAfterResponse:%d\n",
+		reserveCompletedCountBeforeRequest,
+		reportCount,
+		reserveRequestedCountAfterResponse)
+	if reserveCompletedCountBeforeRequest <= reportCount &&
+		reportCount <= int(reserveRequestedCountAfterResponse) {
 		return nil
 	}
 	return fatalErrorf("レポートの数が正しくありません")
@@ -1576,8 +1714,7 @@ func checkReportCount(reservationCountBeforeRequest int, reportCount int, reserv
 
 func checkReportResponse(s *State, timeBefore time.Time, reservationsBeforeRequest map[uint]*Reservation) func(res *http.Response, body *bytes.Buffer) error {
 	return func(res *http.Response, body *bytes.Buffer) error {
-		reservationsAfterResponse := s.GetReservations()
-		maybeReservedCountAfterResponse := s.MaybeReservedCount()
+		reserveRequestedCountAfterResponse := s.GetReserveRequestedCount()
 
 		log.Println("debug:", body)
 		reader := csv.NewReader(body)
@@ -1597,7 +1734,7 @@ func checkReportResponse(s *State, timeBefore time.Time, reservationsBeforeReque
 			return err
 		}
 
-		err = checkReportCount(len(reservationsBeforeRequest), len(records), len(reservationsAfterResponse), maybeReservedCountAfterResponse)
+		err = checkReportCount(len(reservationsBeforeRequest), len(records), reserveRequestedCountAfterResponse)
 		if err != nil {
 			return err
 		}
@@ -1608,12 +1745,7 @@ func checkReportResponse(s *State, timeBefore time.Time, reservationsBeforeReque
 
 func checkEventReportResponse(s *State, event *Event, timeBefore time.Time, reservationsBeforeRequest map[uint]*Reservation) func(res *http.Response, body *bytes.Buffer) error {
 	return func(res *http.Response, body *bytes.Buffer) error {
-		// NOTE: s.GetReservationsInEventID() returns a shallow copy, so, the state of each reservation
-		// could be changed during runtime. However, the state of reservation can be changed
-		//  only by `cancel` API, and it is locked by SELECT FOR UPDATE of the `report` API on
-		// the webapp side, thus, we assume no update of reversations during runtime occurs.
-		reservationsAfterResponse := s.GetReservationsInEventID(event.ID)
-		maybeReservedCountAfterResponse := s.MaybeReservedCountInEventID(event.ID)
+		reserveRequestedCountAfterResponse := event.GetReserveRequestedCount()
 
 		log.Printf("debug: checkEventReport %d\n", event.ID)
 		log.Println("debug:", body)
@@ -1642,7 +1774,7 @@ func checkEventReportResponse(s *State, event *Event, timeBefore time.Time, rese
 			return err
 		}
 
-		err = checkReportCount(len(reservationsBeforeRequest), len(records), len(reservationsAfterResponse), maybeReservedCountAfterResponse)
+		err = checkReportCount(len(reservationsBeforeRequest), len(records), reserveRequestedCountAfterResponse)
 		if err != nil {
 			return err
 		}
@@ -1664,7 +1796,7 @@ func CheckReport(ctx context.Context, state *State) error {
 	}
 
 	timeBefore := time.Now().Add(-1 * parameter.AllowableDelay)
-	reservationsBeforeRequest := FilterReservationsToAllowDelay(state.GetReservationsCopy(), timeBefore)
+	reservationsBeforeRequest := FilterReservationsToAllowDelay(state.GetCopiedReservations(), timeBefore)
 
 	err = checker.Play(ctx, &CheckAction{
 		Method:             "GET",
@@ -1703,7 +1835,7 @@ func CheckEventReport(ctx context.Context, state *State) error {
 	}
 
 	timeBefore := time.Now().Add(-1 * parameter.AllowableDelay)
-	reservationsBeforeRequest := FilterReservationsToAllowDelay(state.GetReservationsCopyInEventID(event.ID), timeBefore)
+	reservationsBeforeRequest := FilterReservationsToAllowDelay(state.GetCopiedReservationsInEventID(event.ID), timeBefore)
 
 	err = checker.Play(ctx, &CheckAction{
 		Method:             "GET",
@@ -1940,11 +2072,12 @@ func popOrCreateEventSheet(ctx context.Context, state *State) (*EventSheet, func
 
 func checkJsonReservationResponse(reserved *JsonReservation) func(res *http.Response, body *bytes.Buffer) error {
 	return func(res *http.Response, body *bytes.Buffer) error {
+		bytes := body.Bytes()
 		dec := json.NewDecoder(body)
 		resReserved := JsonReservation{}
 		err := dec.Decode(&resReserved)
 		if err != nil {
-			return fatalErrorf("Jsonのデコードに失敗 %v", err)
+			return fatalErrorf("Jsonのデコードに失敗 %s %v", string(bytes), err)
 		}
 		if resReserved.SheetRank != reserved.SheetRank {
 			return fatalErrorf("正しい予約情報を取得できません")
@@ -1960,17 +2093,10 @@ func reserveSheet(ctx context.Context, state *State, checker *Checker, user *App
 	eventID := eventSheet.EventID
 	rank := eventSheet.Rank
 
-	event := state.FindEventByID(eventID)
-	assert(event != nil)
-
-	ok := event.TryGetTicket(rank)
-	if !ok {
-		return nil, nil
-	}
-
 	reserved := &JsonReservation{ReservationID: 0, SheetRank: rank, SheetNum: 0}
 	reservation := &Reservation{ID: 0, EventID: eventID, UserID: user.ID, SheetRank: rank, Price: eventSheet.Price, SheetNum: 0}
-	logID := state.AppendReserveLog(reservation)
+	logID := state.BeginReservation(reservation)
+
 	err := checker.Play(ctx, &CheckAction{
 		Method:             "POST",
 		Path:               fmt.Sprintf("/api/events/%d/actions/reserve", eventID),
@@ -1988,15 +2114,14 @@ func reserveSheet(ctx context.Context, state *State, checker *Checker, user *App
 
 	reservation.ID = reserved.ReservationID
 	reservation.SheetNum = reserved.SheetNum
-	state.DeleteReserveLog(logID, reservation)
+	state.CommitReservation(logID, reservation)
 	eventSheet.Num = reserved.SheetNum
-	state.CommitReservation(reservation)
 
-	user.Status.AppendRecentEventID(event.ID)
+	user.Status.AppendRecentEventID(eventID)
 	user.Status.AppendRecentReservationID(reserved.ReservationID)
 	user.Status.NegativeTotalPrice += eventSheet.Price
 
-	log.Printf("debug: reserve userID:%d(total-price:%s) eventID:%d reservedID:%d(%s-%d) price:%d\n", user.ID, user.Status.TotalPriceString(), event.ID, reserved.ReservationID, reserved.SheetRank, reserved.SheetNum, eventSheet.Price)
+	log.Printf("debug: reserve userID:%d(total-price:%s) eventID:%d reservedID:%d(%s-%d) price:%d\n", user.ID, user.Status.TotalPriceString(), eventID, reserved.ReservationID, reserved.SheetRank, reserved.SheetNum, eventSheet.Price)
 	return reservation, nil
 }
 
@@ -2015,10 +2140,8 @@ func cancelSheet(ctx context.Context, state *State, checker *Checker, user *AppU
 	rank := reservation.SheetRank
 	sheetNum := reservation.SheetNum
 
-	user.Status.NegativeTotalPrice -= eventSheet.Price
+	logID := state.BeginCancelation(reservation)
 
-	state.BeginCancelReservation(reservation)
-	logID := state.AppendCancelLog(reservation)
 	err = checker.Play(ctx, &CheckAction{
 		Method:             "DELETE",
 		Path:               fmt.Sprintf("/api/events/%d/sheets/%s/%d/reservation", eventID, rank, sheetNum),
@@ -2029,19 +2152,8 @@ func cancelSheet(ctx context.Context, state *State, checker *Checker, user *AppU
 		return false, err
 	}
 
-	state.CommitCancelReservation(reservation)
-	state.DeleteCancelLog(logID, reservation)
+	state.CommitCancelation(logID, reservation)
 	eventSheet.Num = NonReservedNum
 
-	event := state.FindEventByID(eventID)
-	assert(event != nil)
-
-	user.Status.AppendRecentEventID(eventID)
-	user.Status.AppendRecentReservationID(reservation.ID)
-	user.Status.PositiveTotalPrice -= eventSheet.Price
-
-	event.ReleaseTicket(rank)
-
-	log.Printf("debug: cancel userID:%d(total-price:%s) eventID:%d reservationID:%d(%s-%d) price:%d\n", user.ID, user.Status.TotalPriceString(), event.ID, reservation.ID, reservation.SheetRank, reservation.SheetNum, eventSheet.Price)
 	return false, nil
 }

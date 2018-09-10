@@ -54,3 +54,37 @@
     dest: /home/isucon/.bash_profile
     content: |
       export PATH=/home/isucon/local/php/bin:$PATH
+
+- name: Put torb.php-fpm.conf
+  become: yes
+  become_user: isucon
+  blockinfile:
+    create: yes
+    src: torb.php-fpm.conf
+    dest: /home/isucon/local/php/etc/torb.php-fpm.conf
+
+- name: Check Installed Composer
+  become: yes
+  become_user: isucon
+  command: composer -v
+  args:
+    chdir: /home/isucon
+  environment:
+    PATH: "/home/isucon/local/php/bin/:{{ ansible_env.PATH }}"
+  register: composer_version_output
+  changed_when: composer_version_output is failed
+  ignore_errors: true
+
+- name: Debug composer_version_output
+  debug:
+    var: composer_version_output
+
+- name: Download Composer
+  become: yes
+  become_user: isucon
+  get_url:
+    url: https://getcomposer.org/download/1.7.2/composer.phar
+    dest: /home/isucon/local/php/bin/composer
+    sha256sum: ec3428d049ae8877f7d102c2ee050dbd51a160fc2dde323f3e126a3b3846750e
+    mode: 0755
+  when: composer_version_output is failed

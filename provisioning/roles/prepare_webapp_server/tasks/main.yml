@@ -1,71 +1,128 @@
 ---
-- name: iptables open tcp 80 port
+- name: firewalld open tcp 80 port
   become: yes
   become_user: root
-  iptables:
-    flush: true
-    chain: INPUT
-    protocol: tcp
-    destination_port: 80
-    jump: ACCEPT
+  firewalld:
+    immediate: true
+    permanent: true
+    service: http
+    state: enabled
 
-- name: Create isucon user on MySQL
-  become: yes
-  become_user: isucon
-  mysql_user:
-    login_user: root
-    name: isucon
-    password: isucon
-    priv: "*.*:ALL"
-    host: localhost
-    state: present
-
-- name: Put default h2o.conf
+- name: Put default-h2o.conf
   become: yes
   become_user: root
   copy:
-    dest: /etc/h2o/h2o.conf
-    content: |
-      user: isucon
-      access-log: /var/log/h2o/access.log
-      error-log: /var/log/h2o/error.log
-      pid-file: /var/run/h2o/h2o.pid
-      hosts:
-        "localhost:80":
-          listen:
-            port: 80
-            host: 0.0.0.0
-          paths:
-            "/favicon.ico":
-              file.file: /home/isucon/torb/webapp/static/favicon.ico
-            "/css":
-              file.dir: /home/isucon/torb/webapp/static/css
-            "/img":
-              file.dir: /home/isucon/torb/webapp/static/img
-            "/js":
-              file.dir: /home/isucon/torb/webapp/static/js
-            "/":
-              proxy.reverse.url: http://127.0.0.1:8080/
-              proxy.preserve-host: ON
+    src: default-h2o.conf
+    dest: /etc/h2o/default-h2o.conf
 
-- name: Append torb.perl systemd
+- name: Put php-h2o.conf
   become: yes
   become_user: root
-  blockinfile:
-    create: yes
-    dest: /etc/systemd/system/torb.perl.service
-    content: |
-      [Unit]
-      Description = isucon8 qualifier webapp in perl
+  copy:
+    src: php-h2o.conf
+    dest: /etc/h2o/php-h2o.conf
 
-      [Service]
-      WorkingDirectory=/home/isucon/torb/webapp/perl
-      EnvironmentFile=/home/isucon/torb/webapp/env.sh
-      ExecStart = /home/isucon/local/perl/bin/plackup -R lib -R app.psgi -R views -p 8080 app.psgi
-      Restart   = always
-      Type      = simple
-      User      = isucon
-      Group     = isucon
-      
-      [Install]
-      WantedBy = multi-user.target
+- name: Remove h2o.conf
+  become: yes
+  become_user: root
+  file:
+    state: absent
+    path: /etc/h2o/h2o.conf
+
+- name: Put h2o.conf link
+  become: yes
+  become_user: root
+  file:
+    state: link
+    src: /etc/h2o/default-h2o.conf
+    dest: /etc/h2o/h2o.conf
+
+- name: Put torb.nodejs.service
+  become: yes
+  become_user: root
+  copy:
+    src: torb.nodejs.service
+    dest: /etc/systemd/system/torb.nodejs.service
+
+- name: Put torb.go.service
+  become: yes
+  become_user: root
+  copy:
+    src: torb.go.service
+    dest: /etc/systemd/system/torb.go.service
+
+- name: Put torb.perl.service
+  become: yes
+  become_user: root
+  copy:
+    src: torb.perl.service
+    dest: /etc/systemd/system/torb.perl.service
+
+- name: Put torb.php.service
+  become: yes
+  become_user: root
+  copy:
+    src: torb.php.service
+    dest: /etc/systemd/system/torb.php.service
+
+- name: Put torb.python.service
+  become: yes
+  become_user: root
+  copy:
+    src: torb.python.service
+    dest: /etc/systemd/system/torb.python.service
+
+- name: Put torb.ruby.service
+  become: yes
+  become_user: root
+  copy:
+    src: torb.ruby.service
+    dest: /etc/systemd/system/torb.ruby.service
+
+- name: Install for torb.nodejs
+  become: yes
+  become_user: isucon
+  args:
+    chdir: /home/isucon/torb/webapp/nodejs
+  shell: |
+    bash -lc "npm install"
+
+- name: Install for torb.go
+  become: yes
+  become_user: isucon
+  args:
+    chdir: /home/isucon/torb/webapp/go
+  shell: |
+    bash -lc "make clean && make deps && make"
+
+- name: Install for torb.perl
+  become: yes
+  become_user: isucon
+  args:
+    chdir: /home/isucon/torb/webapp/perl
+  shell: |
+    bash -lc "carton install"
+
+- name: Install for torb.php
+  become: yes
+  become_user: isucon
+  args:
+    chdir: /home/isucon/torb/webapp/php
+  shell: |
+    bash -lc "composer install"
+
+- name: Install for torb.python
+  become: yes
+  become_user: isucon
+  args:
+    chdir: /home/isucon/torb/webapp/python
+  shell: |
+    bash -lc "sh setup.sh"
+
+- name: Install for torb.ruby
+  become: yes
+  become_user: isucon
+  args:
+    chdir: /home/isucon/torb/webapp/ruby
+  shell: |
+    bash -lc "bundle install --path=.bundle"

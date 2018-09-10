@@ -2,7 +2,7 @@
 - hosts: bench
   roles:
     - common
-    - prepare_bench_server
     - install_go
     - deploy_torb
+    - prepare_bench_server
     - build_bench

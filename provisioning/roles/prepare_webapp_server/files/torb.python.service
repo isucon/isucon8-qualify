@@ -1,0 +1,16 @@
+[Unit]
+Description = isucon8 qualifier webapp in python
+
+[Service]
+WorkingDirectory=/home/isucon/torb/webapp/python
+EnvironmentFile=/home/isucon/torb/webapp/env.sh
+
+ExecStart = /home/isucon/torb/webapp/python/venv/bin/gunicorn app:app -b '127.0.0.1:8080'
+
+Restart   = always
+Type      = simple
+User      = isucon
+Group     = isucon
+
+[Install]
+WantedBy = multi-user.target
