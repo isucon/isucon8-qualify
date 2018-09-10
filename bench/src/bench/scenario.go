@@ -925,31 +925,117 @@ func CheckMyPage(ctx context.Context, state *State) error {
 		return err
 	}
 
+	now := time.Now()
 	err = checker.Play(ctx, &CheckAction{
 		Method:             "GET",
 		Path:               fmt.Sprintf("/api/users/%d", user.ID),
 		ExpectedStatusCode: 200,
 		Description:        "ページが表示されること",
 		CheckFunc: checkJsonFullUserResponse(user, func(fullUser *JsonFullUser) error {
+			timeBefore := now.Add(-1 * parameter.AllowableDelay)
+
 			recentEventIDs := user.Status.GetRecentEventIDs()
 			for i, e := range fullUser.RecentEvents {
 				if expected := recentEventIDs[i]; expected != e.ID {
 					log.Printf("warn: miss match user recent event expected=%d got=%d userID=%d\n", expected, e.ID, fullUser.ID)
-					return fatalErrorf("最新の最近予約したイベントが取得できません")
+					return fatalErrorf("最新の最近予約したイベントが最新ではありません")
 				}
 			}
 
-			recentReservationIDs := user.Status.GetRecentReservationIDs()
-			for i, r := range fullUser.RecentReservations {
-				if expected := recentReservationIDs[i]; expected != r.ReservationID {
-					log.Printf("warn: miss match user recent reservation id expected=%d got=%d userID=%d\n", expected, r.ReservationID, fullUser.ID)
-					return fatalErrorf("最新の最近予約した席が取得できません")
-				}
-			}
-
+			// check total price range
 			if !(user.Status.NegativeTotalPrice <= fullUser.TotalPrice || fullUser.TotalPrice <= user.Status.PositiveTotalPrice) {
 				log.Printf("warn: miss match user total price expected=%s got=%d userID=%d\n", user.Status.TotalPriceString(), fullUser.TotalPrice, fullUser.ID)
 				return fatalErrorf("最新の予約総額が取得できません")
+			}
+
+			reservationMap := state.GetReservations()
+			reservations := []*Reservation{}
+			for _, r := range fullUser.RecentReservations {
+				// check event details
+				if e := state.GetEventByID(r.Event.ID); e == nil {
+					return fatalErrorf("最近予約した席のイベント情報(id)が正しくありません")
+				} else if r.Event.Title != e.Title {
+					return fatalErrorf("最近予約した席のイベント情報(title)が正しくありません")
+				} else if r.Event.Closed != e.ClosedFg {
+					return fatalErrorf("最近予約した席のイベント情報(closed)が正しくありません")
+				} else if r.Event.Public != e.PublicFg {
+					return fatalErrorf("最近予約した席のイベント情報(public)が正しくありません")
+				}
+
+				// check sheet details
+				reservation, ok := reservationMap[r.ReservationID]
+				if !ok {
+					// skip
+					log.Printf("warn: skip unknown reservation id:%d userID=%d\n", r.ReservationID, fullUser.ID)
+					continue
+				}
+				if r.Event.ID != reservation.EventID {
+					return fatalErrorf("最近予約した席のイベントが正しくありません")
+				}
+				if r.SheetRank != reservation.SheetRank {
+					return fatalErrorf("最近予約した席のランクが正しくありません")
+				}
+				if r.SheetNum != reservation.SheetNum {
+					return fatalErrorf("最近予約した席の席番号が正しくありません")
+				}
+				if r.Price != reservation.Price {
+					return fatalErrorf("最近予約した席の価格が正しくありません")
+				}
+
+				// check reserved at
+				if r.ReservedAt == 0 {
+					return fatalErrorf("最近予約した席の予約時刻が正しくありません")
+				}
+				if reservation.ReserveCompletedAt.IsZero() {
+					log.Printf("warn: invalid reservation object is got=%#v\n", reservation)
+					return nil
+				} else if reservedAt := time.Unix(int64(r.ReservedAt), 0); reservedAt.Before(reservation.ReserveCompletedAt) {
+					log.Printf("warn: reserved at should be (reservationID:%d) %s < %s\n", reservation.ID, reservedAt, reservation.ReserveCompletedAt)
+					return fatalErrorf("最近予約した席の予約時刻が正しくありません")
+				}
+
+				// check canceled at
+				canceledAt := int64(r.CanceledAt)
+				if canceledAt == 0 {
+					if !reservation.CancelCompletedAt.IsZero() && reservation.CancelCompletedAt.Before(timeBefore) {
+						// should not be canceled
+						log.Printf("warn: miss match reservation cancellation status expected=canceled userID=%d\n", fullUser.ID)
+						return fatalErrorf("最近予約した席のキャンセル状態の整合性が取れません")
+					}
+				} else {
+					if reservation.CancelRequestedAt.IsZero() {
+						log.Printf("warn: miss match reservation cancellation status expected=not-canceled userID=%d\n", fullUser.ID)
+						return fatalErrorf("最近予約した席のキャンセル時刻の整合性が取れません")
+					}
+
+					cancelRequestedAt := reservation.CancelRequestedAt.Unix()
+					if reservation.CancelCompletedAt.IsZero() {
+						if !(cancelRequestedAt <= canceledAt) {
+							log.Printf("warn: miss match reservation cancellation status expected=not-canceled userID=%d\n", fullUser.ID)
+							return fatalErrorf("最近予約した席のキャンセル時刻の整合性が取れません")
+						}
+					} else {
+						cancelCompletedAt := reservation.CancelCompletedAt.Unix()
+						if !(cancelRequestedAt <= canceledAt && canceledAt <= cancelCompletedAt) {
+							log.Printf("warn: miss match reservation cancellation status expected=not-canceled userID=%d\n", fullUser.ID)
+							return fatalErrorf("最近予約した席のキャンセル時刻の整合性が取れません")
+						}
+					}
+				}
+
+				// add reservations
+				reservations = append(reservations, reservation)
+			}
+
+			// check order
+			if len(reservations) >= 2 {
+				last := reservations[0]
+				for _, r := range reservations[1:] {
+					if last.LastMaybeUpdatedAt().Before(r.LastUpdatedAt()) {
+						log.Printf("warn: miss match user recent reservation order userID=%d\n", fullUser.ID)
+						return fatalErrorf("最新の最近予約した席が取得できません")
+					}
+				}
 			}
 
 			return nil
@@ -2095,7 +2181,7 @@ func reserveSheet(ctx context.Context, state *State, checker *Checker, user *App
 
 	reserved := &JsonReservation{ReservationID: 0, SheetRank: rank, SheetNum: 0}
 	reservation := &Reservation{ID: 0, EventID: eventID, UserID: user.ID, SheetRank: rank, Price: eventSheet.Price, SheetNum: 0}
-	logID := state.BeginReservation(reservation)
+	logID := state.BeginReservation(user, reservation)
 
 	err := checker.Play(ctx, &CheckAction{
 		Method:             "POST",
@@ -2114,7 +2200,7 @@ func reserveSheet(ctx context.Context, state *State, checker *Checker, user *App
 
 	reservation.ID = reserved.ReservationID
 	reservation.SheetNum = reserved.SheetNum
-	state.CommitReservation(logID, reservation)
+	state.CommitReservation(logID, user, reservation)
 	eventSheet.Num = reserved.SheetNum
 
 	log.Printf("debug: reserve userID:%d(total-price:%s) eventID:%d reservedID:%d(%s-%d) price:%d\n", user.ID, user.Status.TotalPriceString(), eventID, reserved.ReservationID, reserved.SheetRank, reserved.SheetNum, eventSheet.Price)
@@ -2136,7 +2222,7 @@ func cancelSheet(ctx context.Context, state *State, checker *Checker, user *AppU
 	rank := reservation.SheetRank
 	sheetNum := reservation.SheetNum
 
-	logID := state.BeginCancelation(reservation)
+	logID := state.BeginCancelation(user, reservation)
 
 	err = checker.Play(ctx, &CheckAction{
 		Method:             "DELETE",
@@ -2148,7 +2234,7 @@ func cancelSheet(ctx context.Context, state *State, checker *Checker, user *AppU
 		return false, err
 	}
 
-	state.CommitCancelation(logID, reservation)
+	state.CommitCancelation(logID, user, reservation)
 	eventSheet.Num = NonReservedNum
 
 	return false, nil

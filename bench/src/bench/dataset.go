@@ -230,7 +230,6 @@ func prepareReservationsDataSet() {
 		r.ID = nextID
 
 		user := DataSet.Users[r.UserID-1]
-		user.Status.AppendRecentReservationID(r.ID)
 		user.Status.AppendRecentEventID(r.EventID)
 		user.Status.PositiveTotalPrice += r.Price
 		user.Status.NegativeTotalPrice += r.Price
