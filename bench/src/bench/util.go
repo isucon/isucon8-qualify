@@ -4,12 +4,15 @@ import (
 	"bytes"
 	"fmt"
 	"math/rand"
+	"runtime"
 	"strings"
 	"sync"
 )
 
 func assert(flag bool, msgs ...interface{}) {
 	if !flag {
+		_, filename, line, _ := runtime.Caller(1)
+		msgs = append(msgs, filename, " ", line)
 		panic("assertion failed: " + fmt.Sprint(msgs...))
 	}
 }
