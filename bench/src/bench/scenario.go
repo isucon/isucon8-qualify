@@ -989,7 +989,7 @@ func CheckMyPage(ctx context.Context, state *State) error {
 				if reservation.ReserveCompletedAt.IsZero() {
 					log.Printf("warn: invalid reservation object is got=%#v\n", reservation)
 					return nil
-				} else if reservedAt := time.Unix(int64(r.ReservedAt), 0); reservedAt.Before(reservation.ReserveCompletedAt) {
+				} else if reservedAt := time.Unix(int64(r.ReservedAt), 0); reservation.ReserveCompletedAt.Before(reservedAt) {
 					log.Printf("warn: reserved at should be (reservationID:%d) %s < %s\n", reservation.ID, reservedAt, reservation.ReserveCompletedAt)
 					return fatalErrorf("最近予約した席の予約時刻が正しくありません")
 				}
