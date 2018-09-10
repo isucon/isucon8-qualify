@@ -1,6 +1,6 @@
 # torb provisioning
 
-`development` ファイルで指定されたホストにプロビジョニングする。
+`development` か `production` ファイルで指定されたホストにプロビジョニングする。
 
 git管理外の `db/isucon8q-initial-dataset.sql.gz` もデプロイされる必要があるので、
 実行前にローカルで生成しておく必要がある。
@@ -22,15 +22,15 @@ $ cd ..
 
 # プロビジョニングの実行
 $ cd provisioning
-$ vim development
+$ vim development # or vim production
 #=> デフォルトでは全部コメントアウトしているので、
 #=> プロビジョニングしたいホストの部分のコメントアウトを外しておく。
-$ ansible-playbook -i development site.yml
+$ ansible-playbook -i development site.yml # or ansible-playbook -i production site.yml
 ```
 
 ## メモ
 
-- `development` でコメントアウトを外しているホストが、プロビジョニング対象になる。
+- コメントアウトを外しているホストが、プロビジョニング対象になる。
     - デフォルトでは全部コメントアウトされているので、ansible-playbookを実行しても何も起きない。
 - それぞれのロール(bench, webapp1, webapp2, webapp3)は、 `ロール名.yml` ファイルにそのロールで実行されるタスク一覧が書いてある。
     - ためしにあるタスクだけを実行したかったら、 `ロール名.yml` に書いてあるタスクをコメントアウトすることも可。
