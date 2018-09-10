@@ -878,6 +878,8 @@ func (s *State) BeginReservation(reservation *Reservation) (logID uint64) {
 	{
 		lockedUser := s.users[reservation.UserID]
 		lockedUser.Status.PositiveTotalPrice += reservation.Price
+		lockedUser.Status.AppendRecentEventID(reservation.EventID)
+		lockedUser.Status.AppendRecentReservationID(reservation.ID)
 	}
 	logID = s.appendReserveLog(reservation)
 	return
@@ -933,6 +935,8 @@ func (s *State) BeginCancelation(reservation *Reservation) (logID uint64) {
 	{
 		lockedUser := s.users[reservation.UserID]
 		lockedUser.Status.NegativeTotalPrice -= reservation.Price
+		lockedUser.Status.AppendRecentEventID(reservation.EventID)
+		lockedUser.Status.AppendRecentReservationID(reservation.ID)
 	}
 	logID = s.appendReserveLog(reservation)
 	return

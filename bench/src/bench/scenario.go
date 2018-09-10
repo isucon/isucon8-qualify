@@ -2117,10 +2117,6 @@ func reserveSheet(ctx context.Context, state *State, checker *Checker, user *App
 	state.CommitReservation(logID, reservation)
 	eventSheet.Num = reserved.SheetNum
 
-	user.Status.AppendRecentEventID(eventID)
-	user.Status.AppendRecentReservationID(reserved.ReservationID)
-	user.Status.NegativeTotalPrice += eventSheet.Price
-
 	log.Printf("debug: reserve userID:%d(total-price:%s) eventID:%d reservedID:%d(%s-%d) price:%d\n", user.ID, user.Status.TotalPriceString(), eventID, reserved.ReservationID, reserved.SheetRank, reserved.SheetNum, eventSheet.Price)
 	return reservation, nil
 }
