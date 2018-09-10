@@ -278,12 +278,12 @@ new Vue({
     return {
       title: '',
       price: 1000,
-      public: false,
+      public: 0,
     };
   },
   methods: {
     submit () {
-      API.Event.register(this.title, this.price, this.public).then(event => {
+      API.Event.register(this.title, this.price, this.public != 0).then(event => {
         EventList.$data.events.push(event);
         DOM.eventRegistrationModal.modal('hide');
       }).catch(err => {
