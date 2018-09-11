@@ -398,7 +398,7 @@ $app->post('/api/events/{id}/actions/reserve', function (Request $request, Respo
     }
 
     return $response->withJson([
-        'reservation_id' => $reservation_id,
+        'id' => $reservation_id,
         'sheet_rank' => $rank,
         'sheet_num' => $sheet['num'],
     ], 202, JSON_NUMERIC_CHECK);

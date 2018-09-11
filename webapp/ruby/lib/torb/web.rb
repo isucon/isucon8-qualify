@@ -312,7 +312,7 @@ module Torb
       end
 
       status 202
-      { reservation_id: reservation_id, sheet_rank: rank, sheet_num: sheet['num'] } .to_json
+      { id: reservation_id, sheet_rank: rank, sheet_num: sheet['num'] } .to_json
     end
 
     delete '/api/events/:id/sheets/:rank/:num/reservation', login_required: true do |event_id, rank, num|

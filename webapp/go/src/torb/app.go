@@ -626,9 +626,9 @@ func main() {
 			break
 		}
 		return c.JSON(202, echo.Map{
-			"reservation_id": reservationID,
-			"sheet_rank":     params.Rank,
-			"sheet_num":      sheet.Num,
+			"id":         reservationID,
+			"sheet_rank": params.Rank,
+			"sheet_num":  sheet.Num,
 		})
 	}, loginRequired)
 	e.DELETE("/api/events/:id/sheets/:rank/:num/reservation", func(c echo.Context) error {
