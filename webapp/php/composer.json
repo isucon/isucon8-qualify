@@ -1,0 +1,22 @@
+{
+    "require": {
+        "php": "~7.2",
+        "ext-pdo": "*",
+
+        "slim/slim": "^3.10",
+        "slim/twig-view": "^2.4",
+        "aura/session": "^2.1",
+        "bryanjhv/slim-session": "^3.6"
+    },
+    "require-dev": {
+        "friendsofphp/php-cs-fixer": "^2.13"
+    },
+    "scripts": {
+        "cs-fixer": "./vendor/bin/php-cs-fixer fix"
+    },
+    "autoload": {
+        "psr-4": {
+            "Torb\\": "lib/Torb/"
+        }
+    }
+}
