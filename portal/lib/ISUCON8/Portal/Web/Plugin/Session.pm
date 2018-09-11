@@ -17,7 +17,12 @@ sub init {
             my $path   = $c->req->path;
             my $method = $c->req->method;
 
-            if ($path =~ m|/admin|) {
+            # benchmaker は session 不要
+            if ($path =~ m|^/bench|) {
+                return;
+            }
+
+            if ($path =~ m|^/admin|) {
                 if ($path ne '/admin/login') {
                     unless ($c->session->get('admin')) {
                         $c->session->remove('admin');

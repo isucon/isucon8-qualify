@@ -15,4 +15,21 @@ __PACKAGE__->constants(
     ERROR_SERVICE_UNAVAILABLE => 503,
 );
 
+__PACKAGE__->constants(
+    TEAM_STATE_ACTIVED => 'actived',
+    TEAM_STATE_BANNED  => 'banned',
+);
+
+__PACKAGE__->constants(
+    JOB_QUEUE_STATE_WAITING  => 'waiting',
+    JOB_QUEUE_STATE_RUNNING  => 'running',
+    JOB_QUEUE_STATE_DONE     => 'done',
+    JOB_QUEUE_STATE_ABORTED  => 'aborted',
+    JOB_QUEUE_STATE_CANCELED => 'canceled',
+);
+
+__PACKAGE__->constants(
+    BENCHMARK_MAX_CONCURRENCY => 3,
+);
+
 1;

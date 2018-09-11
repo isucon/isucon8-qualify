@@ -17,10 +17,11 @@ use Plack::Middleware::ReverseProxy;
 use Plack::Middleware::AxsLog;
 use File::RotateLogs;
 
+my $home   = File::Spec->catdir(dirname(__FILE__), '..');
 my $logger = File::RotateLogs->new(
-    logfile      => './log/access.log.%Y%m%d%H',
-    linkname     => './log/access.log',
-    rotationtime => 60 * 60, # an hour
+    logfile      => join('/', $home, 'log', 'access.log.%Y%m%d%H'),
+    linkname     => join('/', $home, 'log', 'access.log'),
+    rotationtime => 60 * 60,
     maxage       => 60 * 60 * 24 * 7, # 7day
 );
 

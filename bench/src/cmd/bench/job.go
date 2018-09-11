@@ -20,7 +20,7 @@ type BenchResult struct {
 }
 
 type Job struct {
-	ID      int    `json:"id"`
-	TeamID  int    `json:"team_id"`
-	IPAddrs string `json:"ip_addrs"`
+	ID       int    `json:"id"`
+	TeamID   int    `json:"team_id"`
+	TargetIP string `json:"target_ip"`
 }
