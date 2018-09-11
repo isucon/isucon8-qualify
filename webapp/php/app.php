@@ -14,15 +14,15 @@ $container = $app->getContainer();
 $container['view'] = function ($container) {
     $view = new \Slim\Views\Twig(TWIG_TEMPLATE);
 
-    $baseUrl = function (\Slim\Http\Uri $uri): string {
-        if ('localhost' !== $uri->getHost()) {
-            return $uri->getScheme().':'.'//'.$uri->getHost();
-        } else {
-            return $uri->getBaseUrl();
-        }
+    $baseUrl = function (\Slim\Http\Request $request): string {
+      if ($request->hasHeader('Host')) {
+        return $request->getUri()->getScheme().'://'.$request->getHeaderLine('Host');
+      }
+
+      return $request->getUri()->getBaseUrl();
     };
 
-    $view->addExtension(new \Slim\Views\TwigExtension($container['router'], $baseUrl($container['request']->getUri())));
+    $view->addExtension(new \Slim\Views\TwigExtension($container['router'], $baseUrl($container['request'])));
 
     return $view;
 };
