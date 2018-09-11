@@ -94,7 +94,11 @@ type AppUserStatus struct {
 
 	PositiveTotalPrice uint
 	NegativeTotalPrice uint
-	recentEventIDs     []uint
+
+	LastReservedEvent      idWithUpdatedAt
+	LastMaybeReservedEvent idWithUpdatedAt
+	LastReservation        idWithUpdatedAt
+	LastMaybeReservation   idWithUpdatedAt
 }
 
 func (s *AppUserStatus) TotalPriceString() string {
@@ -105,36 +109,30 @@ func (s *AppUserStatus) TotalPriceString() string {
 	return strconv.FormatUint(uint64(s.PositiveTotalPrice), 10) + "-" + strconv.FormatUint(uint64(s.NegativeTotalPrice), 10)
 }
 
-func (s *AppUserStatus) AppendRecentEventID(id uint) {
-	s.recentEventIDs = appendUniqAfter(s.recentEventIDs, id, 5)
+type idWithUpdatedAt struct {
+	id        uint
+	updatedAt time.Time
 }
 
-func (s *AppUserStatus) GetRecentEventIDs() []uint {
-	ids := make([]uint, len(s.recentEventIDs))
-	copy(ids, s.recentEventIDs)
-	reverseUintSlice(ids)
-	return ids
+func (i *idWithUpdatedAt) SetID(id uint) {
+	i.id = id
+	i.updatedAt = time.Now()
 }
 
-func appendUniqAfter(s []uint, ui uint, limit int) []uint {
-	for i, si := range s {
-		if si != ui {
-			continue
-		}
-		if len(s) == i+1 {
-			return s
-		}
+func (i *idWithUpdatedAt) SetIDWithTime(id uint, t time.Time) {
+	i.id = id
+	i.updatedAt = t
+}
 
-		next := s[i+1]
-		s[i] = next
-		s[i+1] = ui
+func (i *idWithUpdatedAt) GetID(timeBefore time.Time) uint {
+	if i.updatedAt.IsZero() {
+		return 0
 	}
-	s = append(s, ui)
+	if i.updatedAt.After(timeBefore) {
+		return 0
+	}
 
-	if len(s) > limit {
-		return s[:limit]
-	}
-	return s
+	return i.id
 }
 
 type Administrator struct {
@@ -895,7 +893,7 @@ func (s *State) BeginReservation(lockedUser *AppUser, reservation *Reservation) 
 	}
 	{
 		lockedUser.Status.PositiveTotalPrice += reservation.Price
-		lockedUser.Status.AppendRecentEventID(reservation.EventID)
+		lockedUser.Status.LastMaybeReservedEvent.SetID(reservation.EventID)
 	}
 	logID = s.appendReserveLog(reservation)
 	return
@@ -923,6 +921,8 @@ func (s *State) CommitReservation(logID uint64, lockedUser *AppUser, reservation
 	}
 	{
 		lockedUser.Status.NegativeTotalPrice += reservation.Price
+		lockedUser.Status.LastReservedEvent.SetID(reservation.EventID)
+		lockedUser.Status.LastReservation.SetID(reservation.ID)
 	}
 	s.deleteReserveLog(logID, reservation)
 	return
@@ -949,7 +949,8 @@ func (s *State) BeginCancelation(lockedUser *AppUser, reservation *Reservation) 
 	}
 	{
 		lockedUser.Status.NegativeTotalPrice -= reservation.Price
-		lockedUser.Status.AppendRecentEventID(reservation.EventID)
+		lockedUser.Status.LastMaybeReservedEvent.SetID(reservation.EventID)
+		lockedUser.Status.LastMaybeReservation.SetID(reservation.ID)
 	}
 	logID = s.appendReserveLog(reservation)
 	return
@@ -976,6 +977,8 @@ func (s *State) CommitCancelation(logID uint64, lockedUser *AppUser, reservation
 	}
 	{
 		lockedUser.Status.PositiveTotalPrice -= reservation.Price
+		lockedUser.Status.LastReservedEvent.SetID(reservation.EventID)
+		lockedUser.Status.LastReservation.SetID(reservation.ID)
 	}
 	s.deleteCancelLog(logID, reservation)
 	return

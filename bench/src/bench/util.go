@@ -27,12 +27,6 @@ func trim(s string) string {
 	return strings.TrimSpace(s)
 }
 
-func reverseUintSlice(s []uint) {
-	for l, r := 0, len(s)-1; l < r; l, r = l+1, r-1 {
-		s[l], s[r] = s[r], s[l]
-	}
-}
-
 var alphabet = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
 
 func RandomAlphabetString(n int) string {
