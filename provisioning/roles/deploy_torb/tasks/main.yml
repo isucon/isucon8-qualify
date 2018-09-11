@@ -10,7 +10,7 @@
   become: yes
   become_user: isucon
   synchronize:
-    src: ../../../..
+    src: ../../../../
     dest: /home/isucon/torb
     delete: yes
     recursive: yes
