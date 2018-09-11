@@ -45,6 +45,13 @@
 			"path": "/session"
 		},
 		{
+			"importpath": "github.com/labstack/echo/middleware",
+			"repository": "https://github.com/labstack/echo",
+			"revision": "688ab2bec63ffbfe80f4a82449c232103041e2f3",
+			"branch": "master",
+			"path": "/middleware"
+		},
+		{
 			"importpath": "github.com/labstack/gommon/bytes",
 			"repository": "https://github.com/labstack/gommon",
 			"revision": "2a618302b929cc20862dda3aa6f02f64dbe740dd",
