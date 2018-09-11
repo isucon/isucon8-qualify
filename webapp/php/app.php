@@ -147,11 +147,14 @@ function get_login_user(ContainerInterface $app)
         return false;
     }
 
-    return $app->dbh->select_row('SELECT id, nickname FROM users WHERE id = ?', $user_id);
+    $user = $app->dbh->select_row('SELECT id, nickname FROM users WHERE id = ?', $user_id);
+    $user['id'] = (int) $user['id'];
+    return $user;
 }
 
 $app->get('/api/users/{id}', function (Request $request, Response $response, array $args): Response {
     $user = $this->dbh->select_row('SELECT id, nickname FROM users WHERE id = ?', $args['id']);
+    $user['id'] = (int) $user['id'];
     if (!$user || $user['id'] !== get_login_user($this)['id']) {
         return res_error($response, 'forbidden', 403);
     }
@@ -519,7 +522,9 @@ function get_login_administrator(ContainerInterface $app)
         return false;
     }
 
-    return $app->dbh->select_row('SELECT id, nickname FROM administrators WHERE id = ?', $administrator_id);
+    $administrator = $app->dbh->select_row('SELECT id, nickname FROM administrators WHERE id = ?', $administrator_id);
+    $administrator['id'] = (int) $administrator['id'];
+    return $administrator;
 }
 
 $app->get('/admin/api/events', function (Request $request, Response $response): Response {
