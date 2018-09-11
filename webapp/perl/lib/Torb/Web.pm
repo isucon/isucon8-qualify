@@ -329,7 +329,7 @@ post '/api/events/{id}/actions/reserve' => [qw/allow_json_request login_required
     my $res = $c->render_json({
         id         => 0+$reservation_id,
         sheet_rank => $rank,
-        sheet_num  => $sheet->{num},
+        sheet_num  => 0+$sheet->{num},
     });
     $res->status(202);
     return $res;

@@ -1,0 +1,15 @@
+<?php
+$finder = PhpCsFixer\Finder::create()
+    ->exclude(__DIR__.'/vendor')
+    ->exclude(__DIR__.'/views')
+    ->in(__DIR__."/")
+;
+return \PhpCsFixer\Config::create()
+    ->setRiskyAllowed(true)
+    ->setRules([
+        '@Symfony' => true,
+        'array_syntax' => ['syntax' => 'short']
+    ])
+    ->setFinder($finder)
+    ->setLineEnding("\n")
+    ;
