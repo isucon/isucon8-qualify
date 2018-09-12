@@ -397,6 +397,7 @@ func (s *State) PopRandomUser() (*AppUser, *Checker, func()) {
 	s.users[n-1] = nil
 	s.users = s.users[:n-1]
 
+	log.Printf("debug: PopRandomUser %d %s %s\n", u.ID, u.LoginName, u.Nickname)
 	return u, s.getCheckerLocked(u), func() { s.PushUser(u) }
 }
 
@@ -427,6 +428,7 @@ func (s *State) PopUserByID(userID uint) (*AppUser, *Checker, func()) {
 	s.users[n-1] = nil
 	s.users = s.users[:n-1]
 
+	log.Printf("debug: PopUserByID %d %s %s\n", u.ID, u.LoginName, u.Nickname)
 	return u, s.getCheckerLocked(u), func() { s.PushUser(u) }
 }
 
@@ -434,6 +436,7 @@ func (s *State) PushUser(u *AppUser) {
 	s.mtx.Lock()
 	defer s.mtx.Unlock()
 
+	log.Printf("debug: PushUser %d %s %s\n", u.ID, u.LoginName, u.Nickname)
 	s.users = append(s.users, u)
 }
 

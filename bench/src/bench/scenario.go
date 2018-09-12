@@ -1053,15 +1053,19 @@ func CheckMyPage(ctx context.Context, state *State) error {
 					continue
 				}
 				if r.Event.ID != reservation.EventID {
+					log.Printf("info: miss match reservation event id got=%d expected=%d\n", r.Event.ID, reservation.EventID)
 					return fatalErrorf("最近予約した席のイベントが正しくありません")
 				}
 				if r.SheetRank != reservation.SheetRank {
+					log.Printf("info: miss match reservation sheet rank got=%d expected=%d\n", r.SheetRank, reservation.SheetRank)
 					return fatalErrorf("最近予約した席のランクが正しくありません")
 				}
 				if r.SheetNum != reservation.SheetNum {
+					log.Printf("info: miss match reservation sheet num got=%d expected=%d\n", r.SheetNum, reservation.SheetNum)
 					return fatalErrorf("最近予約した席の席番号が正しくありません")
 				}
 				if r.Price != reservation.Price {
+					log.Printf("info: miss match reservation price got=%d expected=%d\n", r.Price, reservation.Price)
 					return fatalErrorf("最近予約した席の価格が正しくありません")
 				}
 
