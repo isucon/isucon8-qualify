@@ -4,7 +4,7 @@
 
 <div class="container has-text-centered">
   <figure class="logo">
-    <img src="<: static_file('/static/img/isucon_logo.jpg') :>">
+    <img src="<: static_file('/static/img/isucon_logo@3x.png') :>" width="400px">
   </figure>
   <div class="column is-4 is-offset-4">
     : if $is_error {
@@ -42,7 +42,7 @@
       </form>
     </div>
     <p class="has-text-grey">
-      <a href="/TODO">Need Help?</a>
+      <a href="#">Need Help?</a>
     </p>
   </div>
 </div>
