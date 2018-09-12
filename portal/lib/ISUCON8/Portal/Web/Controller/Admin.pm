@@ -5,7 +5,11 @@ use feature 'state';
 
 sub get_login {
     my ($self, $c) = @_;
-    $c->render_admin('admin/login.tx');
+    if ($c->session->get('admin')) {
+        return $c->redirect('/admin');
+    }
+
+    return $c->render_admin('admin/login.tx');
 }
 
 sub post_login {
@@ -35,6 +39,12 @@ sub post_login {
 
     $c->session->set(admin => $user->{name});
     return $c->redirect('/admin');
+}
+
+sub get_logout {
+    my ($self, $c) = @_;
+    $c->session->remove('admin');
+    $c->redirect('/admin/login');
 }
 
 sub get_index {

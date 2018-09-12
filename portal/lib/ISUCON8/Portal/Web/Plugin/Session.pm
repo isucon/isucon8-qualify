@@ -25,16 +25,24 @@ sub init {
             if ($path =~ m|^/admin|) {
                 if ($path ne '/admin/login') {
                     unless ($c->session->get('admin')) {
-                        $c->session->remove('admin');
+                        $c->session->expire;
                         return $c->redirect('/admin/login');
                     }
                 }
             }
             else {
-                if ($path ne '/login') {
-                    unless ($c->session->get('team')) {
-                        $c->session->remove('team');
-                        return $c->redirect('/login');
+                my $contest_period = $c->config->{contest_period};
+                unless ($c->model('Common')->is_during_the_contest($contest_period)) {
+                    unless ($path eq '/') {
+                        return $c->redirect('/');
+                    }
+                }
+                else {
+                    if ($path ne '/login') {
+                        unless ($c->session->get('team')) {
+                            $c->session->expire;
+                            return $c->redirect('/login');
+                        }
                     }
                 }
             }

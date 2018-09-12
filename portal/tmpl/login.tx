@@ -7,13 +7,23 @@
     <img src="<: static_file('/static/img/isucon_logo.jpg') :>">
   </figure>
   <div class="column is-4 is-offset-4">
+    : if $is_error {
+      <article class="message is-danger">
+        <div class="message-header">
+          <p>Oops!</p>
+        </div>
+        <div class="message-body">
+           <strong>Login FAILED!!</strong><br>
+        </div>
+      </article>
+    : }
     <h3 class="title has-text-grey">Login</h3>
     <p class="subtitle has-text-grey">Please login to proceed.</p>
     <div class="box">
       <form method="post">
         <div class="field">
           <p class="control has-icons-left has-icons-right">
-            <input class="input" type="id" placeholder="TeamID">
+            <input class="input" type="text" name="id" placeholder="TeamID">
             <span class="icon is-small is-left">
               <i class="fas fa-id-card-alt"></i>
             </span>
@@ -22,7 +32,7 @@
 
         <div class="field">
           <p class="control has-icons-left">
-            <input class="input" type="password" placeholder="Password">
+            <input class="input" type="password" name="password" placeholder="Password">
             <span class="icon is-small is-left">
               <i class="fas fa-lock"></i>
             </span>

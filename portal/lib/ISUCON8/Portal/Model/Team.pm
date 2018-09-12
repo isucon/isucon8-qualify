@@ -1,4 +1,4 @@
-package ISUCON8::Portal::Model::Admin;
+package ISUCON8::Portal::Model::Team;
 
 use strict;
 use warnings;
@@ -14,24 +14,24 @@ __PACKAGE__->meta->make_immutable;
 
 no Mouse;
 
-sub find_user {
+sub find_team {
     my ($self, $params) = @_;
-    my $name     = $params->{name};
+    my $id       = $params->{id};
     my $password = $params->{password};
 
-    my $user;
+    my $team;
     eval {
         $self->db->run(sub {
             my $dbh = shift;
             my ($stmt, @bind) = $self->sql->select(
-                'admin_users',
+                'teams',
                 ['*'],
                 {
-                    name     => $name,
+                    id       => $id,
                     password => $password, # TODO: password hash
                 },
             );
-            $user = $dbh->selectrow_hashref($stmt, undef, @bind);
+            $team = $dbh->selectrow_hashref($stmt, undef, @bind);
         });
     };
     if (my $e = $@) {
@@ -43,7 +43,7 @@ sub find_user {
         );
     }
 
-    return $user;
+    return $team;
 }
 
 1;
