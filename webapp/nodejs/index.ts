@@ -185,7 +185,7 @@ async function getEvent(eventId: number, loginUserId?: number): Promise<Event | 
 
     const [[reservation]] = await fastify.mysql.query("SELECT * FROM reservations WHERE event_id = ? AND sheet_id = ? AND canceled_at IS NULL GROUP BY event_id, sheet_id HAVING reserved_at = MIN(reserved_at)", [event.id, sheet.id]);
     if (reservation) {
-      if (loginUserId && reservation.userId === loginUserId) {
+      if (loginUserId && reservation.user_id === loginUserId) {
         sheet.mine = true;
       }
 
