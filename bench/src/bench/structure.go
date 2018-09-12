@@ -54,7 +54,7 @@ type JsonFullEvent struct {
 }
 
 type JsonReservation struct {
-	ReservationID uint   `json:"reservation_id"`
+	ReservationID uint   `json:"id"`
 	SheetRank     string `json:"sheet_rank"`
 	SheetNum      uint   `json:"sheet_num"`
 }
@@ -102,53 +102,28 @@ type Event struct {
 	Price     uint
 	CreatedAt time.Time
 
-	// Remains are decremented before request, and incremented after response.
-	// That is, if timeout occurs, remains in bench could be smaller than the server-side, but never be larger.
-	RemainsMtx sync.Mutex
-	Remains    int32
-
-	// Represents remains for each rank
-	RT ReservationTickets
+	reservationMtx        sync.Mutex
+	ReserveRequestedCount uint
+	ReserveCompletedCount uint
+	CancelRequestedCount  uint
+	CancelCompletedCount  uint
+	ReserveRequestedRT    ReservationTickets
+	ReserveCompletedRT    ReservationTickets
+	CancelRequestedRT     ReservationTickets
+	CancelCompletedRT     ReservationTickets
 }
 
 type ReservationTickets struct {
-	S, A, B, C int32
+	S, A, B, C uint
 }
 
-// Call this before reserve request
-func (event *Event) TryGetTicket(rank string) bool {
-	event.RemainsMtx.Lock()
-	defer event.RemainsMtx.Unlock()
-
-	rankRemains := event.RT.getPointer(rank)
-
-	event.Remains--
-	if event.Remains < 0 {
-		event.Remains++
-	}
-
-	*rankRemains--
-	log.Printf("debug: tryGetTicket: rank=%s ticketID=%d\n", rank, *rankRemains)
-	if *rankRemains < 0 {
-		*rankRemains++
-		return false
-	}
-
-	return true
+// Returns an optimistic sold-out prediction, I mean that,
+// returns true even if a few sheets are actually remained when some timeout occurs.
+func (e *Event) IsSoldOut() bool {
+	return int32(e.ReserveRequestedCount)-int32(e.CancelCompletedCount) >= int32(DataSet.SheetTotal)
 }
 
-// Call this after cancel response succeeds
-func (event *Event) ReleaseTicket(rank string) {
-	event.RemainsMtx.Lock()
-	defer event.RemainsMtx.Unlock()
-
-	rankRemains := event.RT.getPointer(rank)
-
-	event.Remains++
-	*rankRemains++
-}
-
-func (rt *ReservationTickets) getPointer(rank string) *int32 {
+func (rt *ReservationTickets) getPointer(rank string) *uint {
 	switch rank {
 	case "S":
 		return &rt.S
@@ -219,6 +194,7 @@ type BenchDataSet struct {
 	Events       []*Event
 	ClosedEvents []*Event
 
+	SheetTotal   uint
 	SheetKinds   []*SheetKind
 	SheetKindMap map[string]*SheetKind
 	Sheets       []*Sheet
@@ -270,9 +246,15 @@ type State struct {
 	closedEventSheets   []*EventSheet // !public && closed
 	reservedEventSheets []*EventSheet // flag does not matter, all reserved sheets come here
 
-	reservationsMtx sync.Mutex
-	reservations    map[uint]*Reservation // key: reservation id
+	reservationMtx        sync.Mutex
+	reservations          map[uint]*Reservation // key: reservation id
+	reserveRequestedCount uint
+	reserveCompletedCount uint
+	cancelRequestedCount  uint
+	cancelCompletedCount  uint
 
+	// TODO(sonots): Remove later if we've completed without using this anymore.
+	//
 	// Like a transactional log for reserve/cancel API.
 	// A log is removed after we verified that the reserve/cancel API request succeeded.
 	// If a request is timeouted or failed by any reasons, the log remains kept.
@@ -301,17 +283,21 @@ func (s *State) Init() {
 		s.pushInitialAdministratorLocked(u)
 	}
 
+	createdAt := time.Time{}
 	for _, event := range DataSet.Events {
-		s.pushNewEventLocked(event, "Init")
+		s.pushNewEventLocked(event, createdAt, "Init")
 	}
 	for _, event := range DataSet.ClosedEvents {
-		s.pushInitialClosedEventLocked(event)
+		s.pushInitialClosedEventLocked(event, createdAt)
 	}
 
 	s.reservations = map[uint]*Reservation{}
 	for _, reservation := range DataSet.Reservations {
 		s.reservations[reservation.ID] = reservation
 	}
+	s.reserveRequestedCount = uint(len(s.reservations))
+	s.reserveCompletedCount = uint(len(s.reservations))
+	// NOTE: Need to init cancel counts if initial data contains cancels.
 
 	s.reserveLogID = 0
 	s.reserveLog = map[uint64]*Reservation{}
@@ -492,35 +478,27 @@ func (s *State) CreateNewEvent() (*Event, func(caller string)) {
 		PublicFg: true,
 		ClosedFg: false,
 		Price:    1000 + uint(rand.Intn(10)*1000),
-		Remains:  int32(SheetTotal),
-		RT: ReservationTickets{
-			S: int32(DataSet.SheetKindMap["S"].Total),
-			A: int32(DataSet.SheetKindMap["A"].Total),
-			B: int32(DataSet.SheetKindMap["B"].Total),
-			C: int32(DataSet.SheetKindMap["C"].Total),
-		},
 	}
 
 	// NOTE: push() function pushes into s.events, does not push to s.newEvents.
 	// You should call push() after you verify that a new event is successfully created on the server.
-	return event, func(caller string) { s.PushNewEvent(event, caller) }
+	return event, func(caller string) { s.PushNewEvent(event, time.Now(), caller) }
 }
 
-func (s *State) PushNewEvent(event *Event, caller string) {
+func (s *State) PushNewEvent(event *Event, createdAt time.Time, caller string) {
 	s.mtx.Lock()
 	defer s.mtx.Unlock()
 
-	s.pushNewEventLocked(event, caller)
+	s.pushNewEventLocked(event, createdAt, caller)
 }
 
-func (s *State) pushNewEventLocked(event *Event, caller string) {
-	log.Printf("debug: newEventPush %d %s %d Public:%t Closed:%t Remains:%d (Caller:%s)\n", event.ID, event.Title, event.Price, event.PublicFg, event.ClosedFg, event.Remains, caller)
+func (s *State) pushNewEventLocked(event *Event, createdAt time.Time, caller string) {
+	log.Printf("debug: newEventPush %d %s %d Public:%t Closed:%t (Caller:%s)\n", event.ID, event.Title, event.Price, event.PublicFg, event.ClosedFg, caller)
 
-	event.CreatedAt = time.Now()
+	event.CreatedAt = createdAt
 	s.events = append(s.events, event)
 
-	// already sold-out event
-	if event.Remains <= 0 {
+	if event.IsSoldOut() {
 		return
 	}
 
@@ -542,8 +520,8 @@ func (s *State) pushNewEventLocked(event *Event, caller string) {
 }
 
 // Initial closed events are all reserved and closed
-func (s *State) pushInitialClosedEventLocked(event *Event) {
-	event.CreatedAt = time.Now()
+func (s *State) pushInitialClosedEventLocked(event *Event, createdAt time.Time) {
+	event.CreatedAt = createdAt
 	s.events = append(s.events, event)
 
 	for _, sheetKind := range DataSet.SheetKinds {
@@ -566,12 +544,27 @@ func (s *State) FindEventByID(id uint) *Event {
 	return nil
 }
 
+// Returns a shallow copy of s.events
 func (s *State) GetEvents() (events []*Event) {
 	s.mtx.Lock()
 	defer s.mtx.Unlock()
 
 	events = make([]*Event, len(s.events))
 	copy(events, s.events)
+	return
+}
+
+// Returns a deep copy of s.events
+func (s *State) GetCopiedEvents() (events []*Event) {
+	s.mtx.Lock()
+	defer s.mtx.Unlock()
+
+	events = make([]*Event, 0, len(s.events))
+	for _, e := range s.events {
+		event := *e // copy
+		events = append(events, &event)
+	}
+
 	return
 }
 
@@ -600,10 +593,9 @@ func FilterPublicEvents(src []*Event) (filtered []*Event) {
 func FilterSoldOutEvents(src []*Event) (filtered []*Event) {
 	filtered = make([]*Event, 0, len(src))
 	for _, e := range src {
-		if e.Remains > 0 {
-			continue
+		if e.IsSoldOut() {
+			filtered = append(filtered, e)
 		}
-		filtered = append(filtered, e)
 	}
 	return
 }
@@ -675,89 +667,19 @@ func GetRandomSheetNum(sheetRank string) uint {
 	return uint(rand.Intn(int(total)))
 }
 
-func (s *State) CommitReservation(reservation *Reservation) {
-	s.reservationsMtx.Lock()
-	defer s.reservationsMtx.Unlock()
-
-	reservation.ReserveCompletedAt = time.Now()
-	s.reservations[reservation.ID] = reservation
-}
-
 func (s *State) FindReservationByID(reservationID uint) *Reservation {
-	s.reservationsMtx.Lock()
-	defer s.reservationsMtx.Unlock()
+	s.reservationMtx.Lock()
+	defer s.reservationMtx.Unlock()
 
 	reservation := s.reservations[reservationID]
 
 	return reservation
 }
 
-func (s *State) BeginCancelReservation(reservation *Reservation) {
-	s.reservationsMtx.Lock()
-	defer s.reservationsMtx.Unlock()
-
-	reservation.CancelRequestedAt = time.Now()
-	s.reservations[reservation.ID] = reservation
-}
-
-func (s *State) CommitCancelReservation(reservation *Reservation) {
-	s.reservationsMtx.Lock()
-	defer s.reservationsMtx.Unlock()
-
-	reservation.CancelCompletedAt = time.Now()
-	s.reservations[reservation.ID] = reservation
-}
-
-func (s *State) RevertCancelReservation(reservation *Reservation) {
-	s.reservationsMtx.Lock()
-	defer s.reservationsMtx.Unlock()
-
-	reservation.CancelRequestedAt = time.Time{} // 0
-	s.reservations[reservation.ID] = reservation
-}
-
-func (s *State) AppendReserveLog(reservation *Reservation) uint64 {
-	s.reserveLogMtx.Lock()
-	defer s.reserveLogMtx.Unlock()
-
-	s.reserveLogID++
-	s.reserveLog[s.reserveLogID] = reservation
-
-	log.Printf("debug: appendReserveLog LogID:%2d EventID:%2d UserID:%3d SheetRank:%s\n", s.reserveLogID, reservation.EventID, reservation.UserID, reservation.SheetRank)
-	return s.reserveLogID
-}
-
-func (s *State) DeleteReserveLog(reserveLogID uint64, reservation *Reservation) {
-	s.reserveLogMtx.Lock()
-	defer s.reserveLogMtx.Unlock()
-
-	log.Printf("debug: deleteReserveLog LogID:%2d EventID:%2d UserID:%3d SheetRank:%s SheetNum:%d ReservationID:%d (Reserved)\n", reserveLogID, reservation.EventID, reservation.UserID, reservation.SheetRank, reservation.SheetNum, reservation.ID)
-	delete(s.reserveLog, reserveLogID)
-}
-
-func (s *State) AppendCancelLog(reservation *Reservation) uint64 {
-	s.cancelLogMtx.Lock()
-	defer s.cancelLogMtx.Unlock()
-
-	s.cancelLogID++
-	s.cancelLog[s.cancelLogID] = reservation
-
-	log.Printf("debug: appendCancelLog  LogID:%2d EventID:%2d UserID:%3d SheetRank:%s SheetNum:%d ReservationID:%d\n", s.cancelLogID, reservation.EventID, reservation.UserID, reservation.SheetRank, reservation.SheetNum, reservation.ID)
-	return s.cancelLogID
-}
-
-func (s *State) DeleteCancelLog(cancelLogID uint64, reservation *Reservation) {
-	s.cancelLogMtx.Lock()
-	defer s.cancelLogMtx.Unlock()
-
-	log.Printf("debug: deleteCancelLog  LogID:%2d EventID:%2d UserID:%3d SheetRank:%s SheetNum:%d ReservationID:%d (Canceled)\n", s.cancelLogID, reservation.EventID, reservation.UserID, reservation.SheetRank, reservation.SheetNum, reservation.ID)
-	delete(s.cancelLog, cancelLogID)
-}
-
 // Returns a shallow copy of s.reservations
 func (s *State) GetReservations() map[uint]*Reservation {
-	s.reservationsMtx.Lock()
-	defer s.reservationsMtx.Unlock()
+	s.reservationMtx.Lock()
+	defer s.reservationMtx.Unlock()
 
 	reservations := make(map[uint]*Reservation, len(s.reservations))
 	for id, reservation := range s.reservations {
@@ -770,9 +692,9 @@ func (s *State) GetReservations() map[uint]*Reservation {
 // Returns a deep copy of s.reservations
 // NOTE: This could be slow if s.reservations are large, but we assume that
 // len(s.reservations) are less than 10,000 even in very fast webapp implementation.
-func (s *State) GetReservationsCopy() map[uint]*Reservation {
-	s.reservationsMtx.Lock()
-	defer s.reservationsMtx.Unlock()
+func (s *State) GetCopiedReservations() map[uint]*Reservation {
+	s.reservationMtx.Lock()
+	defer s.reservationMtx.Unlock()
 
 	t := time.Now()
 
@@ -782,15 +704,15 @@ func (s *State) GetReservationsCopy() map[uint]*Reservation {
 		reservations[id] = &reservation
 	}
 
-	log.Println("debug: GetReservationsCopy", time.Since(t))
+	log.Println("debug: GetCopiedReservations", time.Since(t))
 
 	return reservations
 }
 
 // Returns a filtered shallow copy
 func (s *State) GetReservationsInEventID(eventID uint) map[uint]*Reservation {
-	s.reservationsMtx.Lock()
-	defer s.reservationsMtx.Unlock()
+	s.reservationMtx.Lock()
+	defer s.reservationMtx.Unlock()
 
 	filtered := make(map[uint]*Reservation, len(s.reservations))
 	for id, reservation := range s.reservations {
@@ -803,9 +725,9 @@ func (s *State) GetReservationsInEventID(eventID uint) map[uint]*Reservation {
 }
 
 // Returns a filtered deep copy
-func (s *State) GetReservationsCopyInEventID(eventID uint) map[uint]*Reservation {
-	s.reservationsMtx.Lock()
-	defer s.reservationsMtx.Unlock()
+func (s *State) GetCopiedReservationsInEventID(eventID uint) map[uint]*Reservation {
+	s.reservationMtx.Lock()
+	defer s.reservationMtx.Unlock()
 
 	filtered := make(map[uint]*Reservation, len(s.reservations))
 	for id, r := range s.reservations {
@@ -843,35 +765,145 @@ func (s *State) GetRandomNonCanceledReservationInEventID(eventID uint) *Reservat
 	return filtered[i]
 }
 
-func (s *State) GetReservationCount() int {
-	s.reservationsMtx.Lock()
-	defer s.reservationsMtx.Unlock()
-
-	return len(s.reservations)
-}
-
-func (s *State) GetReservationCountInEventID(eventID uint) int {
-	return len(s.GetReservationsInEventID(eventID))
-}
-
-func (s *State) MaybeReservedCount() int {
+func (s *State) GetReserveRequestedCount() uint {
 	s.reserveLogMtx.Lock()
 	defer s.reserveLogMtx.Unlock()
 
-	return len(s.reserveLog)
+	return s.reserveRequestedCount
 }
 
-func (s *State) MaybeReservedCountInEventID(eventID uint) int {
-	s.reserveLogMtx.Lock()
-	defer s.reserveLogMtx.Unlock()
+func (e *Event) GetReserveRequestedCount() uint {
+	e.reservationMtx.Lock()
+	defer e.reservationMtx.Unlock()
 
-	// filtered reservedLog
-	filtered := make([]*Reservation, 0, len(s.reserveLog))
-	for _, reservation := range s.reserveLog {
-		if reservation.EventID != eventID {
-			continue
-		}
-		filtered = append(filtered, reservation)
+	return e.ReserveRequestedCount
+}
+
+func (s *State) BeginReservation(reservation *Reservation) (logID uint64) {
+	{
+		s.reservationMtx.Lock()
+		defer s.reservationMtx.Unlock()
+
+		s.reserveRequestedCount++
 	}
-	return len(filtered)
+	{
+		event := s.FindEventByID(reservation.EventID)
+		rank := reservation.SheetRank
+
+		event.reservationMtx.Lock()
+		defer event.reservationMtx.Unlock()
+
+		event.ReserveRequestedCount++
+		*event.ReserveRequestedRT.getPointer(rank)++
+	}
+	logID = s.appendReserveLog(reservation)
+	return
+}
+
+func (s *State) CommitReservation(logID uint64, reservation *Reservation) {
+	{
+		s.reservationMtx.Lock()
+		defer s.reservationMtx.Unlock()
+
+		reservation.ReserveCompletedAt = time.Now()
+		s.reservations[reservation.ID] = reservation
+		s.reserveCompletedCount++
+		assert(uint(len(s.reservations)) == s.reserveCompletedCount)
+	}
+	{
+		event := s.FindEventByID(reservation.EventID)
+		rank := reservation.SheetRank
+
+		event.reservationMtx.Lock()
+		defer event.reservationMtx.Unlock()
+
+		event.ReserveCompletedCount++
+		*event.ReserveCompletedRT.getPointer(rank)++
+	}
+	s.deleteReserveLog(logID, reservation)
+	return
+}
+
+func (s *State) BeginCancelation(reservation *Reservation) (logID uint64) {
+	{
+		s.reservationMtx.Lock()
+		defer s.reservationMtx.Unlock()
+
+		reservation.CancelRequestedAt = time.Now()
+		s.reservations[reservation.ID] = reservation
+		s.cancelRequestedCount++
+	}
+	{
+		event := s.FindEventByID(reservation.EventID)
+		rank := reservation.SheetRank
+
+		event.reservationMtx.Lock()
+		defer event.reservationMtx.Unlock()
+
+		event.CancelRequestedCount++
+		*event.CancelRequestedRT.getPointer(rank)++
+	}
+	logID = s.appendReserveLog(reservation)
+	return
+}
+
+func (s *State) CommitCancelation(logID uint64, reservation *Reservation) {
+	{
+		s.reservationMtx.Lock()
+		defer s.reservationMtx.Unlock()
+
+		reservation.CancelCompletedAt = time.Now()
+		s.reservations[reservation.ID] = reservation
+		s.cancelCompletedCount++
+	}
+	{
+		event := s.FindEventByID(reservation.EventID)
+		rank := reservation.SheetRank
+
+		event.reservationMtx.Lock()
+		defer event.reservationMtx.Unlock()
+
+		event.CancelCompletedCount++
+		*event.CancelCompletedRT.getPointer(rank)++
+	}
+	s.deleteCancelLog(logID, reservation)
+	return
+}
+
+func (s *State) appendReserveLog(reservation *Reservation) uint64 {
+	s.reserveLogMtx.Lock()
+	defer s.reserveLogMtx.Unlock()
+
+	s.reserveLogID++
+	s.reserveLog[s.reserveLogID] = reservation
+
+	log.Printf("debug: appendReserveLog LogID:%2d EventID:%2d UserID:%3d SheetRank:%s\n", s.reserveLogID, reservation.EventID, reservation.UserID, reservation.SheetRank)
+	return s.reserveLogID
+}
+
+func (s *State) deleteReserveLog(reserveLogID uint64, reservation *Reservation) {
+	s.reserveLogMtx.Lock()
+	defer s.reserveLogMtx.Unlock()
+
+	log.Printf("debug: deleteReserveLog LogID:%2d EventID:%2d UserID:%3d SheetRank:%s SheetNum:%d ReservationID:%d (Reserved)\n", reserveLogID, reservation.EventID, reservation.UserID, reservation.SheetRank, reservation.SheetNum, reservation.ID)
+	delete(s.reserveLog, reserveLogID)
+}
+
+func (s *State) appendCancelLog(reservation *Reservation) uint64 {
+	s.cancelLogMtx.Lock()
+	defer s.cancelLogMtx.Unlock()
+
+	s.cancelLogID++
+	s.cancelLog[s.cancelLogID] = reservation
+
+	log.Printf("debug: appendCancelLog  LogID:%2d EventID:%2d UserID:%3d SheetRank:%s SheetNum:%d ReservationID:%d\n", s.cancelLogID, reservation.EventID, reservation.UserID, reservation.SheetRank, reservation.SheetNum, reservation.ID)
+	return s.cancelLogID
+}
+
+func (s *State) deleteCancelLog(cancelLogID uint64, reservation *Reservation) {
+	s.cancelLogMtx.Lock()
+	defer s.cancelLogMtx.Unlock()
+
+	log.Printf("debug: deleteCancelLog  LogID:%2d EventID:%2d UserID:%3d SheetRank:%s SheetNum:%d ReservationID:%d (Canceled)\n", s.cancelLogID, reservation.EventID, reservation.UserID, reservation.SheetRank, reservation.SheetNum, reservation.ID)
+	delete(s.cancelLog, cancelLogID)
 }

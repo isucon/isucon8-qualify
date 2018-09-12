@@ -1,0 +1,35 @@
+[bench]
+### torb3-4
+XX.XX.XX.XX
+
+### torb4-4
+XX.XX.XX.XX
+
+
+[webapp1]
+### torb3-1
+XX.XX.XX.XX
+
+### torb4-1
+XX.XX.XX.XX
+
+
+[webapp2]
+### torb3-2
+XX.XX.XX.XX
+
+### torb4-2
+XX.XX.XX.XX
+
+
+[webapp3]
+### torb3-3
+XX.XX.XX.XX
+
+### torb4-3
+XX.XX.XX.XX
+
+
+[all:vars]
+ansible_ssh_port=22
+ansible_ssh_user=isucon-admin

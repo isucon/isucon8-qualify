@@ -9,8 +9,8 @@ CREATE TABLE IF NOT EXISTS users (
 CREATE TABLE IF NOT EXISTS events (
     id          INTEGER UNSIGNED PRIMARY KEY AUTO_INCREMENT,
     title       VARCHAR(128)     NOT NULL,
-    public_fg   TINYINT UNSIGNED NOT NULL,
-    closed_fg   TINYINT UNSIGNED NOT NULL,
+    public_fg   TINYINT(1)       NOT NULL,
+    closed_fg   TINYINT(1)       NOT NULL,
     price       INTEGER UNSIGNED NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
