@@ -7,6 +7,7 @@ use parent 'ISUCON8::Portal::Model';
 
 use ISUCON8::Portal::Exception;
 use ISUCON8::Portal::Constants::Common;
+use Encode qw(encode_utf8);
 
 use Mouse;
 
@@ -182,7 +183,42 @@ sub get_team_scores {
     return $scores;
 }
 
-sub get_tema_jobs {
+sub get_team_job {
+    my ($self, $params) = @_;
+    my $team_id = $params->{team_id};
+    my $job_id  = $params->{job_id};
+
+    my $job;
+    eval {
+        $self->db->run(sub {
+            my $dbh = shift;
+            my ($stmt, @bind) = $self->sql->select(
+                'bench_queues',
+                ['*'],
+                {
+                    id      => $job_id,
+                    team_id => $team_id,
+                },
+            );
+            $job = $dbh->selectrow_hashref($stmt, undef, @bind);
+            return unless $job;
+
+            $job->{result_json} = $self->json->decode(encode_utf8 $job->{result_json} || '{}');
+        });
+    };
+    if (my $e = $@) {
+        $e->rethrow if ref $e eq 'ISUCON8::Portal::Exception';
+        ISUCON8::Portal::Exception->throw(
+            code    => ERROR_INTERNAL_ERROR,
+            message => "$e",
+            logger  => sub { $self->log->critf(@_) },
+        );
+    }
+
+    return $job;
+}
+
+sub get_team_jobs {
     my ($self, $params) = @_;
     my $team_id = $params->{team_id};
     my $limit   = $params->{limit};

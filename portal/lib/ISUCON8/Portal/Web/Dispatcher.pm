@@ -15,6 +15,13 @@ get  '/login'           => 'Team#get_login';
 post '/login'           => 'Team#post_login';
 get  '/logout'          => 'Team#get_logout';
 get  '/dashboard'       => 'Team#get_dashboard';
+get  '/jobs'            => 'Team#get_jobs';
+get  '/jobs/{job_id}'   => 'Team#get_job_detail';
+get  '/scores'          => 'Team#get_scores';
+get  '/servers'         => 'Team#get_servers';
+post '/servers'         => 'Team#post_servers';
+get  '/members'         => 'Team#get_members';
+post '/members'         => 'Team#post_members';
 post '/api/job/enqueue' => 'API#enqueue_job';
 post '/api/job/cancel'  => 'API#cancel_job';
 

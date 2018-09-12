@@ -112,7 +112,7 @@
                                     <td><: $row.result_status :></td>
                                     <td><: $row.state :></td>
                                     <td><: $row.updated_at | unixtime2time :></td>
-                                    <td><a class="button is-small is-link" href="#">show</a></td>
+                                    <td><a class="button is-small is-link" href="/jobs/<: $row.id :>">show</a></td>
                                 </tr>
                             : }
                         </tbody>
@@ -120,7 +120,7 @@
                 </div>
             </div>
             <footer class="card-footer">
-                <a href="#" class="card-footer-item">View All</a>
+                <a href="/jobs" class="card-footer-item">View All</a>
             </footer>
         </div>
     </section>

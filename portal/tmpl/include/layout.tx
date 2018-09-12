@@ -7,12 +7,13 @@
   <title><: $title || 'ISUCON8 Portal' :></title>
   <meta http-equiv="Content-Style-Type" content="text/css">
   <meta http-equiv="Content-Script-Type" content="text/javascript">
+  <link rel="icon" type="image/png" href="<: static_file('/static/img/isucon_icon.png') :>">
   <link href="<: static_file('/static/css/bulma.min.css') :>" rel="stylesheet" type="text/css">
   <link href="<: static_file('/static/css/fontawesome.css') :>" rel="stylesheet" type="text/css">
   <link href="https://fonts.googleapis.com/css?family=Open+Sans:300,400,700" rel="stylesheet">
   <script src="<: static_file('/static/js/jquery.min.js') :>"></script>
-  <link href="<: static_file('/static/css/main.css') :>" rel="stylesheet" type="text/css" media="screen">
   <script src="<: static_file('/static/js/xsrf-token.js') :>"></script>
+  <link href="<: static_file('/static/css/main.css') :>" rel="stylesheet" type="text/css" media="screen">
   <script src="<: static_file('/static/js/main.js') :>"></script>
 </head>
 <body>
@@ -55,7 +56,7 @@
                     </p>
                     <ul class="menu-list">
                         <li>
-                            <a class="is-active" href="/dashboard">
+                            <a class="<: is_active($page, 'dashboard') :>" href="/dashboard">
                                 <span class="icon">
                                     <i class="fas fa-chart-line"></i>
                                 </span>
@@ -63,7 +64,7 @@
                             </a>
                         </li>
                         <li>
-                            <a class="" href="/jobs">
+                            <a class="<: is_active($page, 'jobs') :>" href="/jobs">
                                 <span class="icon">
                                     <i class="fas fa-list-alt"></i>
                                 </span>
@@ -71,7 +72,7 @@
                             </a>
                         </li>
                         <li>
-                            <a class="" href="/scores">
+                            <a class="<: is_active($page, 'scores') :>" href="/scores">
                                 <span class="icon">
                                     <i class="fas fa-chart-area"></i>
                                 </span>
@@ -84,15 +85,15 @@
                     </p>
                     <ul class="menu-list">
                         <li>
-                            <a href="/bench">
+                            <a href="/servers">
                                 <span class="icon">
                                     <i class="fas fa-server"></i>
                                 </span>
-                                <span>Benchmarker Settings</span>
+                                <span>Servers</span>
                         </a>
                     </li>
                     <li>
-                        <a href="/member">
+                        <a href="/members">
                                 <span class="icon">
                                     <i class="far fa-address-card"></i>
                                 </span>

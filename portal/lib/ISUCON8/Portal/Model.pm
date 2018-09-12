@@ -85,16 +85,4 @@ sub recursive_encode {
     Data::Recursive::Encode->encode_utf8($data);
 }
 
-sub ellipsis {
-    my ($self, $str, $max_length) = @_;
-    return $str unless length $str > $max_length;
-    return substr($str, 0, $max_length - 3) . '...';
-}
-
-sub new_line_to_break_tag {
-    my ($self, $str) = @_;
-    Text::Xslate::mark_raw(Text::Xslate::html_escape($str) =~ s|\n|<br />|gr);
-}
-
-
 1;
