@@ -23,14 +23,9 @@
       <nav class="navbar">
         <div class="container">
           <div class="navbar-brand">
-            <a class="navbar-item" href="/">
-              <img src="http://bulma.io/images/bulma-type-white.png" alt="Logo">
-            </a>
-            <span class="navbar-burger burger" data-target="navbarMenu">
-              <span></span>
-              <span></span>
-              <span></span>
-            </span>
+              <a class="navbar-item" href="/">
+                <img src="<: static_file('/static/img/isucon_logo_white@2x.png') :>" width="112" height="28">
+              </a>
           </div>
           <div id="navbarMenu" class="navbar-menu">
             <div class="navbar-end">
@@ -71,8 +66,8 @@
               Coming Soon
             </h1>
             <h2 class="subtitle">
-                1日目: 2018/09/15 10:00〜18:00<br>
-                2日目: 2018/09/16 10:00〜18:00
+                day1: 2018.09.15 10:00 - 18:00<br>
+                day2: 2018.09.16 10:00 - 18:00
             </h2>
           </div>
         </div>
