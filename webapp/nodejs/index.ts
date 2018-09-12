@@ -1,3 +1,4 @@
+import "core-js";
 import TraceError from "trace-error";
 import createFastify, { FastifyRequest, FastifyReply } from "fastify";
 import fastifyMysql from "fastify-mysql";
