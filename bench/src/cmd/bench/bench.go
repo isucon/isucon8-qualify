@@ -405,6 +405,7 @@ func startBenchmark(remoteAddrs []string) *BenchResult {
 	addCheckFunc(benchFunc{"CheckCreateUser", bench.CheckCreateUser})
 	addCheckFunc(benchFunc{"CheckLogin", bench.CheckLogin})
 	addCheckFunc(benchFunc{"CheckTopPage", bench.CheckTopPage})
+	addCheckFunc(benchFunc{"CheckAdminTopPage", bench.CheckAdminTopPage})
 	addCheckFunc(benchFunc{"CheckReserveSheet", bench.CheckReserveSheet})
 	addCheckFunc(benchFunc{"CheckAdminLogin", bench.CheckAdminLogin})
 	addCheckFunc(benchFunc{"CheckCreateEvent", bench.CheckCreateEvent})

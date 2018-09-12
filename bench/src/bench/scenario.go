@@ -46,20 +46,21 @@ func checkRedirectStatusCode(res *http.Response, body *bytes.Buffer) error {
 
 func checkJsonErrorResponse(errorCode string) func(res *http.Response, body *bytes.Buffer) error {
 	return func(res *http.Response, body *bytes.Buffer) error {
-		dec := json.NewDecoder(body)
+		bytes := body.Bytes()
 		jsonError := JsonError{}
+		dec := json.NewDecoder(body)
 		err := dec.Decode(&jsonError)
 		if err != nil {
-			return fatalErrorf("Jsonのデコードに失敗 %v", err)
+			return fatalErrorf("Jsonのデコードに失敗 %s %v", string(bytes), err)
 		}
 		if jsonError.Error != errorCode {
-			return fatalErrorf("正しいエラーコードを取得できません")
+			return fatalErrorf("正しいエラーコードを取得できません %s", jsonError.Error)
 		}
 		return nil
 	}
 }
 
-func checkEventList(state *State, eventsBeforeRequest []*Event, events []JsonEvent) error {
+func checkEventList(state *State, eventsBeforeRequest []*Event, events []JsonEvent, eventsAfterResponse []*Event) error {
 	ok := sort.SliceIsSorted(events, func(i, j int) bool {
 		return events[i].ID < events[j].ID
 	})
@@ -80,7 +81,37 @@ func checkEventList(state *State, eventsBeforeRequest []*Event, events []JsonEve
 		eventsMap[e.ID] = e
 	}
 
+	eventsAfterResponseMap := map[uint]*Event{}
+	for _, e := range eventsAfterResponse {
+		eventsAfterResponseMap[e.ID] = e
+	}
+
 	msg := "正しいイベント一覧を取得できません"
+
+	checkRemains := func(
+		eventID uint,
+		total uint,
+		cancelCompletedCountBeforeRequest uint,
+		reserveRequestedCountAfterResponse uint,
+		remains uint,
+		cancelRequestedCountAfterResponse uint,
+		reserveCompletedCountBeforeResponse uint) error {
+		log.Printf("debug: EventID:%d total:%d+cancelCompletedCountBeforeRequest:%d-reserveRequestedCountAfterResponse:%d <= remains:%d <= total:%d+cancelRequestedCountAfterResponse:%d-reserveCompletedCountBeforeResponse:%d",
+			eventID,
+			total,
+			cancelCompletedCountBeforeRequest,
+			reserveRequestedCountAfterResponse,
+			remains,
+			total,
+			cancelRequestedCountAfterResponse,
+			reserveCompletedCountBeforeResponse)
+		if int32(total)+int32(cancelCompletedCountBeforeRequest)-int32(reserveRequestedCountAfterResponse) <= int32(remains) &&
+			int32(remains) <= int32(total)+int32(cancelRequestedCountAfterResponse)-int32(reserveCompletedCountBeforeResponse) {
+			return nil
+		}
+		return &fatalError{}
+	}
+
 	for _, eventBeforeRequest := range eventsBeforeRequest {
 		e, ok := eventsMap[eventBeforeRequest.ID]
 		if !ok {
@@ -93,11 +124,6 @@ func checkEventList(state *State, eventsBeforeRequest []*Event, events []JsonEve
 		if int(e.Total) != len(DataSet.Sheets) {
 			return fatalErrorf("イベント(id:%d)の総座席数が正しくありません", e.ID)
 		}
-		// TODO(karupa): check remains
-		// if e.Remains != remains {
-		// 	return fatalErrorf("イベント(id:%d)の総残座席数が正しくありません", e.ID)
-		// }
-
 		for _, sheetKind := range DataSet.SheetKinds {
 			rank := sheetKind.Rank
 
@@ -107,11 +133,37 @@ func checkEventList(state *State, eventsBeforeRequest []*Event, events []JsonEve
 			if expected := eventBeforeRequest.Price + sheetKind.Price; e.Sheets[rank].Price != expected {
 				return fatalErrorf("イベント(id:%d)の%s席の価格が正しくありません", e.ID, rank)
 			}
-			// TODO(sonots): check remains
-			// if e.Sheets[rank].Remains != eventSheetRank.Remains {
-			// 	log.Printf("[DEBUG] Event(%d) %s: eventsBeforeRequest %d but got %d", e.ID, eventSheetRank.Rank, eventSheetRank.Remains, e.Sheets[eventSheetRank.Rank].Remains)
-			// 	return fatalErrorf("イベント(id:%d)の%s席の残座席数が正しくありません", e.ID, eventSheetRank.Rank)
-			// }
+		}
+
+		eventAfterResponse, ok := eventsAfterResponseMap[e.ID]
+		if !ok { // should never happen
+			log.Printf("debug: checkEventList: eventAfterResponse did not exist (eventID:%d)\n", e.ID)
+			continue
+		}
+		err := checkRemains(
+			e.ID,
+			DataSet.SheetTotal,
+			eventBeforeRequest.CancelCompletedCount,
+			eventAfterResponse.ReserveRequestedCount,
+			e.Remains,
+			eventAfterResponse.CancelRequestedCount,
+			eventBeforeRequest.ReserveCompletedCount)
+		if err != nil {
+			return fatalErrorf("イベント(id:%d)の総残座席数が正しくありません", e.ID)
+		}
+		for _, sheetKind := range DataSet.SheetKinds {
+			rank := sheetKind.Rank
+			err = checkRemains(
+				e.ID,
+				DataSet.SheetKindMap[rank].Total,
+				*eventBeforeRequest.CancelCompletedRT.getPointer(rank),
+				*eventAfterResponse.ReserveRequestedRT.getPointer(rank),
+				e.Sheets[rank].Remains,
+				*eventAfterResponse.CancelRequestedRT.getPointer(rank),
+				*eventBeforeRequest.ReserveCompletedRT.getPointer(rank))
+			if err != nil {
+				return fatalErrorf("イベント(id:%d)の%s席の残座席数が正しくありません", e.ID, rank)
+			}
 		}
 	}
 
@@ -120,12 +172,13 @@ func checkEventList(state *State, eventsBeforeRequest []*Event, events []JsonEve
 
 func checkJsonFullUserResponse(check func(*JsonFullUser) error) func(res *http.Response, body *bytes.Buffer) error {
 	return func(res *http.Response, body *bytes.Buffer) error {
+		bytes := body.Bytes()
 		dec := json.NewDecoder(body)
 
 		var v JsonFullUser
 		err := dec.Decode(&v)
 		if err != nil {
-			return fatalErrorf("Jsonのデコードに失敗 %v", err)
+			return fatalErrorf("Jsonのデコードに失敗 %s %v", string(bytes), err)
 		}
 
 		return check(&v)
@@ -491,11 +544,12 @@ func CheckStaticFiles(ctx context.Context, state *State) error {
 
 func checkJsonUserCreateResponse(user *AppUser) func(res *http.Response, body *bytes.Buffer) error {
 	return func(res *http.Response, body *bytes.Buffer) error {
+		bytes := body.Bytes()
 		dec := json.NewDecoder(body)
 		jsonUser := JsonUser{}
 		err := dec.Decode(&jsonUser)
 		if err != nil {
-			return fatalErrorf("Jsonのデコードに失敗 %v", err)
+			return fatalErrorf("Jsonのデコードに失敗 %s %v", string(bytes), err)
 		}
 		if jsonUser.Nickname != user.Nickname {
 			log.Printf("warn: expected nickname=%s but got nickname=%s\n", user.Nickname, jsonUser.Nickname)
@@ -509,11 +563,12 @@ func checkJsonUserCreateResponse(user *AppUser) func(res *http.Response, body *b
 
 func checkJsonUserResponse(user *AppUser) func(res *http.Response, body *bytes.Buffer) error {
 	return func(res *http.Response, body *bytes.Buffer) error {
+		bytes := body.Bytes()
 		dec := json.NewDecoder(body)
 		jsonUser := JsonUser{}
 		err := dec.Decode(&jsonUser)
 		if err != nil {
-			return fatalErrorf("Jsonのデコードに失敗 %v", err)
+			return fatalErrorf("Jsonのデコードに失敗 %s %v", string(bytes), err)
 		}
 		if jsonUser.ID != user.ID {
 			log.Printf("warn: expected id=%d but got id=%d\n", user.ID, jsonUser.ID)
@@ -672,7 +727,7 @@ func CheckTopPage(ctx context.Context, state *State) error {
 
 	// Assume that public events are not modified (closed or private)
 	timeBefore := time.Now().Add(-1 * parameter.AllowableDelay)
-	eventsBeforeRequest := FilterEventsToAllowDelay(FilterPublicEvents(state.GetEvents()), timeBefore)
+	eventsBeforeRequest := FilterEventsToAllowDelay(FilterPublicEvents(state.GetCopiedEvents()), timeBefore)
 
 	err := checker.Play(ctx, &CheckAction{
 		Method:             "GET",
@@ -712,10 +767,11 @@ func CheckTopPage(ctx context.Context, state *State) error {
 					var events []JsonEvent
 					err := json.Unmarshal([]byte(attr.Val), &events)
 					if err != nil {
-						return fatalErrorf("イベント一覧のJsonデコードに失敗 %v", err)
+						return fatalErrorf("イベント一覧のJsonデコードに失敗 %s %v", attr.Val, err)
 					}
 
-					err = checkEventList(state, eventsBeforeRequest, events)
+					eventsAfterResponse := FilterPublicEvents(state.GetEvents())
+					err = checkEventList(state, eventsBeforeRequest, events, eventsAfterResponse)
 					if err != nil {
 						return err
 					}
@@ -726,7 +782,7 @@ func CheckTopPage(ctx context.Context, state *State) error {
 						var u *JsonUser
 						err := json.Unmarshal([]byte(attr.Val), &u)
 						if err != nil {
-							return fatalErrorf("ログインユーザーのJsonデコードに失敗 %v", err)
+							return fatalErrorf("ログインユーザーのJsonデコードに失敗 %s %v", attr.Val, err)
 						}
 						if u == nil {
 							return fatalErrorf("ログインユーザーがnull")
@@ -746,6 +802,99 @@ func CheckTopPage(ctx context.Context, state *State) error {
 
 			if found != 2 {
 				return fatalErrorf("app-wrapperにdata-eventsまたはdata-login-userがありません")
+			}
+			return nil
+		}),
+	})
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func CheckAdminTopPage(ctx context.Context, state *State) error {
+	admin, checker, push := state.PopRandomAdministrator()
+	if admin == nil {
+		return nil
+	}
+	defer push()
+
+	err := loginAdministrator(ctx, checker, admin)
+	if err != nil {
+		return err
+	}
+
+	timeBefore := time.Now().Add(-1 * parameter.AllowableDelay)
+	eventsBeforeRequest := FilterEventsToAllowDelay(state.GetCopiedEvents(), timeBefore)
+
+	err = checker.Play(ctx, &CheckAction{
+		Method:             "GET",
+		Path:               "/admin/",
+		ExpectedStatusCode: 200,
+		Description:        "ページが表示されること",
+		CheckFunc: checkHTML(func(res *http.Response, doc *goquery.Document) error {
+			h := htmldigest.NewHash(func() hash.Hash {
+				return crc32.NewIEEE()
+			})
+			crcSum, err := h.Sum(doc.Nodes[0])
+			if err != nil {
+				fmt.Fprint(os.Stderr, "HTML: ")
+				_ = html.Render(os.Stderr, doc.Nodes[0])
+				fmt.Fprintln(os.Stderr, "")
+				fmt.Fprintln(os.Stderr, err)
+				return fatalErrorf("チェックサムの生成に失敗しました (主催者に連絡してください)")
+			}
+			if crcSum32 := JoinCrc32(crcSum); crcSum32 != ExpectedAdminHash {
+				fmt.Fprint(os.Stderr, "HTML: ")
+				_ = html.Render(os.Stderr, doc.Nodes[0])
+				fmt.Fprintln(os.Stderr, "")
+				fmt.Fprintf(os.Stderr, "crcSum32=%d\n", crcSum32)
+				return fatalErrorf("DOM構造が初期状態と一致しません")
+			}
+
+			selection := doc.Find("#app-wrapper")
+			if selection == nil || len(selection.Nodes) == 0 {
+				return fatalErrorf("app-wrapperが見つかりません")
+			}
+
+			var found int
+			node := selection.Nodes[0]
+			for _, attr := range node.Attr {
+				switch attr.Key {
+				case "data-events":
+					var events []JsonEvent
+					err := json.Unmarshal([]byte(attr.Val), &events)
+					if err != nil {
+						return fatalErrorf("イベント一覧のJsonデコードに失敗 %s %v", attr.Val, err)
+					}
+
+					eventsAfterResponse := state.GetEvents()
+					err = checkEventList(state, eventsBeforeRequest, events, eventsAfterResponse)
+					if err != nil {
+						return err
+					}
+
+					found++
+				case "data-administrator":
+					var u *JsonAdministrator
+					err := json.Unmarshal([]byte(attr.Val), &u)
+					if err != nil {
+						return fatalErrorf("管理者情報のJsonデコードに失敗 %s %v", attr.Val, err)
+					}
+					if u == nil {
+						return fatalErrorf("管理者情報がnull")
+					}
+					if u.ID != admin.ID || u.Nickname != admin.Nickname {
+						return fatalErrorf("管理者情報が違います")
+					}
+
+					found++
+				}
+			}
+
+			if found != 2 {
+				return fatalErrorf("app-wrapperにdata-eventsまたはdata-administratorがありません")
 			}
 			return nil
 		}),
@@ -848,8 +997,8 @@ func CheckCancelReserveSheet(ctx context.Context, state *State) error {
 		return err
 	}
 
-	// TODO(sonots): 409 check
-	// Make sure we get 409 sold_out, otherwise, let it fail
+	// NOTE: Let me skip 409 check. We do not know how many times we should retry because reserve may timeout.
+	// Retrying forever makes a problem that benchmarker cannot check further scenarios.
 	// err = reserveChecker.Play(ctx, &CheckAction{
 	// 	Method:             "POST",
 	// 	Path:               fmt.Sprintf("/api/events/%d/actions/reserve", eventID),
@@ -1029,11 +1178,12 @@ func CheckReserveSheet(ctx context.Context, state *State) error {
 
 func checkJsonAdministratorResponse(admin *Administrator) func(res *http.Response, body *bytes.Buffer) error {
 	return func(res *http.Response, body *bytes.Buffer) error {
+		bytes := body.Bytes()
 		dec := json.NewDecoder(body)
 		jsonAdmin := JsonAdministrator{}
 		err := dec.Decode(&jsonAdmin)
 		if err != nil {
-			return fatalErrorf("Jsonのデコードに失敗 %v", err)
+			return fatalErrorf("Jsonのデコードに失敗 %s %v", string(bytes), err)
 		}
 		if jsonAdmin.ID != admin.ID || jsonAdmin.Nickname != admin.Nickname {
 			return fatalErrorf("正しい管理者情報を取得できません")
@@ -1128,11 +1278,12 @@ func CheckAdminLogin(ctx context.Context, state *State) error {
 
 func checkJsonFullEventCreateResponse(event *Event) func(res *http.Response, body *bytes.Buffer) error {
 	return func(res *http.Response, body *bytes.Buffer) error {
+		bytes := body.Bytes()
 		dec := json.NewDecoder(body)
 		jsonEvent := JsonFullEvent{}
 		err := dec.Decode(&jsonEvent)
 		if err != nil {
-			return fatalErrorf("Jsonのデコードに失敗 %v", err)
+			return fatalErrorf("Jsonのデコードに失敗 %s %v", string(bytes), err)
 		}
 		if jsonEvent.Title != event.Title || jsonEvent.Price != event.Price || jsonEvent.Public != event.PublicFg || jsonEvent.Closed != event.ClosedFg {
 			return fatalErrorf("正しいイベントを取得できません")
@@ -1146,11 +1297,12 @@ func checkJsonFullEventCreateResponse(event *Event) func(res *http.Response, bod
 
 func checkJsonFullEventResponse(event *Event) func(res *http.Response, body *bytes.Buffer) error {
 	return func(res *http.Response, body *bytes.Buffer) error {
+		bytes := body.Bytes()
 		dec := json.NewDecoder(body)
 		jsonEvent := JsonFullEvent{}
 		err := dec.Decode(&jsonEvent)
 		if err != nil {
-			return fatalErrorf("Jsonのデコードに失敗 %v", err)
+			return fatalErrorf("Jsonのデコードに失敗 %s %v", string(bytes), err)
 		}
 		if jsonEvent.ID != event.ID || jsonEvent.Title != event.Title || jsonEvent.Price != event.Price || jsonEvent.Public != event.PublicFg {
 			return fatalErrorf("正しいイベントを取得できません")
@@ -1161,11 +1313,12 @@ func checkJsonFullEventResponse(event *Event) func(res *http.Response, body *byt
 
 func checkJsonEventResponse(event *Event) func(res *http.Response, body *bytes.Buffer) error {
 	return func(res *http.Response, body *bytes.Buffer) error {
+		bytes := body.Bytes()
 		dec := json.NewDecoder(body)
 		jsonEvent := JsonEvent{}
 		err := dec.Decode(&jsonEvent)
 		if err != nil {
-			return fatalErrorf("Jsonのデコードに失敗 %v", err)
+			return fatalErrorf("Jsonのデコードに失敗 %s %v", string(bytes), err)
 		}
 		if jsonEvent.ID != event.ID || jsonEvent.Title != event.Title {
 			return fatalErrorf("正しいイベントを取得できません")
@@ -1185,6 +1338,7 @@ func eventPostJSON(event *Event) map[string]interface{} {
 func eventEditJSON(event *Event) map[string]bool {
 	return map[string]bool{
 		"public": event.PublicFg,
+		"closed": event.ClosedFg,
 	}
 }
 
@@ -1511,23 +1665,21 @@ func checkReportRecord(s *State, records map[uint]*ReportRecord, timeBefore time
 				log.Printf("warn: should have canceledAt (reservationID:%d) but ignored (race condition)\n", reservationID)
 			}
 		}
-		// TODO(sonots): Add a test to fail if `SELECT FOR UPDATE` is removed.
-		// if reservationRightAfterRequest.CancelRequestedAt.IsZero() {
-		// 	// If `SELECT FOR UPDATE` of the `report` API is removed from webapp, this check would faiil.
-		// 	if !record.CanceledAt.IsZero() {
-		// 		log.Printf("debug: should not have canceledAt (reservationID:%d)\n", reservationID)
-		// 		return fatalErrorf(msg)
-		// 	}
-		// }
 	}
 
 	return nil
 }
 
-func checkReportCount(reservationCountBeforeRequest int, reportCount int, reservationCountAfterResponse int, maybeReservedCountAfterResponse int) error {
-	log.Printf("debug: reservationCountBeforeRequest:%d <= reportCount:%d <= reservationCountAfterResponse:%d + maybeReservedCountAfterResponse:%d\n",
-		reservationCountBeforeRequest, reportCount, reservationCountAfterResponse, maybeReservedCountAfterResponse)
-	if reservationCountBeforeRequest <= reportCount && reportCount <= reservationCountAfterResponse+maybeReservedCountAfterResponse {
+func checkReportCount(
+	reserveCompletedCountBeforeRequest int,
+	reportCount int,
+	reserveRequestedCountAfterResponse uint) error {
+	log.Printf("debug: reserveCompletedCountBeforeRequest:%d <= reportCount:%d <= reserveRequestedCountAfterResponse:%d\n",
+		reserveCompletedCountBeforeRequest,
+		reportCount,
+		reserveRequestedCountAfterResponse)
+	if reserveCompletedCountBeforeRequest <= reportCount &&
+		reportCount <= int(reserveRequestedCountAfterResponse) {
 		return nil
 	}
 	return fatalErrorf("レポートの数が正しくありません")
@@ -1535,8 +1687,7 @@ func checkReportCount(reservationCountBeforeRequest int, reportCount int, reserv
 
 func checkReportResponse(s *State, timeBefore time.Time, reservationsBeforeRequest map[uint]*Reservation) func(res *http.Response, body *bytes.Buffer) error {
 	return func(res *http.Response, body *bytes.Buffer) error {
-		reservationsAfterResponse := s.GetReservations()
-		maybeReservedCountAfterResponse := s.MaybeReservedCount()
+		reserveRequestedCountAfterResponse := s.GetReserveRequestedCount()
 
 		log.Println("debug:", body)
 		reader := csv.NewReader(body)
@@ -1556,7 +1707,7 @@ func checkReportResponse(s *State, timeBefore time.Time, reservationsBeforeReque
 			return err
 		}
 
-		err = checkReportCount(len(reservationsBeforeRequest), len(records), len(reservationsAfterResponse), maybeReservedCountAfterResponse)
+		err = checkReportCount(len(reservationsBeforeRequest), len(records), reserveRequestedCountAfterResponse)
 		if err != nil {
 			return err
 		}
@@ -1567,12 +1718,7 @@ func checkReportResponse(s *State, timeBefore time.Time, reservationsBeforeReque
 
 func checkEventReportResponse(s *State, event *Event, timeBefore time.Time, reservationsBeforeRequest map[uint]*Reservation) func(res *http.Response, body *bytes.Buffer) error {
 	return func(res *http.Response, body *bytes.Buffer) error {
-		// NOTE: s.GetReservationsInEventID() returns a shallow copy, so, the state of each reservation
-		// could be changed during runtime. However, the state of reservation can be changed
-		//  only by `cancel` API, and it is locked by SELECT FOR UPDATE of the `report` API on
-		// the webapp side, thus, we assume no update of reversations during runtime occurs.
-		reservationsAfterResponse := s.GetReservationsInEventID(event.ID)
-		maybeReservedCountAfterResponse := s.MaybeReservedCountInEventID(event.ID)
+		reserveRequestedCountAfterResponse := event.GetReserveRequestedCount()
 
 		log.Printf("debug: checkEventReport %d\n", event.ID)
 		log.Println("debug:", body)
@@ -1601,7 +1747,7 @@ func checkEventReportResponse(s *State, event *Event, timeBefore time.Time, rese
 			return err
 		}
 
-		err = checkReportCount(len(reservationsBeforeRequest), len(records), len(reservationsAfterResponse), maybeReservedCountAfterResponse)
+		err = checkReportCount(len(reservationsBeforeRequest), len(records), reserveRequestedCountAfterResponse)
 		if err != nil {
 			return err
 		}
@@ -1623,7 +1769,7 @@ func CheckReport(ctx context.Context, state *State) error {
 	}
 
 	timeBefore := time.Now().Add(-1 * parameter.AllowableDelay)
-	reservationsBeforeRequest := FilterReservationsToAllowDelay(state.GetReservationsCopy(), timeBefore)
+	reservationsBeforeRequest := FilterReservationsToAllowDelay(state.GetCopiedReservations(), timeBefore)
 
 	err = checker.Play(ctx, &CheckAction{
 		Method:             "GET",
@@ -1662,7 +1808,7 @@ func CheckEventReport(ctx context.Context, state *State) error {
 	}
 
 	timeBefore := time.Now().Add(-1 * parameter.AllowableDelay)
-	reservationsBeforeRequest := FilterReservationsToAllowDelay(state.GetReservationsCopyInEventID(event.ID), timeBefore)
+	reservationsBeforeRequest := FilterReservationsToAllowDelay(state.GetCopiedReservationsInEventID(event.ID), timeBefore)
 
 	err = checker.Play(ctx, &CheckAction{
 		Method:             "GET",
@@ -1899,11 +2045,12 @@ func popOrCreateEventSheet(ctx context.Context, state *State) (*EventSheet, func
 
 func checkJsonReservationResponse(reserved *JsonReservation) func(res *http.Response, body *bytes.Buffer) error {
 	return func(res *http.Response, body *bytes.Buffer) error {
+		bytes := body.Bytes()
 		dec := json.NewDecoder(body)
 		resReserved := JsonReservation{}
 		err := dec.Decode(&resReserved)
 		if err != nil {
-			return fatalErrorf("Jsonのデコードに失敗 %v", err)
+			return fatalErrorf("Jsonのデコードに失敗 %s %v", string(bytes), err)
 		}
 		if resReserved.SheetRank != reserved.SheetRank {
 			return fatalErrorf("正しい予約情報を取得できません")
@@ -1919,17 +2066,10 @@ func reserveSheet(ctx context.Context, state *State, checker *Checker, userID ui
 	eventID := eventSheet.EventID
 	rank := eventSheet.Rank
 
-	event := state.FindEventByID(eventID)
-	assert(event != nil)
-
-	ok := event.TryGetTicket(rank)
-	if !ok {
-		return nil, nil
-	}
-
 	reserved := &JsonReservation{ReservationID: 0, SheetRank: rank, SheetNum: 0}
 	reservation := &Reservation{ID: 0, EventID: eventID, UserID: userID, SheetRank: rank, SheetNum: 0}
-	logID := state.AppendReserveLog(reservation)
+	logID := state.BeginReservation(reservation)
+
 	err := checker.Play(ctx, &CheckAction{
 		Method:             "POST",
 		Path:               fmt.Sprintf("/api/events/%d/actions/reserve", eventID),
@@ -1946,9 +2086,8 @@ func reserveSheet(ctx context.Context, state *State, checker *Checker, userID ui
 
 	reservation.ID = reserved.ReservationID
 	reservation.SheetNum = reserved.SheetNum
-	state.DeleteReserveLog(logID, reservation)
+	state.CommitReservation(logID, reservation)
 	eventSheet.Num = reserved.SheetNum
-	state.CommitReservation(reservation)
 
 	return reservation, nil
 }
@@ -1969,8 +2108,8 @@ func cancelSheet(ctx context.Context, state *State, checker *Checker, eventSheet
 	rank := reservation.SheetRank
 	sheetNum := reservation.SheetNum
 
-	state.BeginCancelReservation(reservation)
-	logID := state.AppendCancelLog(reservation)
+	logID := state.BeginCancelation(reservation)
+
 	err = checker.Play(ctx, &CheckAction{
 		Method:             "DELETE",
 		Path:               fmt.Sprintf("/api/events/%d/sheets/%s/%d/reservation", eventID, rank, sheetNum),
@@ -1981,13 +2120,8 @@ func cancelSheet(ctx context.Context, state *State, checker *Checker, eventSheet
 		return false, err
 	}
 
-	state.CommitCancelReservation(reservation)
-	state.DeleteCancelLog(logID, reservation)
+	state.CommitCancelation(logID, reservation)
 	eventSheet.Num = NonReservedNum
-
-	event := state.FindEventByID(eventID)
-	assert(event != nil)
-	event.ReleaseTicket(rank)
 
 	return false, nil
 }

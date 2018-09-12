@@ -145,9 +145,6 @@ get '/api/users/{id}' => [qw/login_required/] => sub {
         my $rows = $self->dbh->select_all('SELECT r.*, s.rank AS sheet_rank, s.num AS sheet_num FROM reservations r INNER JOIN sheets s ON s.id = r.sheet_id WHERE r.user_id = ? ORDER BY IFNULL(r.canceled_at, r.reserved_at) DESC LIMIT 5', $user->{id});
         for my $row (@$rows) {
             my $event = $self->get_event($row->{event_id});
-            delete $event->{sheets};
-            delete $event->{total};
-            delete $event->{remains};
 
             my $reservation = {
                 id          => 0+$row->{id},
@@ -160,6 +157,10 @@ get '/api/users/{id}' => [qw/login_required/] => sub {
             };
             push @recent_reservations => $reservation;
 
+            delete $event->{sheets};
+            delete $event->{total};
+            delete $event->{remains};
+            delete $event->{price};
         }
     };
     $user->{recent_reservations} = \@recent_reservations;
@@ -313,7 +314,7 @@ post '/api/events/{id}/actions/reserve' => [qw/allow_json_request login_required
         my $txn = $self->dbh->txn_scope();
         eval {
             $self->dbh->query('INSERT INTO reservations (event_id, sheet_id, user_id, reserved_at) VALUES (?, ?, ?, ?)', $event->{id}, $sheet->{id}, $user->{id}, Time::Moment->now_utc->strftime('%F %T%f'));
-            $reservation_id = $self->dbh->last_insert_id() + 0;
+            $reservation_id = $self->dbh->last_insert_id();
             $txn->commit();
         };
         if ($@) {
@@ -326,9 +327,9 @@ post '/api/events/{id}/actions/reserve' => [qw/allow_json_request login_required
     }
 
     my $res = $c->render_json({
-        reservation_id => $reservation_id,
+        id         => 0+$reservation_id,
         sheet_rank => $rank,
-        sheet_num => $sheet->{num},
+        sheet_num  => 0+$sheet->{num},
     });
     $res->status(202);
     return $res;

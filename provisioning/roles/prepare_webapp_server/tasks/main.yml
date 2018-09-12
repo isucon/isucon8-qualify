@@ -1,21 +1,19 @@
 ---
-- name: iptables open tcp 80 port
+- name: firewalld open tcp 80 port
   become: yes
   become_user: root
-  iptables:
-    flush: true
-    chain: INPUT
-    protocol: tcp
-    destination_port: 80
-    jump: ACCEPT
-    state: present
+  firewalld:
+    immediate: true
+    permanent: true
+    service: http
+    state: enabled
 
-- name: Put h2o.conf
+- name: Put default-h2o.conf
   become: yes
   become_user: root
   copy:
-    src: h2o.conf
-    dest: /etc/h2o/h2o.conf
+    src: default-h2o.conf
+    dest: /etc/h2o/default-h2o.conf
 
 - name: Put php-h2o.conf
   become: yes
@@ -23,6 +21,21 @@
   copy:
     src: php-h2o.conf
     dest: /etc/h2o/php-h2o.conf
+
+- name: Remove h2o.conf
+  become: yes
+  become_user: root
+  file:
+    state: absent
+    path: /etc/h2o/h2o.conf
+
+- name: Put h2o.conf link
+  become: yes
+  become_user: root
+  file:
+    state: link
+    src: /etc/h2o/default-h2o.conf
+    dest: /etc/h2o/h2o.conf
 
 - name: Put torb.nodejs.service
   become: yes
@@ -89,6 +102,14 @@
     chdir: /home/isucon/torb/webapp/perl
   shell: |
     bash -lc "carton install"
+
+- name: Install for torb.php
+  become: yes
+  become_user: isucon
+  args:
+    chdir: /home/isucon/torb/webapp/php
+  shell: |
+    bash -lc "composer install"
 
 - name: Install for torb.python
   become: yes
