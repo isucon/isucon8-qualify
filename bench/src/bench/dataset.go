@@ -100,30 +100,6 @@ func prepareAdministratorDataSet() {
 }
 
 func prepareEventDataSet() {
-	const cacheBaseName = "events"
-
-	if err := readDatasetCache(cacheBaseName, &DataSet.Events); err == nil {
-		log.Printf("load cache: %s.gob\n", cacheBaseName)
-	} else if os.IsNotExist(err) {
-		// noting to do
-	} else {
-		// unexpected error
-		must(err)
-	}
-
-	if err := readDatasetCache("closed-"+cacheBaseName, &DataSet.ClosedEvents); err == nil {
-		log.Printf("load cache: %s.gob\n", "closed-"+cacheBaseName)
-	} else if os.IsNotExist(err) {
-		// noting to do
-	} else {
-		// unexpected error
-		must(err)
-	}
-
-	if DataSet.Events != nil && DataSet.ClosedEvents != nil {
-		return
-	}
-
 	nextID := uint(1)
 
 	// Events from event.tsv which are not closed yet
@@ -196,9 +172,6 @@ func prepareEventDataSet() {
 		DataSet.ClosedEvents = append(DataSet.ClosedEvents, event)
 		nextID++
 	}
-
-	must(writeDatasetCache(cacheBaseName, DataSet.Events))
-	must(writeDatasetCache("closed-"+cacheBaseName, DataSet.ClosedEvents))
 }
 
 func prepareSheetDataSet() {
@@ -228,19 +201,8 @@ func prepareSheetDataSet() {
 }
 
 func prepareReservationsDataSet() {
-	const cacheName = "reservations"
-	if err := readDatasetCache(cacheName, &DataSet.Reservations); err == nil {
-		log.Printf("load cache: %s.gob\n", cacheName)
-		return
-	} else if os.IsNotExist(err) {
-		// noting to do
-	} else {
-		// unexpected error
-		must(err)
-	}
-
 	minUnixTimestamp := time.Date(2011, 8, 27, 10, 0, 0, 0, JST).Unix()
-	maxUnixTimestamp := time.Date(2017, 10, 21, 10, 0, 0, 0, JST).Unix()
+	maxUnixTimestamp := time.Date(2018, 8, 27, 10, 0, 0, 0, JST).Unix()
 	for _, event := range append(DataSet.Events, DataSet.ClosedEvents...) {
 		if !event.IsSoldOut() {
 			continue
@@ -262,7 +224,7 @@ func prepareReservationsDataSet() {
 			}
 			DataSet.Reservations = append(DataSet.Reservations, reservation)
 
-			maxCanceled := 20
+			maxCanceled := 30
 			canceledAt := int64(Rng.Int63n(reservedAt-minUnixTimestamp) + minUnixTimestamp)
 			for minUnixTimestamp < canceledAt && canceledAt < reservedAt {
 				if maxCanceled == 0 {
@@ -306,10 +268,14 @@ func prepareReservationsDataSet() {
 	nextID := uint(1)
 	for _, reservation := range DataSet.Reservations {
 		reservation.ID = nextID
+		reservation.ReserveCompletedAt = time.Unix(int64(reservation.ReservedAt), 0)
+		if reservation.CanceledAt != 0 {
+			reservation.CancelRequestedAt = time.Unix(int64(reservation.CanceledAt), 0)
+			reservation.CancelCompletedAt = time.Unix(int64(reservation.CanceledAt), 0)
+		}
+
 		nextID++
 	}
-
-	must(writeDatasetCache(cacheName, DataSet.Reservations))
 }
 
 func PrepareDataSet() {
@@ -361,48 +327,74 @@ func GenerateInitialDataSetSQL(outputPath string) {
 	fbadf(w, "BEGIN;")
 
 	// user
-	for _, user := range DataSet.Users {
+	fbadf(w, "INSERT INTO users (id, nickname, login_name, pass_hash) VALUES ")
+	for i, user := range DataSet.Users {
 		passDigest := fmt.Sprintf("%x", sha256.Sum256([]byte(user.Password)))
 		must(err)
-		fbadf(w, "INSERT INTO users (id, nickname, login_name, pass_hash) VALUES (%s, %s, %s, %s);",
-			user.ID, user.Nickname, user.LoginName, passDigest)
+
+		fbadf(w, "(%s, %s, %s, %s)", user.ID, user.Nickname, user.LoginName, passDigest)
+		if i == len(DataSet.Users)-1 {
+			fbadf(w, ";")
+		} else {
+			fbadf(w, ",")
+		}
 	}
 
 	// administrator
-	for _, administrator := range DataSet.Administrators {
+	fbadf(w, "INSERT INTO administrators (id, nickname, login_name, pass_hash) VALUES ")
+	for i, administrator := range DataSet.Administrators {
 		passDigest := fmt.Sprintf("%x", sha256.Sum256([]byte(administrator.Password)))
 		must(err)
-		fbadf(w, "INSERT INTO administrators (id, nickname, login_name, pass_hash) VALUES (%s, %s, %s, %s);",
-			administrator.ID, administrator.Nickname, administrator.LoginName, passDigest)
+
+		fbadf(w, "(%s, %s, %s, %s)", administrator.ID, administrator.Nickname, administrator.LoginName, passDigest)
+		if i == len(DataSet.Administrators)-1 {
+			fbadf(w, ";")
+		} else {
+			fbadf(w, ",")
+		}
 	}
 
 	// event
-	for _, event := range append(DataSet.Events, DataSet.ClosedEvents...) {
-		fbadf(w, "INSERT INTO events (id, title, public_fg, closed_fg, price) VALUES (%s, %s, %s, %s, %s);",
-			event.ID, event.Title, event.PublicFg, event.ClosedFg, event.Price)
+	fbadf(w, "INSERT INTO events (id, title, public_fg, closed_fg, price) VALUES ")
+	events := append(append([]*Event{}, DataSet.Events...), DataSet.ClosedEvents...)
+	for i, event := range events {
+		fbadf(w, "(%s, %s, %s, %s, %s)", event.ID, event.Title, event.PublicFg, event.ClosedFg, event.Price)
+		if i == len(events)-1 {
+			fbadf(w, ";")
+		} else {
+			fbadf(w, ",")
+		}
 	}
 
 	// sheet
-	for _, sheet := range DataSet.Sheets {
-		fbadf(w, "INSERT INTO sheets (id, `rank`, num, price) VALUES (%s, %s, %s, %s);",
-			sheet.ID, sheet.Rank, sheet.Num, sheet.Price)
+	fbadf(w, "INSERT INTO sheets (id, `rank`, num, price) VALUES ")
+	for i, sheet := range DataSet.Sheets {
+		fbadf(w, "(%s, %s, %s, %s)", sheet.ID, sheet.Rank, sheet.Num, sheet.Price)
+		if i == len(DataSet.Sheets)-1 {
+			fbadf(w, ";")
+		} else {
+			fbadf(w, ",")
+		}
 	}
 
 	// reservation
+	fbadf(w, "INSERT INTO reservations (id, event_id, sheet_id, user_id, reserved_at, canceled_at) VALUES ")
 	for i, reservation := range DataSet.Reservations {
-		if i%1000 == 0 {
-			fbadf(w, ";INSERT INTO reservations (id, event_id, sheet_id, user_id, reserved_at, canceled_at) VALUES ")
-		} else {
-			fbadf(w, ", ")
-		}
-
 		if reservation.CanceledAt > 0 {
 			fbadf(w, "(%s, %s, %s, %s, %s, %s)", reservation.ID, reservation.EventID, reservation.SheetID, reservation.UserID, time.Unix(reservation.ReservedAt, 0).UTC(), time.Unix(reservation.CanceledAt, 0).UTC())
 		} else {
 			fbadf(w, "(%s, %s, %s, %s, %s, NULL)", reservation.ID, reservation.EventID, reservation.SheetID, reservation.UserID, time.Unix(reservation.ReservedAt, 0).UTC())
 		}
+
+		if i == len(DataSet.Reservations)-1 {
+			fbadf(w, ";")
+		} else if i%10000 == 0 {
+			fbadf(w, ";INSERT INTO reservations (id, event_id, sheet_id, user_id, reserved_at, canceled_at) VALUES ")
+		} else {
+			fbadf(w, ",")
+		}
+
 	}
-	fbadf(w, ";")
 
 	fbadf(w, "COMMIT;")
 
