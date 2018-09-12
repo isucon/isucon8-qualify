@@ -7,9 +7,27 @@ import pointOfView from "point-of-view";
 import ejs from "ejs";
 import path from "path";
 
+type MySQLResultRows = Array<any> & { insertId: number };
+type MySQLColumnCatalog = Array<any>;
+
+type MySQLResultSet = [MySQLResultRows, MySQLColumnCatalog];
+
+interface MySQLQueryable {
+  query(sql: string, params?: ReadonlyArray<any>): Promise<MySQLResultSet>;
+}
+
+interface MySQLClient extends MySQLQueryable {
+  beginTransaction(): Promise<void>;
+  commit(): Promise<void>;
+  rollback(): Promise<void>;
+  release(): void;
+}
+
 declare module "fastify" {
   interface FastifyInstance<HttpServer, HttpRequest, HttpResponse> {
-    mysql: any;
+    mysql: MySQLQueryable & {
+      getConnection(): Promise<MySQLClient>;
+    };
   }
 
   interface FastifyRequest<HttpRequest> {
@@ -78,7 +96,6 @@ async function loginRequired(request, reply, done) {
   if (!user) {
     resError(reply, "login_required", 401);
   }
-
   done();
 }
 
@@ -403,7 +420,7 @@ fastify.post("/api/events/:id/actions/reserve", { beforeHandler: loginRequired }
     [[sheetRow]] = await conn.query("SELECT * FROM sheets WHERE id NOT IN (SELECT sheet_id FROM reservations WHERE event_id = ? AND canceled_at IS NULL FOR UPDATE) AND `rank` = ? ORDER BY RAND() LIMIT 1", [event.id, rank]);
 
     if (!sheetRow) {
-      conn.relese();
+      conn.release();
       return resError(reply, "sold_out", 409);
     }
 
@@ -487,12 +504,11 @@ fastify.delete("/api/events/:id/sheets/:rank/:num/reservation", { beforeHandler:
 });
 
 async function getLoginAdministrator<T>(request: FastifyRequest<T>): Promise<{ id; nickname } | null> {
-  const administratorId = JSON.parse(request.cookies.administrator_id);
+  const administratorId = JSON.parse(request.cookies.administrator_id || 'null');
   if (!administratorId) {
     return Promise.resolve(null);
   }
-
-  const [[row]] = fastify.mysql.query("SELECT id, nickname FROM administrators WHERE id = ?", [administratorId]);
+  const [[row]] = await fastify.mysql.query("SELECT id, nickname FROM administrators WHERE id = ?", [administratorId]);
   return { ...row };
 }
 
@@ -539,6 +555,7 @@ fastify.post("/admin/api/actions/login", async (request, reply) => {
   reply.setCookie("administrator_id", administratorRow.id, {
     path: "/",
   });
+  request.cookies.administrator_id = `${administratorRow.id}`; // for the follong getLoginAdministratorUser()
   const administrator = await getLoginAdministrator(request);
 
   reply.send(administrator);
@@ -557,17 +574,17 @@ fastify.get("/admin/api/events", { beforeHandler: adminLoginRequired }, async (_
   reply.send(events);
 });
 
-fastify.post("/admin/api/events/", { beforeHandler: adminLoginRequired }, async (request, reply) => {
+fastify.post("/admin/api/events", { beforeHandler: adminLoginRequired }, async (request, reply) => {
   const title = request.body.title;
   const isPublic = request.body.public;
   const price = request.body.price;
 
-  let eventId: any;
+  let eventId: number | null = null;
 
   const conn = await getConnection();
   await conn.beginTransaction();
   try {
-    const [result] = await conn.queru("INSERT INTO events (title, public_fg, closed_fg, price) VALUES (?, ?, 0, ?)", [title, isPublic, price]);
+    const [result] = await conn.query("INSERT INTO events (title, public_fg, closed_fg, price) VALUES (?, ?, 0, ?)", [title, isPublic, price]);
     eventId = result.insertId;
     await conn.commit();
   } catch (e) {
@@ -576,13 +593,13 @@ fastify.post("/admin/api/events/", { beforeHandler: adminLoginRequired }, async 
   }
   conn.release();
 
-  const event = await getEvent(eventId);
+  const event = await getEvent(eventId!);
   reply.send(event);
 });
 
 fastify.get("/admin/api/events/:id", { beforeHandler: adminLoginRequired }, async (request, reply) => {
   const eventId = request.params.id;
-  const event = await eventId(eventId);
+  const event = await getEvent(eventId);
   if (!event) {
     return resError(reply, "not_found", 404);
   }
@@ -608,7 +625,7 @@ fastify.post("/admin/api/events/:id/actions/edit", { beforeHandler: adminLoginRe
   const conn = await getConnection();
   await conn.beginTransaction();
   try {
-    await conn.queru("UPDATE events SET public_fg = ?, closed_fg = ? WHERE id = ?", [isPublic, closed, event.id]);
+    await conn.query("UPDATE events SET public_fg = ?, closed_fg = ? WHERE id = ?", [isPublic, closed, event.id]);
     await conn.commit();
   } catch (e) {
     console.error(e);
@@ -634,8 +651,8 @@ fastify.get("/admin/api/reports/events/:id/sales", { beforeHandler: adminLoginRe
       rank: reservationRow.sheet_rank,
       num: reservationRow.sheet_num,
       user_id: reservationRow.user_id,
-      sold_at: new Date(reservationRow.reserved_at).toString(),
-      canceled_at: reservationRow.canceled_at ? new Date(reservationRow.canceled_at).toString() : "",
+      sold_at: new Date(reservationRow.reserved_at).toISOString(),
+      canceled_at: reservationRow.canceled_at ? new Date(reservationRow.canceled_at).toISOString() : "",
       price: reservationRow.event_price + reservationRow.sheet_price,
     };
 
@@ -657,8 +674,8 @@ fastify.get("/admin/api/reports/sales", { beforeHandler: adminLoginRequired }, a
       rank: reservationRow.sheet_rank,
       num: reservationRow.sheet_num,
       user_id: reservationRow.user_id,
-      sold_at: new Date(reservationRow.reserved_at).toString(),
-      canceled_at: reservationRow.canceled_at ? new Date(reservationRow.canceled_at).toString() : "",
+      sold_at: new Date(reservationRow.reserved_at).toISOString(),
+      canceled_at: reservationRow.canceled_at ? new Date(reservationRow.canceled_at).toISOString() : "",
       price: reservationRow.event_price + reservationRow.sheet_price,
     };
 
@@ -673,7 +690,7 @@ async function renderReportCsv<T>(reply: FastifyReply<T>, reports: ReadonlyArray
     return a.sold_at.localeCompare(b.sold_at);
   });
 
-  const keys = ["reservation_id", "event_id", "rank num", "price", "user_id", "sold_at", "canceled_at"];
+  const keys = ["reservation_id", "event_id", "rank", "num", "price", "user_id", "sold_at", "canceled_at"];
 
   let body = keys.join(",");
   body += "\n";
@@ -684,8 +701,9 @@ async function renderReportCsv<T>(reply: FastifyReply<T>, reports: ReadonlyArray
 
   reply
     .headers({
-      "Content-Type": "text/csv; charset=UTF-8",
-      "Content-Disposition": 'attachment; filename="report.csv"',
+      "Content-Type": "text/plain"
+      //"Content-Type": "text/csv; charset=UTF-8",
+      //"Content-Disposition": 'attachment; filename="report.csv"',
     })
     .send(body);
 }
