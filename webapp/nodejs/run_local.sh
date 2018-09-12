@@ -8,5 +8,5 @@ export DB_PORT
 export DB_USER
 export DB_PASS
 
+export NODE_ENV=development
 $(npm bin)/ts-node-dev index.ts
-#$(npm bin)/ts-node conn.ts

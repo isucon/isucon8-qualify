@@ -11,7 +11,7 @@
     "cookie-signature": "^1.1.0",
     "core-js": "^3.0.0-beta.3",
     "ejs": "*",
-    "fastify": "*",
+    "fastify": "^1.11.2",
     "fastify-cookie": "*",
     "fastify-mysql": "*",
     "fastify-plugin": "*",
@@ -22,6 +22,6 @@
     "typescript": "*"
   },
   "devDependencies": {
-    "ts-node-dev": "*"
+    "ts-node-dev": "^1.0.0-pre.30"
   }
 }

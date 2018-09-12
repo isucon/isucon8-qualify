@@ -7,6 +7,7 @@ import fastifyStatic from "fastify-static";
 import pointOfView from "point-of-view";
 import ejs from "ejs";
 import path from "path";
+import { IncomingMessage } from "http";
 
 type MySQLResultRows = Array<any> & { insertId: number };
 type MySQLColumnCatalogs = Array<any>;
@@ -78,6 +79,13 @@ fastify.register(fastifyMysql, {
 fastify.decorateRequest("user", null);
 fastify.decorateRequest("administrator", null);
 
+function buildUriFor<T extends IncomingMessage>(request: FastifyRequest<T>) {
+  const uriBase = `http://${request.headers.host}`;
+  return (path) => {
+    return `${uriBase}${path}`;
+  };
+}
+
 async function getConnection() {
   return fastify.mysql.getConnection();
 }
@@ -92,22 +100,23 @@ async function getLoginUser<T>(request: FastifyRequest<T>): Promise<LoginUser | 
   }
 }
 
-async function loginRequired(request, reply, done) {
-  const user = await getLoginUser(request);
-  if (!user) {
-    resError(reply, "login_required", 401);
-  }
-  done();
+// NOTE: beforeHandler must not be async function
+function loginRequired(request, reply, done) {
+  getLoginUser(request).then((user) => {
+    if (!user) {
+      resError(reply, "login_required", 401);
+    }
+    done();
+  });
 }
 
-async function fillinUser(request, _reply, done) {
-  const user = await getLoginUser(request);
-  if (user) {
-    request.user = user;
-  }
-  console.log(request.user);
-
-  done();
+function fillinUser(request, _reply, done) {
+  getLoginUser(request).then((user) => {
+    if (user) {
+      request.user = user;
+    }
+    done();
+  });
 }
 
 type Event = any;
@@ -140,8 +149,6 @@ async function getEvents(where: (event: Event) => boolean = (eventRow) => !!even
   }
 
   await conn.release();
-
-  console.log("events", events); // FIXME: remove this
   return events;
 }
 
@@ -223,11 +230,10 @@ function parseTimestampToEpoch(timestamp: string) {
 }
 
 fastify.get("/", { beforeHandler: fillinUser }, async (request, reply) => {
-  console.log("xxx", request.user);
   const events = (await getEvents()).map((event) => sanitizeEvent(event));
 
   reply.view("index.html.ejs", {
-    uriFor: (path) => path,
+    uriFor: buildUriFor(request),
     user: request.user,
     events,
   });
@@ -258,7 +264,7 @@ fastify.get("/initialize", async (_request, reply) => {
   reply.code(204);
 });
 
-fastify.post("/api/users", {}, async (request, reply) => {
+fastify.post("/api/users", async (request, reply) => {
   const nickname = request.body.nickname;
   const loginName = request.body.login_name;
   const password = request.body.password;
@@ -302,7 +308,7 @@ fastify.post("/api/users", {}, async (request, reply) => {
 });
 
 fastify.get("/api/users/:id", { beforeHandler: loginRequired }, async (request, reply) => {
-  const [[user]] = await fastify.mysql.query("SELECT id, nickname FROM users WHERE id = ?", [Number.parseInt(request.params.id, 10)]);
+  const [[user]] = await fastify.mysql.query("SELECT id, nickname FROM users WHERE id = ?", [request.params.id]);
   if (user.id !== (await getLoginUser(request))!.id) {
     return resError(reply, "forbidden", 403);
   }
@@ -335,7 +341,8 @@ fastify.get("/api/users/:id", { beforeHandler: loginRequired }, async (request, 
   user.recent_reservations = recentReservations;
 
   const [[totalPriceRow]] = await fastify.mysql.query("SELECT IFNULL(SUM(e.price + s.price), 0) FROM reservations r INNER JOIN sheets s ON s.id = r.sheet_id INNER JOIN events e ON e.id = r.event_id WHERE r.user_id = ? AND r.canceled_at IS NULL", user.id);
-  [user.total_price] = Object.values(totalPriceRow);
+  const [totalPriceStr] = Object.values(totalPriceRow);
+  user.total_price = Number.parseInt(totalPriceStr, 10);
 
   const recentEvents: Array<any> = [];
   {
@@ -371,7 +378,7 @@ fastify.post("/api/actions/login", async (request, reply) => {
   reply.send(user);
 });
 
-fastify.post("/api/actions/logout", async (_request, reply) => {
+fastify.post("/api/actions/logout", { beforeHandler: loginRequired }, async (_request, reply) => {
   reply.setCookie("user_id", "", {
     path: "/",
     expires: new Date(0),
@@ -398,33 +405,29 @@ fastify.get("/api/events/:id", async (request, reply) => {
 });
 
 fastify.post("/api/events/:id/actions/reserve", { beforeHandler: loginRequired }, async (request, reply) => {
-  const conn = await getConnection();
-
   const eventId = request.params.id;
   const rank = request.body.sheet_rank;
 
   const user = (await getLoginUser(request))!;
   const event = await getEvent(eventId, user.id);
   if (!(event && event.public)) {
-    conn.release();
     return resError(reply, "invalid_event", 404);
   }
-  if (!validateRank(rank)) {
-    conn.release();
+
+  if (!await validateRank(rank)) {
     return resError(reply, "invalid_rank", 400);
   }
 
   let sheetRow: any;
   let reservationId: any;
-
   while (true) {
-    [[sheetRow]] = await conn.query("SELECT * FROM sheets WHERE id NOT IN (SELECT sheet_id FROM reservations WHERE event_id = ? AND canceled_at IS NULL FOR UPDATE) AND `rank` = ? ORDER BY RAND() LIMIT 1", [event.id, rank]);
+    [[sheetRow]] = await fastify.mysql.query("SELECT * FROM sheets WHERE id NOT IN (SELECT sheet_id FROM reservations WHERE event_id = ? AND canceled_at IS NULL FOR UPDATE) AND `rank` = ? ORDER BY RAND() LIMIT 1", [event.id, rank]);
 
     if (!sheetRow) {
-      conn.release();
       return resError(reply, "sold_out", 409);
     }
 
+    const conn = await getConnection();
     await conn.beginTransaction();
     try {
       const [result] = await conn.query("INSERT INTO reservations (event_id, sheet_id, user_id, reserved_at) VALUES (?, ?, ?, ?)", [event.id, sheetRow.id, user.id, new Date()]);
@@ -433,12 +436,12 @@ fastify.post("/api/events/:id/actions/reserve", { beforeHandler: loginRequired }
     } catch (e) {
       await conn.rollback();
       console.warn("re-try: rollback by:", e);
-      continue;
+      continue; // retry
+    } finally {
+      conn.release();
     }
-
     break;
   }
-  conn.release();
 
   reply.code(202).send({
     reservation_id: reservationId,
@@ -448,8 +451,6 @@ fastify.post("/api/events/:id/actions/reserve", { beforeHandler: loginRequired }
 });
 
 fastify.delete("/api/events/:id/sheets/:rank/:num/reservation", { beforeHandler: loginRequired }, async (request, reply) => {
-  const conn = await getConnection();
-
   const eventId = request.params.id;
   const rank = request.params.rank;
   const num = request.params.num;
@@ -457,36 +458,36 @@ fastify.delete("/api/events/:id/sheets/:rank/:num/reservation", { beforeHandler:
   const user = (await getLoginUser(request))!;
   const event = await getEvent(eventId, user.id);
   if (!(event && event.public)) {
-    conn.release();
     return resError(reply, "invalid_event", 404);
   }
-  if (!validateRank(rank)) {
-    conn.release();
+  if (!await validateRank(rank)) {
     return resError(reply, "invalid_rank", 404);
   }
 
-  const [[sheetRow]] = await conn.query("SELECT * FROM sheets WHERE `rank` = ? AND num = ?", [rank, num]);
+  const [[sheetRow]] = await fastify.mysql.query("SELECT * FROM sheets WHERE `rank` = ? AND num = ?", [rank, num]);
   if (!sheetRow) {
-    conn.release();
     return resError(reply, "invalid_sheet", 404);
   }
 
+  const conn = await getConnection();
   let done = false;
   await conn.beginTransaction();
   TRANSACTION: try {
-    const [[reservation]] = await conn.query("SELECT * FROM reservations WHERE event_id = ? AND sheet_id = ? AND canceled_at IS NULL GROUP BY event_id HAVING reserved_at = MIN(reserved_at) FOR UPDATE", [event.id, sheetRow.id]);
-    if (!reservation) {
+    const [[reservationRow]] = await conn.query("SELECT * FROM reservations WHERE event_id = ? AND sheet_id = ? AND canceled_at IS NULL GROUP BY event_id HAVING reserved_at = MIN(reserved_at) FOR UPDATE", [event.id, sheetRow.id]);
+    if (!reservationRow) {
+      resError(reply, "not_reserved", 400);
       done = true;
       await conn.rollback();
       break TRANSACTION;
     }
-    if (reservation.user_id !== user.id) {
+    if (reservationRow.user_id !== user.id) {
       resError(reply, "not_permitted", 403);
+      done = true;
       await conn.rollback();
       break TRANSACTION;
     }
 
-    await conn.query("UPDATE reservations SET canceled_at = ? WHERE id = ?", [new Date(), reservation.id]);
+    await conn.query("UPDATE reservations SET canceled_at = ? WHERE id = ?", [new Date(), reservationRow.id]);
 
     await conn.commit();
   } catch (e) {
@@ -505,7 +506,7 @@ fastify.delete("/api/events/:id/sheets/:rank/:num/reservation", { beforeHandler:
 });
 
 async function getLoginAdministrator<T>(request: FastifyRequest<T>): Promise<{ id; nickname } | null> {
-  const administratorId = JSON.parse(request.cookies.administrator_id || 'null');
+  const administratorId = JSON.parse(request.cookies.administrator_id || "null");
   if (!administratorId) {
     return Promise.resolve(null);
   }
@@ -513,21 +514,23 @@ async function getLoginAdministrator<T>(request: FastifyRequest<T>): Promise<{ i
   return { ...row };
 }
 
-async function adminLoginRequired(request, reply, done) {
-  const administrator = await getLoginAdministrator(request);
-  if (!administrator) {
-    resError(reply, "admin_login_required", 401);
-  }
-  done();
+function adminLoginRequired(request, reply, done) {
+  getLoginAdministrator(request).then((administrator) => {
+    if (!administrator) {
+      resError(reply, "admin_login_required", 401);
+    }
+    done();
+  });
 }
 
-async function fillinAdministrator(request, _reply, done) {
-  const administrator = await getLoginAdministrator(request);
-  if (administrator) {
-    request.administrator = administrator;
-  }
+function fillinAdministrator(request, _reply, done) {
+  getLoginAdministrator(request).then((administrator) => {
+    if (administrator) {
+      request.administrator = administrator;
+    }
 
-  done();
+    done();
+  });
 }
 
 fastify.get("/admin/", { beforeHandler: fillinAdministrator }, async (request, reply) => {
@@ -539,7 +542,7 @@ fastify.get("/admin/", { beforeHandler: fillinAdministrator }, async (request, r
   reply.view("admin.html.ejs", {
     events,
     administrator: request.administrator,
-    uriFor: (path) => path,
+    uriFor: buildUriFor(request),
   });
 });
 
@@ -634,7 +637,7 @@ fastify.post("/admin/api/events/:id/actions/edit", { beforeHandler: adminLoginRe
   }
   conn.release();
 
-  const updatedEvent = getEvent(eventId);
+  const updatedEvent = await getEvent(eventId);
   reply.send(updatedEvent);
 });
 
@@ -664,10 +667,9 @@ fastify.get("/admin/api/reports/events/:id/sales", { beforeHandler: adminLoginRe
 });
 
 fastify.get("/admin/api/reports/sales", { beforeHandler: adminLoginRequired }, async (request, reply) => {
-
   let reports: Array<any> = [];
 
-  const [reservationRows] = await fastify.mysql.query('SELECT r.*, s.rank AS sheet_rank, s.num AS sheet_num, s.price AS sheet_price, e.id AS event_id, e.price AS event_price FROM reservations r INNER JOIN sheets s ON s.id = r.sheet_id INNER JOIN events e ON e.id = r.event_id ORDER BY reserved_at ASC FOR UPDATE');
+  const [reservationRows] = await fastify.mysql.query("SELECT r.*, s.rank AS sheet_rank, s.num AS sheet_num, s.price AS sheet_price, e.id AS event_id, e.price AS event_price FROM reservations r INNER JOIN sheets s ON s.id = r.sheet_id INNER JOIN events e ON e.id = r.event_id ORDER BY reserved_at ASC FOR UPDATE");
   for (const reservationRow of reservationRows) {
     const report = {
       reservation_id: reservationRow.id,
@@ -702,9 +704,8 @@ async function renderReportCsv<T>(reply: FastifyReply<T>, reports: ReadonlyArray
 
   reply
     .headers({
-      "Content-Type": "text/plain"
-      //"Content-Type": "text/csv; charset=UTF-8",
-      //"Content-Disposition": 'attachment; filename="report.csv"',
+      "Content-Type": "text/csv; charset=UTF-8",
+      "Content-Disposition": 'attachment; filename="report.csv"',
     })
     .send(body);
 }
