@@ -3,7 +3,6 @@ body {
 }
 
 nav.navbar {
-    border-top: 4px solid #276cda;
     margin-bottom: 1rem;
 }
 
@@ -12,4 +11,26 @@ nav.navbar {
     font-family: 'Open Sans', arial, serif;
     font-size: 14px;
     font-weight: 300;
+}
+
+section.info-tiles {
+    margin: 1rem 0;
+}
+
+section.table-list {
+    margin: 1rem 0;
+}
+
+.card-header.is-danger {
+    background-color: hsl(348, 100%, 61%);
+}
+.card-header.is-danger .card-header-title {
+    color: #fff;
+}
+
+.card-header.is-dark {
+    background-color: hsl(0, 0%, 21%);
+}
+.card-header.is-dark .card-header-title {
+    color: hsl(0, 0%, 96%);
 }

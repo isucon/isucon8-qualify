@@ -10,11 +10,13 @@ use ISUCON8::Portal::Web::Controller;
 base 'ISUCON8::Portal::Web::Controller';
 useall 'ISUCON8::Portal::Web::Controller';
 
-get  '/'         => 'Root#get_index';
-get  '/login'    => 'Team#get_login';
-post '/login'    => 'Team#post_login';
-get  '/logout'   => 'Team#get_logout';
-get  '/dashbord' => 'Team#get_dashbord';
+get  '/'                => 'Root#get_index';
+get  '/login'           => 'Team#get_login';
+post '/login'           => 'Team#post_login';
+get  '/logout'          => 'Team#get_logout';
+get  '/dashbord'        => 'Team#get_dashbord';
+post '/api/job/enqueue' => 'API#enqueue_job';
+post '/api/job/cancel'  => 'API#cancel_job';
 
 get  '/admin'                 => 'Admin#get_index';
 get  '/admin/login'           => 'Admin#get_login';

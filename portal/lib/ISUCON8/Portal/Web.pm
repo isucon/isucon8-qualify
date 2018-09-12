@@ -68,8 +68,16 @@ sub to_app {
     $class->SUPER::to_app;
 }
 
+sub team_id {
+    my ($c) = @_;
+    my $team = $c->session->get('team');
+    return $team ? $team->{id} : 0;
+}
+
 sub render {
     my ($c, $tmpl, $params) = @_;
+    $params->{config} = $c->config;
+
     my $prev_page = $c->req->query_parameters->mixed->{_prev};
     if ($prev_page) {
         $params->{_prev} = URI->new($prev_page)->path_query;

@@ -1,0 +1,209 @@
+: cascade "include/layout.tx"
+
+: override content -> {
+<div class="column is-9">
+    <nav class="breadcrumb" aria-label="breadcrumbs">
+        <ul>
+            <li><a href="/">ISUCON8</a></li>
+            <li class="is-active"><a href="#" aria-current="page">Dashboard</a></li>
+        </ul>
+    </nav>
+    <section class="hero welcome is-small <: $score.latest_status == 'fail' ? 'is-danger' : 'is-info' :>">
+        <div class="hero-body">
+            <div class="container">
+                <h1 class="title">
+                    <: $team.name :>
+                </h1>
+                <h2 class="subtitle">
+                    Team Id: <: $team.id :>
+                </h2>
+            </div>
+        </div>
+    </section>
+
+    <section class="info-tiles">
+        <div class="tile is-ancestor has-text-centered">
+            <div class="tile is-parent">
+                <article class="tile is-child box">
+                    <p class="title"><: $score.latest_score | commify :></p>
+                    <p class="subtitle">Latest Score</p>
+                </article>
+            </div>
+            <div class="tile is-parent">
+                <article class="tile is-child box">
+                    <p class="title"><: $score.best_score | commify :></p>
+                    <p class="subtitle">Best Score</p>
+                </article>
+            </div>
+            <div class="tile is-parent">
+                <article class="tile is-child box">
+                    <p class="title"><: $score.latest_status :></p>
+                    <p class="subtitle">Latest Status</p>
+                </article>
+            </div>
+            <div class="tile is-parent">
+                <article class="tile is-child box">
+                    <p class="title"><: $score.updated_at | unixtime2time :></p>
+                    <p class="subtitle">Finish Time</p>
+                </article>
+            </div>
+        </div>
+    </section>
+
+    <section class="enqueue-job">
+        <article class="message is-warning">
+            <div class="message-header">
+                <p>
+                    <span class="icon">
+                        <i class="fas fa-paper-plane"></i>
+                    </span>
+                    <span>Enqueue Job</span>
+                </p>
+            </div>
+            <div class="message-body">
+                <div class="field has-addons">
+                    <div class="control">
+                        <a class="button is-static">Target <: $target_server.private_ip :></a>
+                    </div>
+                    <div class="control">
+                        <button type="submit" class="button is-warning" id="btn-enqueue">Enqueue</button>
+                    </div>
+                </div>
+                <div class="modal" id="enqueue-modal">
+                    <div class="modal-background"></div>
+                    <div class="modal-content">
+                        <div class="notification">...</div>
+                    </div>
+                    <button class="modal-close is-large" aria-label="close"></button>
+                  </div>
+                <p>※ベンチマークが始まるまでに1〜2分ほどかかる場合があります。</p>
+            </div>
+        </article>
+    </section>
+
+    <section class="table-list">
+        <div class="card events-card">
+            <header class="card-header is-dark">
+                <p class="card-header-title">
+                    <span class="icon">
+                        <i class="fas fa-list-alt"></i>
+                    </span>
+                    <span>Recent Jobs</span>
+                </p>
+            </header>
+            <div class="card-table">
+                <div class="content">
+                    <table class="table is-fullwidth is-striped">
+                        <thead>
+                            <tr>
+                                <th>JobId</th>
+                                <th>Score</th>
+                                <th>Status</th>
+                                <th>State</th>
+                                <th>UpdatedAt</th>
+                                <th>Detail</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            : for $recent_jobs -> $row {
+                                <tr>
+                                    <td class="has-text-right"><: $row.id :></td>
+                                    <td class="has-text-right"><: $row.result_score | commify :></td>
+                                    <td><: $row.result_status :></td>
+                                    <td><: $row.state :></td>
+                                    <td><: $row.updated_at | unixtime2time :></td>
+                                    <td><a class="button is-small is-link" href="#">show</a></td>
+                                </tr>
+                            : }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <footer class="card-footer">
+                <a href="#" class="card-footer-item">View All</a>
+            </footer>
+        </div>
+    </section>
+
+    <section class="table-list">
+        <div class="card events-card">
+            <header class="card-header is-danger">
+                <p class="card-header-title">
+                    <span class="icon">
+                        <i class="fas fa-chart-area"></i>
+                    </span>
+                    <span>Top Teams</span>
+                </p>
+            </header>
+            <div class="card-table">
+                <div class="content">
+                    <table class="table is-fullwidth is-striped">
+                        <thead>
+                            <tr>
+                                <th>Rank</th>
+                                <th>Team</th>
+                                <th>LatestScore</th>
+                                <th>BestScore</th>
+                                <th>FinishTime</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            : for $top_teams -> $row {
+                            <tr <: if $row.team_id == $team.id { :>class="is-selected"<: } :>>
+                                <td class="has-text-right"><: $~row.count :></td>
+                                <td><: ellipsis($row.name, 30) :></td>
+                                <td class="has-text-right"><: $row.latest_score | commify :></td>
+                                <td class="has-text-right"><: $row.best_score   | commify :></td>
+                                <td><: $row.updated_at | unixtime2time :></td>
+                            </tr>
+                            : }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <footer class="card-footer">
+                <a href="#" class="card-footer-item">View All</a>
+            </footer>
+        </div>
+    </section>
+</div>
+<!-- dummy -->
+<form method="post"></form>
+: }
+
+: override script -> {
+<script>
+"use strict";
+(function() {
+    var modalId = "#enqueue-modal";
+    $(modalId).find(".modal-background, .modal-close").click(function() {
+        $(modalId).removeClass("is-active");
+        $(modalId).find(".notification").text("...");
+    })
+
+    $("#btn-enqueue").click(function(e) {
+        this.disabled = true;
+        var sendData = {
+            'XSRF-TOKEN': $('input[name="XSRF-TOKEN"]').val(),
+        };
+        $.post("/api/job/enqueue", sendData).done(function(data) {
+            console.log(data);
+            if (data.success) {
+                $(modalId).find(".notification").addClass("is-success");
+                $(modalId).find(".notification").text("Enqueue successfully!!");
+            } else {
+                $(modalId).find(".notification").addClass("is-danger");
+                $(modalId).find(".notification").text(data.error);
+            }
+            $(modalId).addClass("is-active");
+        }).fail(function(data) {
+            $(modalId).find(".notification").text("エラーが発生しました！！！！？！！？！");
+            $(modalId).find(".notification").addClass("is-danger");
+            $(modalId).addClass("is-active");
+        });
+
+    });
+})();
+</script>
+: }
+

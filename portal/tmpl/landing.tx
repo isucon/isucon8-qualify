@@ -15,7 +15,6 @@
   <link href="<: static_file('/static/css/main.css') :>" rel="stylesheet" type="text/css" media="screen">
   <link href="<: static_file('/static/css/landing.css') :>" rel="stylesheet" type="text/css" media="screen">
   <script src="<: static_file('/static/js/main.js') :>"></script>
-  <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/font-awesome/4.7.0/css/font-awesome.min.css">
 </head>
 
 <body>
@@ -36,7 +35,7 @@
           <div id="navbarMenu" class="navbar-menu">
             <div class="navbar-end">
               <span class="navbar-item">
-                <a class="button is-white is-outlined" target="_blank" href="http://isucon.net/">
+                <a class="button is-white is-outlined" target="_blank" href="<: $config.url.isucon_site :>">
                   <span class="icon">
                     <i class="fa fa-home"></i>
                   </span>
@@ -44,17 +43,17 @@
                 </a>
               </span>
               <span class="navbar-item">
-                <a class="button is-white is-outlined" target="_blank" href="http://isucon.net/archives/52445389.html">
+                <a class="button is-white is-outlined" target="_blank" href="<: $config.url.regulation :>">
                   <span class="icon">
-                    <i class="fa fa-superpowers"></i>
+                    <i class="fas fa-clipboard-list"></i>
                   </span>
                   <span>Regulation</span>
                 </a>
               </span>
               <span class="navbar-item">
-                <a class="button is-white is-outlined" target="_blank" href="https://twitter.com/isucon_official">
+                <a class="button is-white is-outlined" target="_blank" href="<: $config.url.twitter :>">
                   <span class="icon">
-                    <i class="fa fa-twitter"></i>
+                    <i class="fab fa-twitter"></i>
                   </span>
                   <span>Twitter</span>
                 </a>

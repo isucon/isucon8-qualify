@@ -32,4 +32,10 @@ __PACKAGE__->constants(
     BENCHMARK_MAX_CONCURRENCY => 3,
 );
 
+__PACKAGE__->constants(
+    JOB_RESULT_PASS    => 'pass',
+    JOB_RESULT_FAIL    => 'fail',
+    JOB_RESULT_UNKNOWN => 'unknown',
+);
+
 1;

@@ -5,6 +5,7 @@ use utf8;
 use parent qw(Exporter);
 use Module::Functions;
 use File::Spec;
+use Time::Piece;
 
 our @EXPORT = get_public_functions();
 
@@ -17,6 +18,17 @@ sub commify {
 sub c { ISUCON8::Portal->context() }
 sub uri_with { ISUCON8::Portal->context()->req->uri_with(@_) }
 sub uri_for { ISUCON8::Portal->context()->uri_for(@_) }
+
+sub unixtime2time {
+    my $unixtime = shift;
+    localtime($unixtime)->strftime("%H:%M:%S")
+}
+
+sub ellipsis {
+    my ($str, $max_length) = @_;
+    return $str unless length $str > $max_length;
+    return substr($str, 0, $max_length - 3) . '...';
+}
 
 {
     my %static_file_cache;
