@@ -323,7 +323,7 @@ fastify.get("/api/users/:id", { beforeHandler: loginRequired }, async (request, 
       const reservation = {
         id: row.id,
         event,
-        sheet_rank: row.seet_rank,
+        sheet_rank: row.sheet_rank,
         sheet_num: row.sheet_num,
         price: event.sheets[row.sheet_rank].price,
         reserved_at: parseTimestampToEpoch(row.reserved_at),
