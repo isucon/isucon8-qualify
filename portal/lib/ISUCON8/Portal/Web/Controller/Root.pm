@@ -11,7 +11,7 @@ sub get_index {
         return $c->render('landing.tx');
     }
 
-    return $c->session->get('team') ? $c->redirect('/dashbord') : $c->redirect('/login');
+    return $c->session->get('team') ? $c->redirect('/dashboard') : $c->redirect('/login');
 }
 
 1;

@@ -20,7 +20,7 @@
     <nav class="navbar is-info">
         <div class="container">
             <div class="navbar-brand">
-                <a class="navbar-item brand-text" href="/dashbord">ISUCON8</a>
+                <a class="navbar-item brand-text" href="/dashboard">ISUCON8</a>
                 <div class="navbar-burger burger" data-target="navMenu">
                     <span></span>
                     <span></span>
@@ -29,7 +29,7 @@
             </div>
             <div id="navMenu" class="navbar-menu">
                 <div class="navbar-start">
-                    <a class="navbar-item" href="/dashbord">
+                    <a class="navbar-item" href="/dashboard">
                         <span class="icon">
                             <i class="fas fa-chart-line"></i>
                         </span>
@@ -58,7 +58,7 @@
                     </p>
                     <ul class="menu-list">
                         <li>
-                            <a class="is-active" href="/dashbord">
+                            <a class="is-active" href="/dashboard">
                                 <span class="icon">
                                     <i class="fas fa-chart-line"></i>
                                 </span>

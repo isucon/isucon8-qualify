@@ -29,7 +29,7 @@ sub cancel_job {
     }
 }
 
-sub get_dashbord {
+sub get_dashboard {
     my ($self, $c) = @_;
     my $team_id = $c->team_id;
     my $model   = $c->model('Team');
@@ -42,7 +42,7 @@ sub get_dashbord {
 
     my ($target_server) = grep { $_->{is_target_host} } @$servers;
 
-    return $c->render('dashbord.tx', {
+    return $c->render('dashboard.tx', {
         team          => $team,
         servers       => $servers,
         target_server => $target_server,

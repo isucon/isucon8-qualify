@@ -14,7 +14,7 @@ get  '/'                => 'Root#get_index';
 get  '/login'           => 'Team#get_login';
 post '/login'           => 'Team#post_login';
 get  '/logout'          => 'Team#get_logout';
-get  '/dashbord'        => 'Team#get_dashbord';
+get  '/dashboard'       => 'Team#get_dashboard';
 post '/api/job/enqueue' => 'API#enqueue_job';
 post '/api/job/cancel'  => 'API#cancel_job';
 
