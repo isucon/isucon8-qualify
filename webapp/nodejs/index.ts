@@ -351,8 +351,8 @@ fastify.get("/api/users/:id", { beforeHandler: loginRequired }, async (request, 
       const event = await getEvent(row.event_id);
       for (const sheetRank of Object.keys(event.sheets)) {
         delete event.sheets[sheetRank].detail;
-        recentEvents.push(event);
       }
+      recentEvents.push(event);
     }
   }
   user.recent_events = recentEvents;
