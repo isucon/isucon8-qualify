@@ -85,7 +85,7 @@
                     </p>
                     <ul class="menu-list">
                         <li>
-                            <a href="/servers">
+                            <a class="<: is_active($page, 'servers') :>" href="/servers">
                                 <span class="icon">
                                     <i class="fas fa-server"></i>
                                 </span>
@@ -93,7 +93,7 @@
                         </a>
                     </li>
                     <li>
-                        <a href="/members">
+                        <a class="<: is_active($page, 'members') :>" href="/members">
                                 <span class="icon">
                                     <i class="far fa-address-card"></i>
                                 </span>
@@ -102,7 +102,7 @@
                 </li>
                     </ul>
                     <p class="menu-label">
-                        Other
+                        Links
                     </p>
                     <ul class="menu-list">
                         <li>

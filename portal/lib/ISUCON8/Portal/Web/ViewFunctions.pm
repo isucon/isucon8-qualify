@@ -24,7 +24,7 @@ sub is_active {
 }
 
 sub unixtime2time {
-    my $unixtime = shift;
+    my $unixtime = shift || return '';
     localtime($unixtime)->strftime("%H:%M:%S")
 }
 

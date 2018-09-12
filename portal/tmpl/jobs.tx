@@ -8,18 +8,8 @@
             <li class="is-active"><a href="#" aria-current="page">Show All Jobs</a></li>
         </ul>
     </nav>
-    <section class="hero welcome is-small <: $score.latest_status == 'fail' ? 'is-danger' : 'is-info' :>">
-        <div class="hero-body">
-            <div class="container">
-                <h1 class="title">
-                    <: $team.name :>
-                </h1>
-                <h2 class="subtitle">
-                    Team Id: <: $team.id :>
-                </h2>
-            </div>
-        </div>
-    </section>
+
+    : include "include/team_header.tx"
 
     <section class="table-list">
         <div class="card events-card">

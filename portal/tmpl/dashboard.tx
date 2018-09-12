@@ -8,47 +8,8 @@
             <li class="is-active"><a href="#" aria-current="page">Dashboard</a></li>
         </ul>
     </nav>
-    <section class="hero welcome is-small <: $score.latest_status == 'fail' ? 'is-danger' : 'is-info' :>">
-        <div class="hero-body">
-            <div class="container">
-                <h1 class="title">
-                    <: $team.name :>
-                </h1>
-                <h2 class="subtitle">
-                    Team Id: <: $team.id :>
-                </h2>
-            </div>
-        </div>
-    </section>
 
-    <section class="info-tiles">
-        <div class="tile is-ancestor has-text-centered">
-            <div class="tile is-parent">
-                <article class="tile is-child box">
-                    <p class="title"><: $score.latest_score | commify :></p>
-                    <p class="subtitle">Latest Score</p>
-                </article>
-            </div>
-            <div class="tile is-parent">
-                <article class="tile is-child box">
-                    <p class="title"><: $score.best_score | commify :></p>
-                    <p class="subtitle">Best Score</p>
-                </article>
-            </div>
-            <div class="tile is-parent">
-                <article class="tile is-child box">
-                    <p class="title"><: $score.latest_status :></p>
-                    <p class="subtitle">Latest Status</p>
-                </article>
-            </div>
-            <div class="tile is-parent">
-                <article class="tile is-child box">
-                    <p class="title"><: $score.updated_at | unixtime2time :></p>
-                    <p class="subtitle">Finish Time</p>
-                </article>
-            </div>
-        </div>
-    </section>
+    : include "include/team_header.tx"
 
     <section class="enqueue-job">
         <article class="message is-warning">

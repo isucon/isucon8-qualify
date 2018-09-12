@@ -76,13 +76,15 @@ sub get_jobs {
     my $team_id = $c->team_id;
     my $model   = $c->model('Team');
 
-    my $team = $model->get_team({ id => $team_id });
-    my $jobs = $model->get_team_jobs({ team_id => $team_id });
+    my $team  = $model->get_team({ id => $team_id });
+    my $score = $model->get_latest_score({ team_id => $team_id });
+    my $jobs  = $model->get_team_jobs({ team_id => $team_id });
 
     return $c->render('jobs.tx', {
-        page => 'jobs',
-        team => $team,
-        jobs => $jobs,
+        page  => 'jobs',
+        team  => $team,
+        score => $score,
+        jobs  => $jobs,
     });
 }
 
@@ -101,23 +103,22 @@ sub get_job_detail {
     my $team_id = $c->team_id;
     my $model   = $c->model('Team');
 
-    my $team = $model->get_team({ id => $team_id });
-    my $job  = $model->get_team_job({
+    my $team  = $model->get_team({ id => $team_id });
+    my $score = $model->get_latest_score({ team_id => $team_id });
+    my $job   = $model->get_team_job({
         team_id => $team_id,
         job_id  => $params->{job_id},
     });
-
-            use Data::Dumper;
-            warn Dumper $job;
 
     unless ($job) {
         return $c->res_404;
     }
 
     return $c->render('job_detail.tx', {
-        page => 'jobs',
-        team => $team,
-        job  => $job,
+        page  => 'jobs',
+        team  => $team,
+        score => $score,
+        job   => $job,
     });
 }
 
