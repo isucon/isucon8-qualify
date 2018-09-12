@@ -9,9 +9,9 @@ import ejs from "ejs";
 import path from "path";
 
 type MySQLResultRows = Array<any> & { insertId: number };
-type MySQLColumnCatalog = Array<any>;
+type MySQLColumnCatalogs = Array<any>;
 
-type MySQLResultSet = [MySQLResultRows, MySQLColumnCatalog];
+type MySQLResultSet = [MySQLResultRows, MySQLColumnCatalogs];
 
 interface MySQLQueryable {
   query(sql: string, params?: ReadonlyArray<any>): Promise<MySQLResultSet>;
