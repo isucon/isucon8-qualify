@@ -23,5 +23,9 @@
   },
   "devDependencies": {
     "ts-node-dev": "^1.0.0-pre.30"
+  },
+  "scripts": {
+    "build": "tsc --build tsconfig.json && cp -f ./build/index.js index.js",
+    "clean": "rm -rf ./build index.js"
   }
 }
