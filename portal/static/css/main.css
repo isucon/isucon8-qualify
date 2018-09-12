@@ -1,5 +1,12 @@
 body {
     font-family: 'Open Sans', arial, serif-sans;
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+}
+
+footer {
+    margin-top: auto;
 }
 
 nav.navbar {
