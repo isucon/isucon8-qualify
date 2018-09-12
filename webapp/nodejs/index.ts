@@ -1,5 +1,5 @@
 import TraceError from "trace-error";
-import createFastify, { FastifyRequest } from "fastify";
+import createFastify, { FastifyRequest, FastifyReply } from "fastify";
 import fastifyMysql from "fastify-mysql";
 import fastifyCookie from "fastify-cookie";
 import fastifyStatic from "fastify-static";
@@ -29,7 +29,7 @@ interface LoginUser {
   nickname: string;
 }
 
-const SECRET = 'tagomoris';
+const SECRET = "tagomoris";
 
 const fastify = createFastify({
   logger: true,
@@ -64,7 +64,7 @@ async function getConnection() {
 }
 
 async function getLoginUser<T>(request: FastifyRequest<T>): Promise<LoginUser | null> {
-  const userId = JSON.parse(request.cookies.user_id || 'null');
+  const userId = JSON.parse(request.cookies.user_id || "null");
   if (!userId) {
     return Promise.resolve(null);
   } else {
@@ -345,8 +345,8 @@ fastify.post("/api/actions/login", async (request, reply) => {
     return resError(reply, "authentication_failed", 401);
   }
 
-  reply.setCookie('user_id', userRow.id, {
-    path: '/',
+  reply.setCookie("user_id", userRow.id, {
+    path: "/",
   });
   request.cookies.user_id = `${userRow.id}`; // for the follong getLoginUser()
   const user = await getLoginUser(request);
@@ -354,8 +354,8 @@ fastify.post("/api/actions/login", async (request, reply) => {
 });
 
 fastify.post("/api/actions/logout", async (_request, reply) => {
-  reply.setCookie('user_id', '', {
-    path: '/',
+  reply.setCookie("user_id", "", {
+    path: "/",
     expires: new Date(0),
   });
   reply.code(204);
@@ -514,7 +514,7 @@ async function fillinAdministrator(request, _reply, done) {
 }
 
 fastify.get("/admin/", { beforeHandler: fillinAdministrator }, async (request, reply) => {
-  let events: ReadonlyArray<any> | null = null;
+  let events: ReadonlyArray<any> = [];
   if (request.administrator) {
     events = await getEvents((_event) => true);
   }
@@ -536,8 +536,8 @@ fastify.post("/admin/api/actions/login", async (request, reply) => {
   if (!administratorRow || passHash !== administratorRow.pass_hash) {
     return resError(reply, "authentication_failed", 401);
   }
-  reply.setCookie('administrator_id', administratorRow.id, {
-    path: '/',
+  reply.setCookie("administrator_id", administratorRow.id, {
+    path: "/",
   });
   const administrator = await getLoginAdministrator(request);
 
@@ -545,30 +545,150 @@ fastify.post("/admin/api/actions/login", async (request, reply) => {
 });
 
 fastify.post("/admin/api/actions/logout", { beforeHandler: adminLoginRequired }, async (request, reply) => {
-  reply.code(500);
+  reply.setCookie("administrator_id", "", {
+    path: "/",
+    expires: new Date(0),
+  });
+  reply.code(204);
 });
 
-fastify.get("/admin/api/events", { beforeHandler: adminLoginRequired }, async (request, reply) => {
-  reply.code(500);
+fastify.get("/admin/api/events", { beforeHandler: adminLoginRequired }, async (_request, reply) => {
+  const events = await getEvents((_) => true);
+  reply.send(events);
+});
+
+fastify.post("/admin/api/events/", { beforeHandler: adminLoginRequired }, async (request, reply) => {
+  const title = request.body.title;
+  const isPublic = request.body.public;
+  const price = request.body.price;
+
+  let eventId: any;
+
+  const conn = await getConnection();
+  await conn.beginTransaction();
+  try {
+    const [result] = await conn.queru("INSERT INTO events (title, public_fg, closed_fg, price) VALUES (?, ?, 0, ?)", [title, isPublic, price]);
+    eventId = result.insertId;
+    await conn.commit();
+  } catch (e) {
+    console.error(e);
+    await conn.rollback();
+  }
+  conn.release();
+
+  const event = await getEvent(eventId);
+  reply.send(event);
 });
 
 fastify.get("/admin/api/events/:id", { beforeHandler: adminLoginRequired }, async (request, reply) => {
-  reply.code(500);
+  const eventId = request.params.id;
+  const event = await eventId(eventId);
+  if (!event) {
+    return resError(reply, "not_found", 404);
+  }
+  reply.send(event);
 });
 
 fastify.post("/admin/api/events/:id/actions/edit", { beforeHandler: adminLoginRequired }, async (request, reply) => {
-  reply.code(500);
+  const eventId = request.params.id;
+  const closed = request.body.closed;
+  const isPublic = closed ? false : !!request.body.public;
+
+  const event = await getEvent(eventId);
+  if (!event) {
+    return resError(reply, "not_found", 404);
+  }
+
+  if (event.closed) {
+    return resError(reply, "cannot_edit_closed_event", 400);
+  } else if (event.public && closed) {
+    return resError(reply, "cannot_edit_closed_event", 400);
+  }
+
+  const conn = await getConnection();
+  await conn.beginTransaction();
+  try {
+    await conn.queru("UPDATE events SET public_fg = ?, closed_fg = ? WHERE id = ?", [isPublic, closed, event.id]);
+    await conn.commit();
+  } catch (e) {
+    console.error(e);
+    await conn.rollback();
+  }
+  conn.release();
+
+  const updatedEvent = getEvent(eventId);
+  reply.send(updatedEvent);
 });
 
-fastify.get("/admin/api/events/:id/sales", { beforeHandler: adminLoginRequired }, async (request, reply) => {
-  reply.code(500);
+fastify.get("/admin/api/reports/events/:id/sales", { beforeHandler: adminLoginRequired }, async (request, reply) => {
+  const eventId = request.params.id;
+  const event = await getEvent(eventId);
+
+  let reports: Array<any> = [];
+
+  const [reservationRows] = await fastify.mysql.query("SELECT r.*, s.rank AS sheet_rank, s.num AS sheet_num, s.price AS sheet_price, e.price AS event_price FROM reservations r INNER JOIN sheets s ON s.id = r.sheet_id INNER JOIN events e ON e.id = r.event_id WHERE r.event_id = ? ORDER BY reserved_at ASC FOR UPDATE", [eventId]);
+  for (const reservationRow of reservationRows) {
+    const report = {
+      reservation_id: reservationRow.id,
+      event_id: event.id,
+      rank: reservationRow.sheet_rank,
+      num: reservationRow.sheet_num,
+      user_id: reservationRow.user_id,
+      sold_at: new Date(reservationRow.reserved_at).toString(),
+      canceled_at: reservationRow.canceled_at ? new Date(reservationRow.canceled_at).toString() : "",
+      price: reservationRow.event_price + reservationRow.sheet_price,
+    };
+
+    reports.push(report);
+  }
+
+  renderReportCsv(reply, reports);
 });
 
-fastify.post("/admin/api/reports/sales", { beforeHandler: adminLoginRequired }, async (request, reply) => {
-  reply.code(500);
+fastify.get("/admin/api/reports/sales", { beforeHandler: adminLoginRequired }, async (request, reply) => {
+
+  let reports: Array<any> = [];
+
+  const [reservationRows] = await fastify.mysql.query('SELECT r.*, s.rank AS sheet_rank, s.num AS sheet_num, s.price AS sheet_price, e.id AS event_id, e.price AS event_price FROM reservations r INNER JOIN sheets s ON s.id = r.sheet_id INNER JOIN events e ON e.id = r.event_id ORDER BY reserved_at ASC FOR UPDATE');
+  for (const reservationRow of reservationRows) {
+    const report = {
+      reservation_id: reservationRow.id,
+      event_id: reservationRow.event_id,
+      rank: reservationRow.sheet_rank,
+      num: reservationRow.sheet_num,
+      user_id: reservationRow.user_id,
+      sold_at: new Date(reservationRow.reserved_at).toString(),
+      canceled_at: reservationRow.canceled_at ? new Date(reservationRow.canceled_at).toString() : "",
+      price: reservationRow.event_price + reservationRow.sheet_price,
+    };
+
+    reports.push(report);
+  }
+
+  renderReportCsv(reply, reports);
 });
 
-async function renderReportCsv(request, reply) {}
+async function renderReportCsv<T>(reply: FastifyReply<T>, reports: ReadonlyArray<any>) {
+  const sortedReports = [...reports].sort((a, b) => {
+    return a.sold_at.localeCompare(b.sold_at);
+  });
+
+  const keys = ["reservation_id", "event_id", "rank num", "price", "user_id", "sold_at", "canceled_at"];
+
+  let body = keys.join(",");
+  body += "\n";
+  for (const report of sortedReports) {
+    body += keys.map((key) => report[key]).join(",");
+    body += "\n";
+  }
+
+  reply
+    .headers({
+      "Content-Type": "text/csv; charset=UTF-8",
+      "Content-Disposition": 'attachment; filename="report.csv"',
+    })
+    .send(body);
+}
 
 function resError(reply, error: string = "unknown", status: number = 500) {
   reply
