@@ -23,6 +23,7 @@ import (
 	"time"
 
 	"github.com/PuerkitoBio/goquery"
+	"github.com/k0kubun/pp"
 	htmldigest "github.com/karupanerura/go-html-digest"
 	"golang.org/x/net/html"
 )
@@ -61,21 +62,6 @@ func checkJsonErrorResponse(errorCode string) func(res *http.Response, body *byt
 }
 
 func checkEventList(state *State, eventsBeforeRequest []*Event, events []JsonEvent, eventsAfterResponse []*Event) error {
-	ok := sort.SliceIsSorted(events, func(i, j int) bool {
-		return events[i].ID < events[j].ID
-	})
-	if !ok {
-		return fatalErrorf("イベントの順番が正しくありません")
-	}
-
-	if len(events) == 0 {
-		log.Println("warn: checkEventList: events is empty")
-		return fatalErrorf("イベントの数が正しくありません")
-	} else if len(events) < len(eventsBeforeRequest) {
-		log.Printf("warn: checkEventList: len(events):%d < len(eventsBeforeRequest):%d\n", len(events), len(eventsBeforeRequest))
-		return fatalErrorf("イベントの数が正しくありません")
-	}
-
 	eventsMap := map[uint]JsonEvent{}
 	for _, e := range events {
 		eventsMap[e.ID] = e
@@ -153,15 +139,20 @@ func checkEventList(state *State, eventsBeforeRequest []*Event, events []JsonEve
 		}
 		for _, sheetKind := range DataSet.SheetKinds {
 			rank := sheetKind.Rank
+
+			eventAfterResponse.reservationMtx.RLock()
+			defer eventAfterResponse.reservationMtx.RUnlock()
+
 			err = checkRemains(
 				e.ID,
 				DataSet.SheetKindMap[rank].Total,
-				*eventBeforeRequest.CancelCompletedRT.getPointer(rank),
-				*eventAfterResponse.ReserveRequestedRT.getPointer(rank),
+				eventBeforeRequest.CancelCompletedRT.Get(rank),
+				eventAfterResponse.ReserveRequestedRT.Get(rank),
 				e.Sheets[rank].Remains,
-				*eventAfterResponse.CancelRequestedRT.getPointer(rank),
-				*eventBeforeRequest.ReserveCompletedRT.getPointer(rank))
+				eventAfterResponse.CancelRequestedRT.Get(rank),
+				eventBeforeRequest.ReserveCompletedRT.Get(rank))
 			if err != nil {
+				log.Printf("warn: eventID=%d remains=%d is not included in count range (%d-%d) \n", e.ID, e.Sheets[rank].Remains, e.Sheets[rank].Total-eventAfterResponse.CancelRequestedRT.Get(rank), e.Sheets[rank].Total-eventBeforeRequest.ReserveCompletedRT.Get(rank))
 				return fatalErrorf("イベント(id:%d)の%s席の残座席数が正しくありません", e.ID, rank)
 			}
 		}
@@ -774,13 +765,34 @@ func CheckTopPage(ctx context.Context, state *State) error {
 					var events []JsonEvent
 					err := json.Unmarshal([]byte(attr.Val), &events)
 					if err != nil {
-						return fatalErrorf("イベント一覧のJsonデコードに失敗 %s %v", attr.Val, err)
+						return fatalErrorf("トップページのイベント一覧のJsonデコードに失敗 %s %v", attr.Val, err)
+					}
+
+					if len(events) == 0 {
+						log.Println("warn: checkEventList: events is empty")
+						return fatalErrorf("トップページのイベントの数が正しくありません")
+					} else if len(events) < len(eventsBeforeRequest) {
+						log.Printf("warn: checkEventList: len(events):%d < len(eventsBeforeRequest):%d\n", len(events), len(eventsBeforeRequest))
+						return fatalErrorf("トップページのイベントの数が正しくありません")
+					}
+
+					ok := sort.SliceIsSorted(events, func(i, j int) bool {
+						return events[i].ID < events[j].ID
+					})
+					if !ok {
+						return fatalErrorf("トップページのイベントの順番が正しくありません")
 					}
 
 					eventsAfterResponse := FilterPublicEvents(state.GetEvents())
 					err = checkEventList(state, eventsBeforeRequest, events, eventsAfterResponse)
 					if err != nil {
-						return err
+						var msg string
+						if ferr, ok := err.(*fatalError); ok {
+							msg = ferr.msg
+						} else {
+							msg = err.Error()
+						}
+						return fatalErrorf("トップページのイベント一覧: %s", msg)
 					}
 
 					found++
@@ -873,13 +885,34 @@ func CheckAdminTopPage(ctx context.Context, state *State) error {
 					var events []JsonEvent
 					err := json.Unmarshal([]byte(attr.Val), &events)
 					if err != nil {
-						return fatalErrorf("イベント一覧のJsonデコードに失敗 %s %v", attr.Val, err)
+						return fatalErrorf("管理画面のイベント一覧のJsonデコードに失敗 %s %v", attr.Val, err)
+					}
+
+					if len(events) == 0 {
+						log.Println("warn: checkEventList: events is empty")
+						return fatalErrorf("管理画面のイベントの数が正しくありません")
+					} else if len(events) < len(eventsBeforeRequest) {
+						log.Printf("warn: checkEventList: len(events):%d < len(eventsBeforeRequest):%d\n", len(events), len(eventsBeforeRequest))
+						return fatalErrorf("管理画面のイベントの数が正しくありません")
+					}
+
+					ok := sort.SliceIsSorted(events, func(i, j int) bool {
+						return events[i].ID < events[j].ID
+					})
+					if !ok {
+						return fatalErrorf("管理画面のイベントの順番が正しくありません")
 					}
 
 					eventsAfterResponse := state.GetEvents()
 					err = checkEventList(state, eventsBeforeRequest, events, eventsAfterResponse)
 					if err != nil {
-						return err
+						var msg string
+						if ferr, ok := err.(*fatalError); ok {
+							msg = ferr.msg
+						} else {
+							msg = err.Error()
+						}
+						return fatalErrorf("管理画面のイベント一覧: %s", msg)
 					}
 
 					found++
@@ -925,22 +958,25 @@ func CheckMyPage(ctx context.Context, state *State) error {
 		return err
 	}
 
-	now := time.Now()
+	// Assume that public events are not modified (closed or private)
+	timeBefore := time.Now().Add(-1 * parameter.AllowableDelay)
+	eventsBeforeRequestOrig := FilterEventsToAllowDelay(state.GetCopiedEvents(), timeBefore)
+
 	err = checker.Play(ctx, &CheckAction{
 		Method:             "GET",
 		Path:               fmt.Sprintf("/api/users/%d", user.ID),
 		ExpectedStatusCode: 200,
 		Description:        "ページが表示されること",
 		CheckFunc: checkJsonFullUserResponse(user, func(fullUser *JsonFullUser) error {
-			timeBefore := now.Add(-1 * parameter.AllowableDelay)
-
 			// check total price range
 			if !(user.Status.NegativeTotalPrice <= fullUser.TotalPrice || fullUser.TotalPrice <= user.Status.PositiveTotalPrice) {
 				log.Printf("warn: miss match user total price expected=%s got=%d userID=%d\n", user.Status.TotalPriceString(), fullUser.TotalPrice, fullUser.ID)
 				return fatalErrorf("予約総額が最新の状態ではありません")
 			}
 
-			// check duplicate
+			// check duplicate and filter expected events
+			var eventsBeforeRequest []*Event
+			var eventsAfterResponse []*Event
 			{
 				seen := map[uint]struct{}{}
 				for _, r := range fullUser.RecentReservations {
@@ -961,6 +997,24 @@ func CheckMyPage(ctx context.Context, state *State) error {
 
 					seen[e.ID] = struct{}{}
 				}
+
+				// filter events
+				for _, e := range eventsBeforeRequestOrig {
+					_, exists := seen[e.ID]
+					if !exists {
+						continue
+					}
+
+					eventsBeforeRequest = append(eventsBeforeRequest, e)
+				}
+				for _, e := range state.GetEvents() {
+					_, exists := seen[e.ID]
+					if !exists {
+						continue
+					}
+
+					eventsAfterResponse = append(eventsAfterResponse, e)
+				}
 			}
 
 			// check first recent reservation id
@@ -971,6 +1025,7 @@ func CheckMyPage(ctx context.Context, state *State) error {
 					if r.ReservationID != id && r.ReservationID != maybeID {
 						log.Printf("warn: miss match user first recent reservation userID=%d\n", fullUser.ID)
 						log.Printf("info: r.ReservationID=%d id=%d maybeID=%d\n", r.ReservationID, id, maybeID)
+						pp.Println(user)
 						return fatalErrorf("最近予約した席が最新の状態ではありません")
 					}
 				}
@@ -1080,22 +1135,37 @@ func CheckMyPage(ctx context.Context, state *State) error {
 			}
 
 			// check event details
-			for _, re := range fullUser.RecentEvents {
-				if e := state.GetEventByID(re.ID); e == nil {
-					return fatalErrorf("最近予約したイベントのイベント情報(id)が正しくありません")
-				} else if re.Title != e.Title {
-					return fatalErrorf("最近予約したイベントのイベント情報(title)が正しくありません")
-				} else if re.Closed != e.ClosedFg {
-					return fatalErrorf("最近予約したイベントのイベント情報(closed)が正しくありません")
-				} else if re.Public != e.PublicFg {
-					return fatalErrorf("最近予約したイベントのイベント情報(public)が正しくありません")
+			if len(fullUser.RecentEvents) >= 0 {
+				events := make([]JsonEvent, len(fullUser.RecentEvents))
+				for i, re := range fullUser.RecentEvents {
+					// check event status
+					if e := state.GetEventByID(re.ID); e == nil {
+						return fatalErrorf("最近予約したイベントのイベント情報(id)が正しくありません")
+					} else if re.Closed != e.ClosedFg {
+						return fatalErrorf("最近予約したイベントのイベント情報(closed)が正しくありません")
+					} else if re.Public != e.PublicFg {
+						return fatalErrorf("最近予約したイベントのイベント情報(public)が正しくありません")
+					}
+
+					events[i] = re.JsonEvent
+				}
+
+				err := checkEventList(state, eventsBeforeRequest, events, eventsAfterResponse)
+				if err != nil {
+					var msg string
+					if ferr, ok := err.(*fatalError); ok {
+						msg = ferr.msg
+					} else {
+						msg = err.Error()
+					}
+					return fatalErrorf("最近予約したイベント一覧(userID=%d): %s", user.ID, msg)
 				}
 			}
 
 			// check order
 			if len(fullUser.RecentEvents) >= 2 {
 				eventOrderMap := map[uint]int{}
-				for i := len(fullUser.RecentReservations) - 1; i != 0; i-- {
+				for i := len(fullUser.RecentReservations) - 1; i >= 0; i-- {
 					r := fullUser.RecentReservations[i]
 					eventOrderMap[r.Event.ID] = i
 				}

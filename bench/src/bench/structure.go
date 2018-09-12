@@ -154,7 +154,7 @@ type Event struct {
 	Price     uint
 	CreatedAt time.Time
 
-	reservationMtx        sync.Mutex
+	reservationMtx        sync.RWMutex
 	ReserveRequestedCount uint
 	ReserveCompletedCount uint
 	CancelRequestedCount  uint
@@ -188,6 +188,10 @@ func (rt *ReservationTickets) getPointer(rank string) *uint {
 	}
 	assert(false)
 	return nil
+}
+
+func (rt *ReservationTickets) Get(rank string) uint {
+	return *rt.getPointer(rank)
 }
 
 type SheetKind struct {
