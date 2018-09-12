@@ -1,4 +1,4 @@
-大体[ISUCON7 予選レギュレーション](http://isucon.net/archives/50927022.html)をコピった感じです。
+[ISUCON8 予選レギュレーション](http://isucon.net/archives/52445389.html) で公開済み
 
 ---
 # ISUCON 8 予選レギュレーション
