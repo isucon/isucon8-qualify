@@ -444,7 +444,7 @@ fastify.post("/api/events/:id/actions/reserve", { beforeHandler: loginRequired }
   }
 
   reply.code(202).send({
-    reservation_id: reservationId,
+    id: reservationId,
     sheet_rank: rank,
     sheet_num: sheetRow.num,
   });
