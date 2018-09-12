@@ -24,7 +24,7 @@
             <div class="message-body">
                 <div class="field has-addons">
                     <div class="control">
-                        <a class="button is-static">Target <: $target_server.private_ip :></a>
+                        <a class="button is-static">Target <: $target_server.global_ip :></a>
                     </div>
                     <div class="control">
                         <button type="submit" class="button is-warning" id="btn-enqueue">Enqueue</button>
@@ -37,7 +37,7 @@
                     </div>
                     <button class="modal-close is-large" aria-label="close"></button>
                   </div>
-                <p>※ベンチマークが始まるまでに1〜2分ほどかかる場合があります。</p>
+                <p>※ベンチマークが開始されるまでに1〜2分ほどかかる場合があります。</p>
             </div>
         </article>
     </section>
@@ -103,6 +103,7 @@
                             <tr>
                                 <th>Rank</th>
                                 <th>Team</th>
+                                <th>Members</th>
                                 <th>LatestScore</th>
                                 <th>BestScore</th>
                                 <th>FinishTime</th>
@@ -113,6 +114,7 @@
                             <tr <: if $row.team_id == $team.id { :>class="is-selected"<: } :>>
                                 <td class="has-text-right"><: $~row.count :></td>
                                 <td><: ellipsis($row.name, 30) :></td>
+                                <td class="has-text-right"><: $row.category_display_name :></td>
                                 <td class="has-text-right"><: $row.latest_score | commify :></td>
                                 <td class="has-text-right"><: $row.best_score   | commify :></td>
                                 <td><: $row.updated_at | unixtime2time :></td>

@@ -169,6 +169,10 @@ sub get_team_scores {
                 },
             );
             $scores = $dbh->selectall_arrayref($stmt, { Slice => {} }, @bind);
+
+            for my $row (@$scores) {
+                $row->{category_display_name} = TEAM_CATEGORY_TO_DISPLAY_NAME_MAP->{ $row->{category} };
+            }
         });
     };
     if (my $e = $@) {
