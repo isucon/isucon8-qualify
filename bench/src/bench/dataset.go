@@ -215,8 +215,10 @@ func prepareReservationsDataSet() {
 				SheetID:    sheet.ID,
 				SheetRank:  sheet.Rank,
 				SheetNum:   sheet.Num,
+				Price:      event.Price + sheet.Price,
 				ReservedAt: int64(Rng.Int63n(maxUnixTimestamp-minUnixTimestamp) + minUnixTimestamp), // TODO(sonots): randomize nsec
 			}
+			reservation.ReserveCompletedAt = time.Unix(int64(reservation.ReservedAt), 0)
 			DataSet.Reservations = append(DataSet.Reservations, reservation)
 		}
 	}
@@ -225,8 +227,19 @@ func prepareReservationsDataSet() {
 	})
 
 	nextID := uint(1)
-	for _, reservation := range DataSet.Reservations {
-		reservation.ID = nextID
+	for _, r := range DataSet.Reservations {
+		r.ID = nextID
+
+		user := DataSet.Users[r.UserID-1]
+		user.Status.PositiveTotalPrice += r.Price
+		user.Status.NegativeTotalPrice += r.Price
+
+		reservedAt := time.Unix(int64(r.ReservedAt), 0)
+		user.Status.LastMaybeReservedEvent.SetIDWithTime(r.EventID, reservedAt)
+		user.Status.LastMaybeReservation.SetIDWithTime(r.ID, reservedAt)
+		user.Status.LastReservedEvent.SetIDWithTime(r.EventID, reservedAt)
+		user.Status.LastReservation.SetIDWithTime(r.ID, reservedAt)
+
 		nextID++
 	}
 }

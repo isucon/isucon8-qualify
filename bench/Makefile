@@ -12,5 +12,6 @@ build:
 race:
 	GOPATH=`pwd`:`pwd`/vendor go install -race ./src/cmd/...
 
-claen:
+clean:
 	rm -f isucon8q-initial-dataset.sql.gz
+	go clean -r -n -x -cache -testcache
