@@ -578,7 +578,7 @@ def get_admin_event_sales(event_id):
 
     for reservation in reservations:
         if reservation['canceled_at']:
-            canceled_at = reservation['canceled_at'].isoformat()
+            canceled_at = reservation['canceled_at'].isoformat()+"Z"
         else: canceled_at = ''
         reports.append({
             "reservation_id": reservation['id'],
@@ -586,7 +586,7 @@ def get_admin_event_sales(event_id):
             "rank":           reservation['sheet_rank'],
             "num":            reservation['sheet_num'],
             "user_id":        reservation['user_id'],
-            "sold_at":        reservation['reserved_at'].isoformat(),
+            "sold_at":        reservation['reserved_at'].isoformat()+"Z",
             "canceled_at":    canceled_at,
             "price":          reservation['event_price'] + reservation['sheet_price'],
         })
@@ -604,7 +604,7 @@ def get_admin_sales():
     reports = []
     for reservation in reservations:
         if reservation['canceled_at']:
-            canceled_at = reservation['canceled_at'].isoformat()
+            canceled_at = reservation['canceled_at'].isoformat()+"Z"
         else: canceled_at = ''
         reports.append({
             "reservation_id": reservation['id'],
@@ -612,7 +612,7 @@ def get_admin_sales():
             "rank":           reservation['sheet_rank'],
             "num":            reservation['sheet_num'],
             "user_id":        reservation['user_id'],
-            "sold_at":        reservation['reserved_at'].isoformat(),
+            "sold_at":        reservation['reserved_at'].isoformat()+"Z",
             "canceled_at":    canceled_at,
             "price":          reservation['event_price'] + reservation['sheet_price'],
         })
