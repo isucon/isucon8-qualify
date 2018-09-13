@@ -389,7 +389,8 @@ def post_reserve(event_id):
     reservation_id = 0
 
     while True:
-        cur = dbh().cursor()
+        conn =  dbh()
+        cur = conn.cursor()
         cur.execute(
             "SELECT * FROM sheets WHERE id NOT IN (SELECT sheet_id FROM reservations WHERE event_id = %s AND canceled_at IS NULL FOR UPDATE) AND `rank` =%s ORDER BY RAND() LIMIT 1",
             [event['id'], rank])
@@ -397,7 +398,6 @@ def post_reserve(event_id):
         if not sheet:
             return res_error("sold_out", 409)
         try:
-            conn = dbh()
             conn.autocommit(False)
             cur = conn.cursor()
             cur.execute(
