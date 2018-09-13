@@ -4,6 +4,7 @@ requires 'JSON::XS', '3.00';
 requires 'Kossy';
 requires 'Plack::Builder';
 requires 'Plack::Session';
+requires 'Starlet';
 requires 'Time::Moment';
 
 on configure => sub {

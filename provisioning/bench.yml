@@ -3,6 +3,7 @@
   roles:
     - common
     - install_go
-    - deploy_torb
-    - prepare_bench_server
+    - deploy_webapp
+    - deploy_bench
     - build_bench
+    - increase_ulimit

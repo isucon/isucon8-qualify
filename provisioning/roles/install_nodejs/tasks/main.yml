@@ -30,3 +30,11 @@
     dest: /home/isucon/.bash_profile
     content: |
       export PATH=/home/isucon/local/node/bin:$PATH
+
+- name: Install npm
+  become: yes
+  become_user: isucon
+  args:
+    chdir: /home/isucon
+  shell: |
+    bash -lc "/home/isucon/local/node/bin/npm install -g npm@6.4.1"

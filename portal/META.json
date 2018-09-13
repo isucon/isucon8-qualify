@@ -1,0 +1,74 @@
+{
+   "abstract" : "ISUCON8::Portal",
+   "author" : [
+      "ISUCON8::Portal authors."
+   ],
+   "dynamic_config" : 0,
+   "generated_by" : "Minilla/v3.1.2, CPAN::Meta::Converter version 2.150010",
+   "license" : [
+      "unknown"
+   ],
+   "meta-spec" : {
+      "url" : "http://search.cpan.org/perldoc?CPAN::Meta::Spec",
+      "version" : 2
+   },
+   "name" : "ISUCON8-Portal",
+   "no_index" : {
+      "directory" : [
+         "t",
+         "xt",
+         "inc",
+         "share",
+         "eg",
+         "examples",
+         "author",
+         "builder"
+      ]
+   },
+   "prereqs" : {
+      "configure" : {
+         "requires" : {
+            "Module::Build" : "0.4005",
+            "Module::CPANfile" : "0.9010"
+         }
+      },
+      "develop" : {
+         "requires" : {
+            "Test::CPAN::Meta" : "0",
+            "Test::MinimumVersion::Fast" : "0.04",
+            "Test::PAUSE::Permissions" : "0.04",
+            "Test::Pod" : "1.41",
+            "Test::Spellunker" : "v0.2.7"
+         }
+      },
+      "runtime" : {
+         "requires" : {
+            "Amon2" : "6.13",
+            "Crypt::CBC" : "0",
+            "Crypt::Rijndael" : "0",
+            "DBD::SQLite" : "1.33",
+            "HTML::FillInForm::Lite" : "1.11",
+            "HTTP::Session2" : "1.03",
+            "JSON" : "2.50",
+            "Module::Functions" : "2",
+            "Plack::Middleware::ReverseProxy" : "0.09",
+            "Router::Boom" : "0.06",
+            "Starlet" : "0.20",
+            "Teng" : "0.18",
+            "Test::WWW::Mechanize::PSGI" : "0",
+            "Text::Xslate" : "2.0009",
+            "Time::Piece" : "1.20",
+            "perl" : "5.010_001"
+         }
+      },
+      "test" : {
+         "requires" : {
+            "Test::More" : "0.98"
+         }
+      }
+   },
+   "release_status" : "unstable",
+   "version" : "0.01",
+   "x_serialization_backend" : "JSON::PP version 2.97001",
+   "x_static_install" : 0
+}

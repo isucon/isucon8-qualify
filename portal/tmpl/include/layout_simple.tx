@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title><: $title || 'ISUCON8 Portal' :></title>
+  <meta http-equiv="Content-Style-Type" content="text/css">
+  <meta http-equiv="Content-Script-Type" content="text/javascript">
+  <link rel="icon" type="image/png" href="<: static_file('/static/img/isucon_icon.png') :>">
+  <link href="<: static_file('/static/css/bulma.min.css') :>" rel="stylesheet" type="text/css">
+  <link href="<: static_file('/static/css/fontawesome.css') :>" rel="stylesheet" type="text/css">
+  <link href="https://fonts.googleapis.com/css?family=Open+Sans:300,400,700" rel="stylesheet">
+  <script src="<: static_file('/static/js/jquery.min.js') :>"></script>
+  <script src="<: static_file('/static/js/xsrf-token.js') :>"></script>
+  <link href="<: static_file('/static/css/main.css') :>" rel="stylesheet" type="text/css" media="screen">
+  <script src="<: static_file('/static/js/main.js') :>"></script>
+</head>
+<body class="is-simple-layout <: $is_admin ? 'is-admin' : '' :>">
+    <section class="hero is-fullheight">
+    <div class="hero-body">
+      <: block content -> { } :>
+    </div>
+  </section>
+</body>
+</html>

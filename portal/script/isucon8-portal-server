@@ -1,0 +1,88 @@
+#!perl
+use strict;
+use warnings;
+use utf8;
+use File::Spec;
+use File::Basename;
+use lib File::Spec->catdir(dirname(__FILE__), '../lib');
+use Plack::Builder;
+use Gazelle;
+
+use ISUCON8::Portal::Web;
+use ISUCON8::Portal;
+use URI::Escape;
+use File::Path ();
+use Plack::Middleware::Static;
+use Plack::Middleware::ReverseProxy;
+use Plack::Middleware::AxsLog;
+use File::RotateLogs;
+
+my $home   = File::Spec->catdir(dirname(__FILE__), '..');
+my $logger = File::RotateLogs->new(
+    logfile      => join('/', $home, 'log', 'access.log.%Y%m%d%H'),
+    linkname     => join('/', $home, 'log', 'access.log'),
+    rotationtime => 60 * 60,
+    maxage       => 60 * 60 * 24 * 7, # 7day
+);
+
+my $app = builder {
+    enable 'Plack::Middleware::Static' => (
+        path => qr{^(?:/static/)},
+        root => File::Spec->catdir(dirname(__FILE__), '..'),
+    );
+    enable 'Plack::Middleware::Static' => (
+        path => qr{^(?:/robots\.txt|/favicon\.ico)$},
+        root => File::Spec->catdir(dirname(__FILE__), '..', 'static'),
+    );
+    enable 'Plack::Middleware::ReverseProxy';
+    enable 'Plack::Middleware::AxsLog' => (
+        ltsv          => 1,
+        response_time => 1,
+        logger        => sub { $logger->print(@_) },
+    );
+
+    ISUCON8::Portal::Web->to_app();
+};
+unless (caller) {
+    my $port        = 5000;
+    my $host        = '127.0.0.1';
+    my $max_workers = 4;
+
+    require Getopt::Long;
+    require Plack::Loader;
+    my $p = Getopt::Long::Parser->new(
+        config => [qw(posix_default no_ignore_case auto_help)]
+    );
+    $p->getoptions(
+        'p|port=i'      => \$port,
+        'host=s'        => \$host,
+        'max-workers=i' => \$max_workers,
+        'version!'      => \my $version,
+        'c|config=s'    => \my $config_file,
+    );
+    if ($version) {
+        print "ISUCON8::Portal: $ISUCON8::Portal::VERSION\n";
+        exit 0;
+    }
+    if ($config_file) {
+        my $config = do $config_file;
+        Carp::croak("$config_file: $@") if $@;
+        Carp::croak("$config_file: $!") unless defined $config;
+        unless ( ref($config) eq 'HASH' ) {
+            Carp::croak("$config_file does not return HashRef.");
+        }
+        no warnings 'redefine';
+        no warnings 'once';
+        *ISUCON8::Portal::load_config = sub { $config }
+    }
+
+    print "ISUCON8::Portal: http://${host}:${port}/\n";
+
+    my $loader = Plack::Loader->load('Starlet',
+        port        => $port,
+        host        => $host,
+        max_workers => $max_workers,
+    );
+    return $loader->run($app);
+}
+return $app;

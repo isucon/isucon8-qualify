@@ -1,22 +1,4 @@
 ---
-- name: deploy torb/bench
-  become: yes
-  become_user: isucon
-  synchronize:
-    src: ../../../../torb/bench
-    dest: /home/isucon/torb/
-    recursive: yes
-
-- name: chown torb/bench
-  become: yes
-  become_user: root
-  file:
-    dest: /home/isucon/torb/bench
-    owner: isucon
-    group: isucon
-    mode: u=rwX,g=rX,o=rX
-    recurse: yes
-
 - name: Build bench
   become: yes
   become_user: isucon

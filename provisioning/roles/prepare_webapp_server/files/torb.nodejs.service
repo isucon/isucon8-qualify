@@ -5,7 +5,7 @@ Description = isucon8 qualifier webapp in nodejs
 WorkingDirectory=/home/isucon/torb/webapp/nodejs
 EnvironmentFile=/home/isucon/torb/webapp/env.sh
 
-ExecStart = /home/isucon/local/node/bin/node /home/isucon/torb/webapp/nodejs
+ExecStart = /home/isucon/local/node/bin/node /home/isucon/torb/webapp/nodejs/node_modules/.bin/ts-node index.ts
 
 Restart   = always
 Type      = simple

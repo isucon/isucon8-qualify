@@ -85,7 +85,7 @@
   args:
     chdir: /home/isucon/torb/webapp/nodejs
   shell: |
-    bash -lc "npm install"
+    bash -lc "/home/isucon/local/node/bin/npm install"
 
 - name: Install for torb.go
   become: yes
