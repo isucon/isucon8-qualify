@@ -1,0 +1,50 @@
+body {
+    font-family: 'Open Sans', arial, serif-sans;
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+}
+
+footer {
+    margin-top: auto;
+}
+
+nav.navbar {
+    margin-bottom: 1rem;
+}
+
+.is-simple-layout {
+    background-color: #F2F6FA;
+    font-family: 'Open Sans', arial, serif;
+    font-size: 14px;
+    font-weight: 300;
+}
+
+section.info-tiles {
+    margin: 1rem 0;
+}
+
+section.table-list {
+    margin: 1rem 0;
+}
+
+.card-header.is-danger {
+    background-color: hsl(348, 100%, 61%);
+}
+.card-header.is-danger .card-header-title {
+    color: #fff;
+}
+
+.card-header.is-dark {
+    background-color: hsl(0, 0%, 21%);
+}
+.card-header.is-dark .card-header-title {
+    color: hsl(0, 0%, 96%);
+}
+
+.card-header.is-info {
+    background-color: hsl(204, 86%, 53%);
+}
+.card-header.is-info .card-header-title {
+    color: #fff;
+}
