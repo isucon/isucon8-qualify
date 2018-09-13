@@ -23,7 +23,6 @@ import (
 	"time"
 
 	"github.com/PuerkitoBio/goquery"
-	"github.com/k0kubun/pp"
 	htmldigest "github.com/karupanerura/go-html-digest"
 	"golang.org/x/net/html"
 )
@@ -1065,7 +1064,7 @@ func CheckMyPage(ctx context.Context, state *State) error {
 			// check total price range
 			if !(user.Status.NegativeTotalPrice <= fullUser.TotalPrice || fullUser.TotalPrice <= user.Status.PositiveTotalPrice) {
 				log.Printf("warn: miss match user total price expected=%s got=%d userID=%d\n", user.Status.TotalPriceString(), fullUser.TotalPrice, fullUser.ID)
-				return fatalErrorf("予約総額が最新の状態ではありません")
+				return fatalErrorf("予約総額が最新の状態ではありません userID=%d", fullUser.ID)
 			}
 
 			// check duplicate and filter expected events
@@ -1076,7 +1075,7 @@ func CheckMyPage(ctx context.Context, state *State) error {
 				for _, r := range fullUser.RecentReservations {
 					_, exists := seen[r.ReservationID]
 					if exists {
-						return fatalErrorf("最近予約した席が重複しています")
+						return fatalErrorf("最近予約した席が重複しています userID=%d", fullUser.ID)
 					}
 
 					seen[r.ReservationID] = struct{}{}
@@ -1086,7 +1085,7 @@ func CheckMyPage(ctx context.Context, state *State) error {
 				for _, e := range fullUser.RecentEvents {
 					_, exists := seen[e.ID]
 					if exists {
-						return fatalErrorf("最近予約したイベントが重複しています")
+						return fatalErrorf("最近予約したイベントが重複しています userID=%d", fullUser.ID)
 					}
 
 					seen[e.ID] = struct{}{}
@@ -1119,8 +1118,7 @@ func CheckMyPage(ctx context.Context, state *State) error {
 					if r.ReservationID != id && r.ReservationID != maybeID {
 						log.Printf("warn: miss match user first recent reservation userID=%d\n", fullUser.ID)
 						log.Printf("info: r.ReservationID=%d id=%d maybeID=%d\n", r.ReservationID, id, maybeID)
-						pp.Println(user)
-						return fatalErrorf("最近予約した席が最新の状態ではありません")
+						return fatalErrorf("最近予約した席が最新の状態ではありません userID=%d", fullUser.ID)
 					}
 				}
 			}
@@ -1130,13 +1128,13 @@ func CheckMyPage(ctx context.Context, state *State) error {
 			for _, r := range fullUser.RecentReservations {
 				// check event details
 				if e := state.GetEventByID(r.Event.ID); e == nil {
-					return fatalErrorf("最近予約した席のイベント情報(id)が正しくありません")
+					return fatalErrorf("最近予約した席のイベント情報(id)が正しくありません userID=%d", fullUser.ID)
 				} else if r.Event.Title != e.Title {
-					return fatalErrorf("最近予約した席のイベント情報(title)が正しくありません")
+					return fatalErrorf("最近予約した席のイベント情報(title)が正しくありません userID=%d", fullUser.ID)
 				} else if r.Event.Closed != e.ClosedFg {
-					return fatalErrorf("最近予約した席のイベント情報(closed)が正しくありません")
+					return fatalErrorf("最近予約した席のイベント情報(closed)が正しくありません userID=%d", fullUser.ID)
 				} else if r.Event.Public != e.PublicFg {
-					return fatalErrorf("最近予約した席のイベント情報(public)が正しくありません")
+					return fatalErrorf("最近予約した席のイベント情報(public)が正しくありません userID=%d", fullUser.ID)
 				}
 
 				// check sheet details
@@ -1148,31 +1146,31 @@ func CheckMyPage(ctx context.Context, state *State) error {
 				}
 				if r.Event.ID != reservation.EventID {
 					log.Printf("info: miss match reservation event id got=%d expected=%d\n", r.Event.ID, reservation.EventID)
-					return fatalErrorf("最近予約した席のイベントが正しくありません")
+					return fatalErrorf("最近予約した席のイベントが正しくありません userID=%d reservationID=%d", fullUser.ID, reservation.ID)
 				}
 				if r.SheetRank != reservation.SheetRank {
 					log.Printf("info: miss match reservation sheet rank got=%d expected=%d\n", r.SheetRank, reservation.SheetRank)
-					return fatalErrorf("最近予約した席のランクが正しくありません")
+					return fatalErrorf("最近予約した席のランクが正しくありません userID=%d reservationID=%d", fullUser.ID, reservation.ID)
 				}
 				if r.SheetNum != reservation.SheetNum {
 					log.Printf("info: miss match reservation sheet num got=%d expected=%d\n", r.SheetNum, reservation.SheetNum)
-					return fatalErrorf("最近予約した席の席番号が正しくありません")
+					return fatalErrorf("最近予約した席の席番号が正しくありません userID=%d reservationID=%d", fullUser.ID, reservation.ID)
 				}
 				if r.Price != reservation.Price {
 					log.Printf("info: miss match reservation price got=%d expected=%d\n", r.Price, reservation.Price)
-					return fatalErrorf("最近予約した席の価格が正しくありません")
+					return fatalErrorf("最近予約した席の価格が正しくありません userID=%d reservationID=%d", fullUser.ID, reservation.ID)
 				}
 
 				// check reserved at
 				if r.ReservedAt == 0 {
-					return fatalErrorf("最近予約した席の予約時刻が正しくありません")
+					return fatalErrorf("最近予約した席の予約時刻が正しくありません userID=%d reservationID=%d", fullUser.ID, reservation.ID)
 				}
 				if reservation.ReserveCompletedAt.IsZero() {
 					log.Printf("warn: invalid reservation object is got=%#v\n", reservation)
 					return nil
 				} else if reservedAt := time.Unix(int64(r.ReservedAt), 0); reservation.ReserveCompletedAt.Before(reservedAt) {
 					log.Printf("warn: reserved at should be (reservationID:%d) %s < %s\n", reservation.ID, reservedAt, reservation.ReserveCompletedAt)
-					return fatalErrorf("最近予約した席の予約時刻が正しくありません")
+					return fatalErrorf("最近予約した席の予約時刻が正しくありません userID=%d reservationID=%d", fullUser.ID, reservation.ID)
 				}
 
 				// check canceled at
@@ -1180,26 +1178,26 @@ func CheckMyPage(ctx context.Context, state *State) error {
 				if canceledAt == 0 {
 					if !reservation.CancelCompletedAt.IsZero() && reservation.CancelCompletedAt.Before(timeBefore) {
 						// should not be canceled
-						log.Printf("warn: miss match reservation cancellation status expected=canceled userID=%d\n", fullUser.ID)
-						return fatalErrorf("最近予約した席のキャンセル状態が正しくありません")
+						log.Printf("warn: miss match reservation cancellation status expected=canceled userID=%d reservationID=%d\n", fullUser.ID, reservation.ID)
+						return fatalErrorf("最近予約した席のキャンセル状態が正しくありません userID=%d reservationID=%d", fullUser.ID, reservation.ID)
 					}
 				} else {
 					if reservation.CancelRequestedAt.IsZero() {
-						log.Printf("warn: miss match reservation cancellation status expected=not-canceled userID=%d\n", fullUser.ID)
-						return fatalErrorf("最近予約した席のキャンセル時刻が正しくありません")
+						log.Printf("warn: miss match reservation cancellation status expected=not-canceled userID=%d reservationID=%d\n", fullUser.ID, reservation.ID)
+						return fatalErrorf("最近予約した席のキャンセル時刻が正しくありません userID=%d reservationID=%d", fullUser.ID, reservation.ID)
 					}
 
 					cancelRequestedAt := reservation.CancelRequestedAt.Unix()
 					if reservation.CancelCompletedAt.IsZero() {
 						if !(cancelRequestedAt <= canceledAt) {
-							log.Printf("warn: miss match reservation cancellation status expected=not-canceled userID=%d\n", fullUser.ID)
-							return fatalErrorf("最近予約した席のキャンセル時刻が正しくありません")
+							log.Printf("warn: miss match reservation cancellation status expected=not-canceled userID=%d reservationID=%d\n", fullUser.ID, reservation.ID)
+							return fatalErrorf("最近予約した席のキャンセル時刻が正しくありません userID=%d reservationID=%d", fullUser.ID, reservation.ID)
 						}
 					} else {
 						cancelCompletedAt := reservation.CancelCompletedAt.Unix()
 						if !(cancelRequestedAt <= canceledAt && canceledAt <= cancelCompletedAt) {
-							log.Printf("warn: miss match reservation cancellation status expected=not-canceled userID=%d\n", fullUser.ID)
-							return fatalErrorf("最近予約した席のキャンセル時刻が正しくありません")
+							log.Printf("warn: miss match reservation cancellation status expected=not-canceled userID=%d reservationID=%d\n", fullUser.ID, reservation.ID)
+							return fatalErrorf("最近予約した席のキャンセル時刻が正しくありません userID=%d reservationID=%d", fullUser.ID, reservation.ID)
 						}
 					}
 				}
@@ -1278,7 +1276,7 @@ func CheckMyPage(ctx context.Context, state *State) error {
 					if lastOrder > order {
 						log.Printf("warn: miss match user recent event order userID=%d (%#v)\n", fullUser.ID, fullUser.RecentEvents)
 						log.Printf("info: order=%d lastOrder=%d\n", order, lastOrder)
-						return fatalErrorf("最近予約したイベントの順番が正しくありません")
+						return fatalErrorf("最近予約したイベントの順番が正しくありません userID=%d", fullUser.ID)
 					}
 					lastOrder = order
 				}
