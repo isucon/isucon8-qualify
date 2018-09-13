@@ -11,5 +11,5 @@
     - install_python
     - install_ruby
     - deploy_webapp
-    - prepare_webapp_server
+    - prepare_webapp
     - initialize_db

@@ -1,0 +1,9 @@
+---
+- name: systemd restart torb.bench
+  become: yes
+  become_user: root
+  systemd:
+    name: torb.bench
+    state: restarted
+    daemon_reload: yes
+    enabled: yes

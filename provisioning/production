@@ -36,5 +36,6 @@ XX.XX.XX.XX
 
 
 [all:vars]
+env_var="production"
 ansible_ssh_port=22
 ansible_ssh_user=isucon-admin
