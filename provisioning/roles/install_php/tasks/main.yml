@@ -58,8 +58,7 @@
 - name: Put torb.php-fpm.conf
   become: yes
   become_user: isucon
-  blockinfile:
-    create: yes
+  copy:
     src: torb.php-fpm.conf
     dest: /home/isucon/local/php/etc/torb.php-fpm.conf
 
