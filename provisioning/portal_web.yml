@@ -1,0 +1,10 @@
+- hosts: portal_web
+  roles:
+    - common
+    - install_h2o
+    - install_mariadb
+    - install_perl
+    - deploy_webapp
+    - deploy_portal
+    - prepare_portal_web
+    - increase_ulimit
