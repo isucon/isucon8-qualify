@@ -28,6 +28,7 @@ class CustomFlask(flask.Flask):
 
 
 app = CustomFlask(__name__, static_folder=str(static_folder), static_url_path='')
+app.config['SECRET_KEY'] = 'tagomoris'
 
 
 if not os.path.exists(str(icons_folder)):
@@ -607,6 +608,4 @@ def get_admin_sales(event_id):
 
 
 if __name__ == "__main__":
-    app.config['SECRET_KEY'] = 'tagomoris'
-
     app.run(port=8080, debug=True, threaded=True)
