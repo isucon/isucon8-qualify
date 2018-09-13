@@ -346,7 +346,7 @@ fastify.get("/api/users/:id", { beforeHandler: loginRequired }, async (request, 
 
   const recentEvents: Array<any> = [];
   {
-    const [rows] = await fastify.mysql.query("SELECT DISTINCT event_id FROM reservations WHERE user_id = ? ORDER BY IFNULL(canceled_at, reserved_at) DESC LIMIT 5", [user.id]);
+    const [rows] = await fastify.mysql.query("SELECT event_id FROM reservations WHERE user_id = ? GROUP BY event_id ORDER BY MAX(IFNULL(canceled_at, reserved_at)) DESC LIMIT 5", [user.id]);
     for (const row of rows) {
       const event = await getEvent(row.event_id);
       for (const sheetRank of Object.keys(event.sheets)) {

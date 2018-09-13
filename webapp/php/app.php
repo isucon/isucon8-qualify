@@ -195,7 +195,7 @@ $app->get('/api/users/{id}', function (Request $request, Response $response, arr
     $recent_events = function (ContainerInterface $app) use ($user) {
         $recent_events = [];
 
-        $rows = $app->dbh->select_all('SELECT DISTINCT event_id FROM reservations WHERE user_id = ? ORDER BY IFNULL(canceled_at, reserved_at) DESC LIMIT 5', $user['id']);
+        $rows = $app->dbh->select_all('SELECT event_id FROM reservations WHERE user_id = ? GROUP BY event_id ORDER BY MAX(IFNULL(canceled_at, reserved_at)) DESC LIMIT 5', $user['id']);
         foreach ($rows as $row) {
             $event = get_event($app->dbh, $row['event_id']);
             foreach (array_keys($event['sheets']) as $rank) {
