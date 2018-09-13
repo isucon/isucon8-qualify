@@ -585,7 +585,7 @@ def get_admin_event_sales(event_id):
 
 @app.route('/admin/api/reports/sales')
 @admin_login_required
-def get_admin_sales(event_id):
+def get_admin_sales():
     cur = dbh().cursor()
     reservations = cur.execute('SELECT r.*, s.rank AS sheet_rank, s.num AS sheet_num, s.price AS sheet_price, e.id AS event_id, e.price AS event_price FROM reservations r INNER JOIN sheets s ON s.id = r.sheet_id INNER JOIN events e ON e.id = r.event_id ORDER BY reserved_at ASC FOR UPDATE')
     reservations = cur.fetchall()
