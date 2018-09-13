@@ -190,7 +190,8 @@ def get_login_administrator():
 def validate_rank(rank):
     cur = dbh().cursor()
     cur.execute("SELECT COUNT(*) AS total_sheets FROM sheets WHERE `rank` = %s", [rank])
-    return cur.fetchone()
+    ret = cur.fetchone()
+    return int(ret['total_sheets']) > 0
 
 
 def render_report_csv(reports):
