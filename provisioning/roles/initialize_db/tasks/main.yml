@@ -1,4 +1,12 @@
 ---
+- name: Restart mariadb
+  become: yes
+  become_user: root
+  systemd:
+    name: mariadb
+    state: restarted
+    daemon_reload: yes
+
 - name: Run db/init.sh
   become: yes
   become_user: isucon
