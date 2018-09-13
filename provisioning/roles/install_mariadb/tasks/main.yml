@@ -39,3 +39,11 @@
     priv: "*.*:ALL"
     host: localhost
     state: present
+
+- name: Stop mariadb
+  become: yes
+  become_user: root
+  systemd:
+    name: mariadb
+    state: stopped
+    daemon_reload: yes
