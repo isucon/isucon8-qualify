@@ -5,4 +5,4 @@
   args:
     chdir: /home/isucon/torb/bench
   shell:
-    bash -lc "gb vendor restore && make"
+    bash -lc "make clean && make deps && make build"

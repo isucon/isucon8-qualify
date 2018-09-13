@@ -42,4 +42,5 @@ XX.XX.XX.XX ansible_ssh_user=isucon-admin
 
 
 [all:vars]
+env_var="development"
 ansible_ssh_port=22
