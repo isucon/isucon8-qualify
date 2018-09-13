@@ -65,7 +65,7 @@ def admin_login_required(f):
     @functools.wraps(f)
     def wrapper(*args, **kwargs):
         if not get_login_administrator():
-            return res_error('login_required', 401)
+            return res_error('admin_login_required', 401)
         return f(*args, **kwargs)
     return wrapper
 
@@ -432,7 +432,7 @@ def delete_reserve(event_id, rank, num):
     cur.execute('SELECT * FROM sheets WHERE `rank` = %s AND num = %s', [rank, num])
     sheet = cur.fetchone()
     if not sheet:
-        return res_error("invalid_event", 404)
+        return res_error("invalid_sheet", 404)
 
     try:
         conn = dbh()
@@ -530,7 +530,8 @@ def post_admin_events_api():
 @admin_login_required
 def get_admin_events_by_id(event_id):
     event = get_event(event_id)
-    if not event: flask.abort(404)
+    if not event:
+        return res_error("not_found", 404)
     return jsonify(event)
 
 
@@ -542,12 +543,13 @@ def post_event_edit(event_id):
     if closed: public = False
 
     event = get_event(event_id)
-    if not event: flask.abort(404)
+    if not event:
+        return res_error("not_found", 404)
 
     if event['closed']:
-        flask.abort(400)
+        return res_error('cannot_edit_closed_event', 400)
     elif event['public'] and closed:
-        flask.abort(400)
+        return res_error('cannot_close_public_event', 400)
 
     conn = dbh()
     conn.autocommit(False)
