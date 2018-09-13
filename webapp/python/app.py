@@ -35,6 +35,10 @@ if not os.path.exists(str(icons_folder)):
     os.makedirs(str(icons_folder))
 
 
+def make_base_url(request):
+    return request.url_root[:-1]
+
+
 @app.template_filter('tojsonsafe')
 def tojsonsafe(target):
     return json.dumps(target).replace("+", "\\u002b").replace("<", "\\u003c").replace(">", "\\u003e")
@@ -90,7 +94,7 @@ def teardown(error):
         flask.g.db.close()
 
 
-def get_events(filter=lambda e:True):
+def get_events(filter=lambda e: True):
     conn = dbh()
     conn.autocommit(False)
     cur = conn.cursor()
@@ -190,7 +194,7 @@ def validate_rank(rank):
 
 
 def render_report_csv(reports):
-    reports = sorted(reports, key=lambda x:x['sold_at'])
+    reports = sorted(reports, key=lambda x: x['sold_at'])
 
     keys = ["reservation_id", "event_id", "rank", "num", "price", "user_id", "sold_at", "canceled_at"]
 
@@ -215,7 +219,7 @@ def get_index():
     events = []
     for event in get_events(lambda e: e["public_fg"]):
         events.append(sanitize_event(event))
-    return flask.render_template('index.html', user=user, events=events)
+    return flask.render_template('index.html', user=user, events=events, base_url=make_base_url(flask.request))
 
 
 @app.route('/initialize')
@@ -460,7 +464,7 @@ def get_admin():
     administrator = get_login_administrator()
     if administrator: events=get_events()
     else: events={}
-    return flask.render_template('admin.html', events=events)
+    return flask.render_template('admin.html', events=events, base_url=make_base_url(flask.request))
 
 
 @app.route('/admin/api/actions/login', methods=['POST'])
