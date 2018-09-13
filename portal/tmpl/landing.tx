@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title><: $title || 'ISUCON8 Portal' :></title>
+  <meta http-equiv="Content-Style-Type" content="text/css">
+  <meta http-equiv="Content-Script-Type" content="text/javascript">
+  <link rel="shortcut icon" href="../images/fav_icon.png" type="image/x-icon">
+  <link href="<: static_file('/static/css/bulma.min.css') :>" rel="stylesheet" type="text/css">
+  <link href="<: static_file('/static/css/fontawesome.css') :>" rel="stylesheet" type="text/css">
+  <link href="https://fonts.googleapis.com/css?family=Open+Sans:300,400,700" rel="stylesheet">
+  <link href="<: static_file('/static/css/main.css') :>" rel="stylesheet" type="text/css" media="screen">
+  <link href="<: static_file('/static/css/landing.css') :>" rel="stylesheet" type="text/css" media="screen">
+  <script src="<: static_file('/static/js/main.js') :>"></script>
+</head>
+
+<body>
+  <section class="hero is-info is-fullheight">
+    <div class="hero-head">
+      <nav class="navbar">
+        <div class="container">
+          <div class="navbar-brand">
+              <a class="navbar-item" href="/">
+                <img src="<: static_file('/static/img/isucon_logo_white@2x.png') :>" width="112" height="28">
+              </a>
+          </div>
+          <div id="navbarMenu" class="navbar-menu">
+            <div class="navbar-end">
+              <span class="navbar-item">
+                <a class="button is-white is-outlined" target="_blank" href="<: $config.url.isucon_site :>">
+                  <span class="icon">
+                    <i class="fa fa-home"></i>
+                  </span>
+                  <span>ISUCON Site</span>
+                </a>
+              </span>
+              <span class="navbar-item">
+                <a class="button is-white is-outlined" target="_blank" href="<: $config.url.regulation :>">
+                  <span class="icon">
+                    <i class="fas fa-clipboard-list"></i>
+                  </span>
+                  <span>Regulation</span>
+                </a>
+              </span>
+              <span class="navbar-item">
+                <a class="button is-white is-outlined" target="_blank" href="<: $config.url.twitter :>">
+                  <span class="icon">
+                    <i class="fab fa-twitter"></i>
+                  </span>
+                  <span>Twitter</span>
+                </a>
+              </span>
+            </div>
+          </div>
+        </div>
+      </nav>
+      </div>
+
+      <div class="hero-body">
+        <div class="container has-text-centered">
+          <div class="column is-6 is-offset-3">
+            <h1 class="title">
+              Coming Soon
+            </h1>
+            <h2 class="subtitle">
+                day1: 2018.09.15 10:00 - 18:00<br>
+                day2: 2018.09.16 10:00 - 18:00
+            </h2>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+</body>
+
+</html>

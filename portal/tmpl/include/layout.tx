@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title><: $title || 'ISUCON8 Portal' :></title>
+  <meta http-equiv="Content-Style-Type" content="text/css">
+  <meta http-equiv="Content-Script-Type" content="text/javascript">
+  <link rel="icon" type="image/png" href="<: static_file('/static/img/isucon_icon.png') :>">
+  <link href="<: static_file('/static/css/bulma.min.css') :>" rel="stylesheet" type="text/css">
+  <link href="<: static_file('/static/css/fontawesome.css') :>" rel="stylesheet" type="text/css">
+  <link href="https://fonts.googleapis.com/css?family=Open+Sans:300,400,700" rel="stylesheet">
+  <script src="<: static_file('/static/js/jquery.min.js') :>"></script>
+  <script src="<: static_file('/static/js/xsrf-token.js') :>"></script>
+  <link href="<: static_file('/static/css/main.css') :>" rel="stylesheet" type="text/css" media="screen">
+  <script src="<: static_file('/static/js/main.js') :>"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.7.2/Chart.bundle.min.js"></script>
+</head>
+<body>
+    <!-- START NAV -->
+    <nav class="navbar is-dark">
+        <div class="container">
+            <div class="navbar-brand">
+                <a class="navbar-item" href="/dashboard">
+                    <img src="<: static_file('/static/img/isucon_logo_white@2x.png') :>" width="112" height="28">
+                </a>
+            </div>
+            <div id="navMenu" class="navbar-menu">
+                <div class="navbar-start">
+                    <a class="navbar-item" href="/dashboard">
+                        <span class="icon">
+                            <i class="fas fa-chart-line"></i>
+                        </span>
+                        <span>Dashboard</span>
+                    </a>
+                </div>
+                <div class="navbar-end">
+                    <a class="navbar-item" href="/logout">
+                        <span class="icon">
+                            <i class="fas fa-sign-out-alt"></i>
+                        </span>
+                        <span>Logout</span>
+                    </a>
+                </div>
+            </div>
+        </div>
+    </nav>
+    <!-- END NAV -->
+
+    <div class="container">
+        <div class="columns">
+            <div class="column is-3">
+                <aside class="menu">
+                    <p class="menu-label">
+                        General
+                    </p>
+                    <ul class="menu-list">
+                        <li>
+                            <a class="<: is_active($page, 'dashboard') :>" href="/dashboard">
+                                <span class="icon">
+                                    <i class="fas fa-chart-line"></i>
+                                </span>
+                                <span>Dashboard</span>
+                            </a>
+                        </li>
+                        <li>
+                            <a class="<: is_active($page, 'jobs') :>" href="/jobs">
+                                <span class="icon">
+                                    <i class="fas fa-list-alt"></i>
+                                </span>
+                                <span>Show All Jobs</span>
+                            </a>
+                        </li>
+                        <li>
+                            <a class="<: is_active($page, 'scores') :>" href="/scores">
+                                <span class="icon">
+                                    <i class="fas fa-chart-area"></i>
+                                </span>
+                                <span>Show All Team Scores</span>
+                            </a>
+                        </li>
+                    </ul>
+                    <p class="menu-label">
+                        Settings
+                    </p>
+                    <ul class="menu-list">
+                        <li>
+                            <a class="<: is_active($page, 'servers') :>" href="/servers">
+                                <span class="icon">
+                                    <i class="fas fa-server"></i>
+                                </span>
+                                <span>Servers</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a class="<: is_active($page, 'members') :>" href="/members">
+                                <span class="icon">
+                                    <i class="far fa-address-card"></i>
+                                </span>
+                                <span>Manage Your Team</span>
+                    </a>
+                </li>
+                    </ul>
+                    <p class="menu-label">
+                        Links
+                    </p>
+                    <ul class="menu-list">
+                        <li>
+                            <a target="_blank" href="<: $config.url.isucon_site :>">
+                                <span class="icon">
+                                    <i class="fa fa-home"></i>
+                                </span>
+                                <span>ISUCON Site</span>
+                            </a>
+                        </li>
+                        <li>
+                            <a target="_blank" href="<: $config.url.regulation :>">
+                                <span class="icon">
+                                    <i class="fas fa-clipboard-list"></i>
+                                </span>
+                                <span>Regulation</span>
+                            </a>
+                        </li>
+                        <li>
+                            <a target="_blank" href="<: $config.url.twitter :>">
+                                <span class="icon">
+                                    <i class="fab fa-twitter"></i>
+                                </span>
+                                <span>Oficial Twitter</span>
+                            </a>
+                        </li>
+                    </ul>
+                </aside>
+            </div>
+            <: block content -> { } :>
+        </div>
+    </div>
+    <footer class="footer">
+        <div class="content has-text-centered">
+            <p>
+                Powered by <a href="https://bulma.io/" target="_blank">Bulma</a> / <a href="https://fontawesome.com/" target="_blank">Font Awesome</a> / <a href="http://amon.64p.org/" target="_blank">Amon2</a>.
+            </p>
+        </div>
+    </footer>
+    <: block script -> {} :>
+</body>
+</html>

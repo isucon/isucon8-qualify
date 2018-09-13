@@ -2,7 +2,10 @@
 - hosts: bench
   roles:
     - common
+    - increase_ulimit
     - install_go
-    - deploy_torb
-    - prepare_bench_server
+    - deploy_webapp
+    - deploy_bench
     - build_bench
+    - prepare_bench
+    - start_bench_worker

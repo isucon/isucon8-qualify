@@ -24,14 +24,14 @@ import (
 
 var (
 	errNoJob   = errors.New("No task")
-	nodeName   = "unknown"
-	pathPrefix = "fC1iWrFEw3mD7NW8KYIu5cC5DzFDGf0a/"
+	hostname   = "unknown"
+	pathPrefix = "bench/"
 )
 
-func updateNodeName() {
+func updateHostname() {
 	name, err := os.Hostname()
 	if err == nil {
-		nodeName = name
+		hostname = name
 	}
 }
 
@@ -45,7 +45,7 @@ func runWorkerMode(tempDir, portalUrl string) {
 		}
 	}
 
-	updateNodeName()
+	updateHostname()
 
 	var baseArgs []string
 	for _, arg := range os.Args {
@@ -66,12 +66,15 @@ func runWorkerMode(tempDir, portalUrl string) {
 	}
 
 	getJob := func() (*Job, error) {
-		u, err := getUrl("/" + pathPrefix + "job/new")
+		u, err := getUrl("/" + pathPrefix + "job")
 		if err != nil {
 			return nil, err
 		}
 
-		res, err := http.PostForm(u.String(), url.Values{"bench_node": {nodeName}})
+		q := u.Query()
+		q.Set("hostname", hostname)
+		u.RawQuery = q.Encode()
+		res, err := http.Get(u.String())
 		if err != nil {
 			return nil, err
 		}
@@ -129,9 +132,9 @@ func runWorkerMode(tempDir, portalUrl string) {
 		}
 
 		q := u.Query()
-		q.Set("jobid", fmt.Sprint(job.ID))
+		q.Set("job_id", fmt.Sprint(job.ID))
 		if aborted {
-			q.Set("aborted", "yes")
+			q.Set("is_aborted", "1")
 		}
 		u.RawQuery = q.Encode()
 
@@ -165,7 +168,7 @@ func runWorkerMode(tempDir, portalUrl string) {
 		var args []string
 		args = append(args, baseArgs...)
 		args = append(args, fmt.Sprintf("-jobid=%d", job.ID))
-		args = append(args, fmt.Sprintf("-remotes=%s", job.IPAddrs))
+		args = append(args, fmt.Sprintf("-remotes=%s", job.TargetIP))
 		args = append(args, fmt.Sprintf("-output=%s", output))
 
 		ctx, cancel := context.WithCancel(context.Background())

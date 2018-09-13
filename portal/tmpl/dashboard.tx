@@ -1,0 +1,270 @@
+: cascade "include/layout.tx"
+
+: override content -> {
+<div class="column is-9">
+    <nav class="breadcrumb" aria-label="breadcrumbs">
+        <ul>
+            <li><a href="/">ISUCON8</a></li>
+            <li class="is-active"><a href="#" aria-current="page">Dashboard</a></li>
+        </ul>
+    </nav>
+
+    : include "include/team_header.tx"
+
+    <section class="enqueue-job">
+        <article class="message is-warning">
+            <div class="message-header">
+                <p>
+                    <span class="icon">
+                        <i class="fas fa-paper-plane"></i>
+                    </span>
+                    <span>Enqueue Job</span>
+                </p>
+            </div>
+            <div class="message-body">
+                <div class="field has-addons">
+                    <div class="control">
+                        <a class="button is-static">Target <: $target_server.global_ip :></a>
+                    </div>
+                    <div class="control">
+                        <button type="submit" class="button is-warning" id="btn-enqueue">Enqueue</button>
+                    </div>
+                </div>
+                <div class="modal" id="enqueue-modal">
+                    <div class="modal-background"></div>
+                    <div class="modal-content">
+                        <div class="notification">...</div>
+                    </div>
+                    <button class="modal-close is-large" aria-label="close"></button>
+                </div>
+                <p>※ベンチマークが開始されるまでに1〜2分ほどかかる場合があります。</p>
+            </div>
+        </article>
+    </section>
+
+    <section class="table-list">
+        <div class="card events-card">
+            <header class="card-header is-dark">
+                <p class="card-header-title">
+                    <span class="icon">
+                        <i class="fas fa-list-alt"></i>
+                    </span>
+                    <span>Recent Jobs</span>
+                </p>
+            </header>
+            <div class="card-table">
+                <div class="content">
+                    <table class="table is-fullwidth is-striped">
+                        <thead>
+                            <tr>
+                                <th>JobId</th>
+                                <th>Score</th>
+                                <th>Status</th>
+                                <th>State</th>
+                                <th>UpdatedAt</th>
+                                <th>Detail</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            : for $recent_jobs -> $row {
+                                <tr>
+                                    <td class="has-text-right"><: $row.id :></td>
+                                    <td class="has-text-right"><: $row.result_score | commify :></td>
+                                    <td><: $row.result_status :></td>
+                                    <td><: $row.state :></td>
+                                    <td><: $row.updated_at | unixtime2time :></td>
+                                    <td><a class="button is-small is-link" href="/jobs/<: $row.id :>">show</a></td>
+                                </tr>
+                            : }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <footer class="card-footer">
+                <a href="/jobs" class="card-footer-item">View All</a>
+            </footer>
+        </div>
+    </section>
+
+    <section class="table-list">
+        <div class="card events-card">
+            <header class="card-header is-danger">
+                <p class="card-header-title">
+                    <span class="icon">
+                        <i class="fas fa-chart-area"></i>
+                    </span>
+                    <span>Top Teams</span>
+                </p>
+            </header>
+            <div class="card-table">
+                <div class="content">
+                    <table class="table is-fullwidth is-striped">
+                        <thead>
+                            <tr>
+                                <th>Rank</th>
+                                <th>Id</th>
+                                <th>Name</th>
+                                <th>Members</th>
+                                <th>LatestScore</th>
+                                <th>BestScore</th>
+                                <th>FinishTime</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            : for $top_teams -> $row {
+                            <tr <: if $row.team_id == $team.id { :>class="is-selected"<: } :>>
+                                <td class="has-text-right"><: $~row.count :></td>
+                                <td class="has-text-right"><: $row.team_id :></td>
+                                <td><: ellipsis($row.name, 30) :></td>
+                                <td class="has-text-right"><: $row.category_display_name :></td>
+                                <td class="has-text-right"><: $row.latest_score | commify :></td>
+                                <td class="has-text-right"><: $row.best_score   | commify :></td>
+                                <td><: $row.updated_at | unixtime2time :></td>
+                            </tr>
+                            : }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <footer class="card-footer">
+                <a href="#" class="card-footer-item">View All</a>
+            </footer>
+        </div>
+    </section>
+    <section>
+        <canvas id="myChart" width="400" height="200"></canvas>
+    </section>
+</div>
+<!-- dummy -->
+<form method="post"></form>
+: }
+
+: override script -> {
+<script>
+"use strict";
+(function() {
+    var modalId = "#enqueue-modal";
+    $(modalId).find(".modal-background, .modal-close").click(function() {
+        $(modalId).removeClass("is-active");
+        $(modalId).find(".notification").text("...");
+    })
+
+    $("#btn-enqueue").click(function(e) {
+        this.disabled = true;
+        var sendData = {
+            'XSRF-TOKEN': $('input[name="XSRF-TOKEN"]').val(),
+        };
+        $.post("/api/job/enqueue", sendData).done(function(data) {
+            console.log(data);
+            if (data.success) {
+                $(modalId).find(".notification").addClass("is-success");
+                $(modalId).find(".notification").text("Enqueue successfully!!");
+            } else {
+                $(modalId).find(".notification").addClass("is-danger");
+                $(modalId).find(".notification").text(data.error);
+            }
+            $(modalId).addClass("is-active");
+        }).fail(function(data) {
+            $(modalId).find(".notification").text("エラーが発生しました！！！！？！！？！");
+            $(modalId).find(".notification").addClass("is-danger");
+            $(modalId).addClass("is-active");
+        });
+    });
+})();
+
+(function() {
+    var labelColors = [
+        [244,67,54],
+        [233,30,99],
+        [156,39,176],
+        [103,58,183],
+        [63,81,181],
+        [33,150,243],
+        [3,169,244],
+        [0,188,212],
+        [0,150,136],
+        [76,175,80],
+        [139,195,74],
+        [205,220,57],
+        [255,235,59],
+        [255,193,7],
+        [255,152,0],
+        [255,87,34],
+        [121,85,72],
+        [158,158,158],
+        [96,125,139],
+
+        [239,83,80],
+        [236,64,122],
+        [171,71,188],
+        [126,87,194],
+        [92,107,192],
+        [66,165,245],
+        [41,182,246],
+        [38,198,218],
+        [38,166,154],
+        [102,187,106],
+        [156,204,101],
+        [212,225,87],
+        [255,238,88],
+        [255,202,40],
+        [255,167,38],
+        [255,112,67],
+        [141,110,99],
+        [189,189,189],
+        [120,144,156],
+
+        [229,115,115],
+        [240,98,146],
+        [186,104,200],
+        [149,117,205],
+        [121,134,203],
+        [100,181,246],
+        [79,195,247],
+        [77,208,225],
+        [77,182,172],
+        [129,199,132],
+        [174,213,129],
+        [220,231,117],
+        [255,241,118],
+        [255,213,79],
+        [255,183,77],
+        [255,138,101],
+        [161,136,127],
+        [224,224,224],
+        [144,164,174],
+    ];
+
+    var ctx = $("#myChart");
+    var myChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: JSON.parse('<: $chart_data.labels | json :>'),
+            datasets: [
+                : for $chart_data.list -> $row {
+                {
+                    label: '<: $row.team.name :>',
+                    data: JSON.parse('<: $row.scores | json :>'),
+                    lineTension: 0,
+                    backgroundColor: 'rgba(' + labelColors[ <: $~row :> % (labelColors.length - 1) ].join(',')  + ',1)',
+                    borderColor: "rgba(" + labelColors[ <: $~row :> % (labelColors.length - 1) ].join(',')  + ',1)',
+                    borderWidth: 2,
+                    fill: false,
+                },
+                : }
+            ],
+        },
+        options: {
+            scales: {
+                yAxes: [{
+                    ticks: {
+                        beginAtZero:true
+                    }
+                }]
+            }
+        }
+    });
+})()
+</script>
+: }
+
