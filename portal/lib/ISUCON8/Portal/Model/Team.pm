@@ -165,7 +165,7 @@ sub get_team_scores {
                         { -desc => 's.latest_score' },
                         { -asc  => 't.id' },
                     ],
-                    $limit ? { limit => $limit } : (),
+                    $limit ? (limit => $limit) : (),
                 },
             );
             $scores = $dbh->selectall_arrayref($stmt, { Slice => {} }, @bind);
