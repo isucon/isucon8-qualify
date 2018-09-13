@@ -1,0 +1,16 @@
+[Unit]
+Description = isucon8 qualifier portal
+
+[Service]
+WorkingDirectory=/home/isucon/torb/portal
+EnvironmentFile=/home/isucon/torb/webapp/env.sh
+
+ExecStart = /home/isucon/local/perl/bin/carton exec plackup -s Gazelle -p 8888 -E production -a script/isucon8-portal-server -R lib
+
+Restart   = always
+Type      = simple
+User      = isucon
+Group     = isucon
+
+[Install]
+WantedBy = multi-user.target
