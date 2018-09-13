@@ -192,11 +192,12 @@ def validate_rank(rank):
 def render_report_csv(reports):
     reports = sorted(reports, key=lambda x:x['sold_at'])
 
+    keys = ["reservation_id", "event_id", "rank", "num", "price", "user_id", "sold_at", "canceled_at"]
+
     body = []
-    body.append([",".join(["reservation_id", "event_id", "rank", "num", "price", "user_id", "sold_at", "canceled_at"]) + "\n"])
+    body.append(keys)
     for report in reports:
-        values_list = list(report.values())
-        body.append([",".join(map(str, values_list)) + "\n"])
+        body.append([report[key] for key in keys])
 
     f = StringIO()
     writer = csv.writer(f)
