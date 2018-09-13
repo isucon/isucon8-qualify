@@ -33,9 +33,17 @@ type JsonAdministrator struct {
 // [{"remains":999,"id":1,"title":"「風邪をひいたなう」しか","sheets":{"S":{"price":8000,"total":50,"remains":49},"A":{"total":150,"price":6000,"remains":150},"C":{"remains":0,"total":0},"c":{"remains":500,"price":3000,"total":500},"B":{"total":300,"price":4000,"remains":300}},"total":1000}];
 
 type JsonSheet struct {
-	Price   uint `json:"price"`
-	Total   uint `json:"total"`
-	Remains uint `json:"remains"`
+	Price   uint              `json:"price"`
+	Total   uint              `json:"total"`
+	Remains uint              `json:"remains"`
+	Details []JsonSheetDetail `json:"detail"`
+}
+
+type JsonSheetDetail struct {
+	Num        uint `json:"num"`
+	Mine       bool `json:"mine"`
+	Reserved   bool `json:"reserved"`
+	ReservedAt uint `json:"reserved_at"`
 }
 
 type JsonEvent struct {
@@ -657,6 +665,15 @@ func (s *State) GetCopiedEvents() (events []*Event) {
 	}
 
 	return
+}
+
+func CopyEvent(src *Event) *Event {
+	if src == nil {
+		return nil
+	}
+
+	dest := *src // copy
+	return &dest
 }
 
 func FilterEventsToAllowDelay(src []*Event, timeBefore time.Time) (filtered []*Event) {
