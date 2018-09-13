@@ -87,16 +87,7 @@ $app->get('/', function (Request $request, Response $response): Response {
 })->add($fillin_user);
 
 $app->get('/initialize', function (Request $request, Response $response): Response {
-    $this->dbh->beginTransaction();
-    $this->dbh->execute('DELETE FROM users WHERE id > 1000');
-    $this->dbh->execute('DELETE FROM reservations WHERE id > 1000');
-    $this->dbh->execute('UPDATE reservations SET canceled_at = NULL');
-    $this->dbh->execute('DELETE FROM events WHERE id > 3');
-    $this->dbh->execute('UPDATE events SET public_fg = 0, closed_fg = 1');
-    $this->dbh->execute('UPDATE events SET public_fg = 1, closed_fg = 0 WHERE id = 1');
-    $this->dbh->execute('UPDATE events SET public_fg = 1, closed_fg = 0 WHERE id = 2');
-    $this->dbh->execute('UPDATE events SET public_fg = 0, closed_fg = 0 WHERE id = 3');
-    $this->dbh->commit();
+    exec('../../db/init.sh');
 
     return $response->withStatus(204);
 });

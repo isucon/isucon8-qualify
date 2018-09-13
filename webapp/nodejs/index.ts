@@ -7,7 +7,11 @@ import fastifyStatic from "fastify-static";
 import pointOfView from "point-of-view";
 import ejs from "ejs";
 import path from "path";
+import child_process from "child_process";
+import util from "util";
 import { IncomingMessage } from "http";
+
+const execFile = util.promisify(child_process.execFile);
 
 type MySQLResultRows = Array<any> & { insertId: number };
 type MySQLColumnCatalogs = Array<any>;
@@ -240,26 +244,7 @@ fastify.get("/", { beforeHandler: fillinUser }, async (request, reply) => {
 });
 
 fastify.get("/initialize", async (_request, reply) => {
-  const conn = await getConnection();
-
-  await conn.beginTransaction();
-  try {
-    await conn.query("DELETE FROM users WHERE id > 1000");
-    await conn.query("DELETE FROM reservations WHERE id > 1000");
-    await conn.query("UPDATE reservations SET canceled_at = NULL");
-    await conn.query("DELETE FROM events WHERE id > 3");
-    await conn.query("UPDATE events SET public_fg = 0, closed_fg = 1");
-    await conn.query("UPDATE events SET public_fg = 1, closed_fg = 0 WHERE id = 1");
-    await conn.query("UPDATE events SET public_fg = 1, closed_fg = 0 WHERE id = 2");
-    await conn.query("UPDATE events SET public_fg = 0, closed_fg = 0 WHERE id = 3");
-
-    await conn.commit();
-  } catch (e) {
-    console.error(new TraceError("Unexpected error", e));
-    await conn.rollback();
-  }
-
-  conn.release();
+  await execFile("../../db/init.sh");
 
   reply.code(204);
 });

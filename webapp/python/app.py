@@ -5,6 +5,7 @@ import os
 import pathlib
 import copy
 import json
+import subprocess
 from io import StringIO
 import csv
 from datetime import datetime, timezone
@@ -225,19 +226,7 @@ def get_index():
 
 @app.route('/initialize')
 def get_initialize():
-    conn = dbh()
-    conn.autocommit(False)
-    cur = conn.cursor()
-    cur.execute("DELETE FROM users WHERE id > 1000")
-    cur.execute("DELETE FROM reservations WHERE id > 1000")
-    cur.execute("UPDATE reservations SET canceled_at = NULL")
-    cur.execute("DELETE FROM events WHERE id > 3")
-    cur.execute("UPDATE events SET public_fg = 0, closed_fg = 1")
-    cur.execute("UPDATE events SET public_fg = 1, closed_fg = 0 WHERE id = 1")
-    cur.execute("UPDATE events SET public_fg = 1, closed_fg = 0 WHERE id = 2")
-    cur.execute("UPDATE events SET public_fg = 0, closed_fg = 0 WHERE id = 3")
-    conn.commit()
-    cur.close()
+    subprocess.call(["../../db/init.sh"])
     return ('', 204)
 
 

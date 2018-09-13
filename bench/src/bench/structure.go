@@ -234,12 +234,17 @@ type Reservation struct {
 	SheetNum   uint
 	Price      uint
 	ReservedAt int64 // Used only in initial reservations. 0 is set for rest because reserve API does not return it
+	CanceledAt int64 // Used only in initial reservations. 0 is set for rest because reserve API does not return it
 
 	// ReserveRequestedAt time.Time
 	ReserveCompletedAt time.Time
-	CancelMtx          trylock.Mutex
+	cancelMtx          trylock.Mutex
 	CancelRequestedAt  time.Time
 	CancelCompletedAt  time.Time
+}
+
+func (r Reservation) CancelMtx() trylock.Mutex {
+	return r.cancelMtx
 }
 
 func (r Reservation) Canceled(timeBefore time.Time) bool {
@@ -591,7 +596,12 @@ func (s *State) pushNewEventLocked(event *Event, createdAt time.Time, caller str
 	newEventSheets := []*EventSheet{}
 	for _, sheetKind := range DataSet.SheetKinds {
 		for i := uint(0); i < sheetKind.Total; i++ {
-			eventSheet := &EventSheet{event.ID, sheetKind.Rank, NonReservedNum, event.Price + sheetKind.Price}
+			eventSheet := &EventSheet{
+				EventID: event.ID,
+				Rank:    sheetKind.Rank,
+				Num:     NonReservedNum,
+				Price:   event.Price + sheetKind.Price,
+			}
 			newEventSheets = append(newEventSheets, eventSheet)
 		}
 	}

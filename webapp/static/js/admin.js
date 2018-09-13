@@ -31,6 +31,19 @@ function showError(err) {
   }, 300);
 }
 
+function showWaitingDialog(msg) {
+  return new Promise((resolve, reject) => {
+    waitingDialog.show(msg || 'Loading...');
+    setTimeout(() => {
+      resolve();
+    }, 300);
+  });
+}
+
+function hideWaitingDialog() {
+  waitingDialog.hide();
+}
+
 const API = (() => {
   const handleJSON = res => {
     return res.json();
@@ -261,11 +274,15 @@ new Vue({
       API.Administrator.login(this.loginName, this.password).then(user => {
         MenuBar.$data.currentAdministrator = user;
         DOM.loginModal.modal('hide');
+        return showWaitingDialog();
+      }).then(() => {
         return API.Event.getAll();
       }).then(events => {
+        hideWaitingDialog();
         EventList.$data.isAdmin = true;
         EventList.$data.events = events;
       }).catch(err => {
+        hideWaitingDialog();
         showError(err);
       });
     },
