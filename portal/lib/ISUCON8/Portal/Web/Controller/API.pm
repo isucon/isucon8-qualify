@@ -40,8 +40,9 @@ sub change_target {
 
     my $team_id = $c->team_id;
     my $model   = $c->model('Team');
+    my $team    = $model->get_team({ id => $team_id });
     my ($is_success, $err) = $model->change_benchmark_target({
-        team_id   => $team_id,
+        group_id  => $team->{group_id},
         global_ip => $params->{global_ip},
     });
 

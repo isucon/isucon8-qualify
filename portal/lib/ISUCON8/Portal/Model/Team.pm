@@ -239,7 +239,7 @@ sub get_team_jobs {
                 },
                 {
                     order_by => { -desc => 'updated_at' },
-                    $limit ? { limit => $limit } : (),
+                    $limit ? (limit => $limit) : (),
                 },
             );
             $jobs = $dbh->selectall_arrayref($stmt, { Slice => {} }, @bind);
@@ -255,6 +255,46 @@ sub get_team_jobs {
     }
 
     return $jobs;
+}
+
+sub change_benchmark_target {
+    my ($self, $params) = @_;
+    my $group_id  = $params->{group_id};
+    my $global_ip = $params->{global_ip};
+
+    my $is_success = 0;
+    my $err        = undef;
+    eval {
+        $self->db->txn(sub {
+            my $dbh = shift;
+            my ($stmt, @bind) = $self->sql->update(
+                'servers',
+                {
+                    is_target_host => \['IF(global_ip = ?, 1, 0)', $global_ip],
+                    updated_at     => \'UNIX_TIMESTAMP()',
+                },
+                {
+                    group_id => $group_id,
+                },
+            );
+            my $rc = $dbh->do($stmt, undef, @bind);
+            unless ($rc > 0) {
+                $err = 'Affected Rows = 0. Really?';
+                return;
+            }
+            $is_success = 1;
+        });
+    };
+    if (my $e = $@) {
+        $e->rethrow if ref $e eq 'ISUCON8::Portal::Exception';
+        ISUCON8::Portal::Exception->throw(
+            code    => ERROR_INTERNAL_ERROR,
+            message => "$e",
+            logger  => sub { $self->log->critf(@_) },
+        );
+    }
+
+    return $is_success, $err;
 }
 
 1;
