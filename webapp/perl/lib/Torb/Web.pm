@@ -168,7 +168,7 @@ get '/api/users/{id}' => [qw/login_required/] => sub {
 
     my @recent_events;
     {
-        my $rows = $self->dbh->select_all('SELECT DISTINCT event_id FROM reservations WHERE user_id = ? ORDER BY IFNULL(canceled_at, reserved_at) DESC LIMIT 5', $user->{id});
+        my $rows = $self->dbh->select_all('SELECT event_id FROM reservations WHERE user_id = ? GROUP BY event_id ORDER BY MAX(IFNULL(canceled_at, reserved_at)) DESC LIMIT 5', $user->{id});
         for my $row (@$rows) {
             my $event = $self->get_event($row->{event_id});
             delete $event->{sheets}->{$_}->{detail} for keys %{ $event->{sheets} };
