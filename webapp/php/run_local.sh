@@ -7,4 +7,4 @@ export DB_PORT=3306
 export DB_USER=isucon
 export DB_PASS=isucon
 
-php -S localhost:8080 run_local.php
+php -d memory_limit=-1 -S localhost:8080 run_local.php

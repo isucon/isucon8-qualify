@@ -62,6 +62,17 @@
     src: torb.php-fpm.conf
     dest: /home/isucon/local/php/etc/torb.php-fpm.conf
 
+- name: Fix php.ini
+  become: yes
+  become_user: isucon
+  ini_file:
+    path: /home/isucon/local/php/etc/php.ini
+    section: PHP
+    option: memory_limit
+    value: -1
+    mode: 0644
+    backup: yes
+
 - name: Check Installed Composer
   become: yes
   become_user: isucon
