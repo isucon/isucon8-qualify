@@ -56,7 +56,7 @@ def login_required(f):
     @functools.wraps(f)
     def wrapper(*args, **kwargs):
         if not get_login_user():
-            res_error('login_required', 401)
+            return res_error('login_required', 401)
         return f(*args, **kwargs)
     return wrapper
 
@@ -65,7 +65,7 @@ def admin_login_required(f):
     @functools.wraps(f)
     def wrapper(*args, **kwargs):
         if not get_login_administrator():
-            res_error('login_required', 401)
+            return res_error('login_required', 401)
         return f(*args, **kwargs)
     return wrapper
 
