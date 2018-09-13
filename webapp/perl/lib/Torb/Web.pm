@@ -9,6 +9,7 @@ use JSON::XS 3.00;
 use DBIx::Sunny;
 use Plack::Session;
 use Time::Moment;
+use File::Spec;
 
 filter login_required => sub {
     my $app = shift;
@@ -75,16 +76,7 @@ get '/' => [qw/fillin_user/] => sub {
 get '/initialize' => sub {
     my ($self, $c) = @_;
 
-    my $txn = $self->dbh->txn_scope();
-    $self->dbh->query('DELETE FROM users WHERE id > 1000');
-    $self->dbh->query('DELETE FROM reservations WHERE id > 1408984');
-    $self->dbh->query('UPDATE reservations SET canceled_at = NULL');
-    $self->dbh->query('DELETE FROM events WHERE id > 113');
-    $self->dbh->query('UPDATE events SET public_fg = 0, closed_fg = 1 WHERE id < 10');
-    $self->dbh->query('UPDATE events SET public_fg = 1, closed_fg = 0 WHERE id IN (10, 11)');
-    $self->dbh->query('UPDATE events SET public_fg = 0, closed_fg = 0 WHERE id IN (12, 13)');
-    $self->dbh->query('UPDATE events SET public_fg = 0, closed_fg = 1 WHERE id > 13');
-    $txn->commit();
+    system+File::Spec->catfile($self->root_dir, '..', '..', 'db', 'init.sh');
 
     return $c->req->new_response(204, [], '');
 };
