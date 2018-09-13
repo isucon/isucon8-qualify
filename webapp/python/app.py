@@ -311,7 +311,7 @@ def get_users(user_id):
     user['total_price'] = int(row['total_price'])
 
     cur.execute(
-        "SELECT DISTINCT event_id FROM reservations WHERE user_id = %s ORDER BY IFNULL(canceled_at, reserved_at) DESC LIMIT 5",
+        "SELECT event_id FROM reservations WHERE user_id = %s GROUP BY event_id ORDER BY MAX(IFNULL(canceled_at, reserved_at)) DESC LIMIT 5",
         [user['id']])
     rows = cur.fetchall()
     recent_events = []
