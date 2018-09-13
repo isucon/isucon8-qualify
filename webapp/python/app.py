@@ -7,6 +7,7 @@ import copy
 import json
 from io import StringIO
 import csv
+from datetime import datetime
 
 
 base_path = pathlib.Path(__file__).resolve().parent.parent
@@ -33,15 +34,24 @@ if not os.path.exists(str(icons_folder)):
     os.makedirs(str(icons_folder))
 
 
+@app.template_filter('tojsonsafe')
+def tojsonsafe(target):
+    return json.dumps(target).replace("+", "\\u002b").replace("<", "\\u003c").replace(">", "\\u003e")
+
+
 def jsonify(target):
-    return json.dumps(target, sort_keys=False, indent=2)
+    return json.dumps(target)
+
+
+def res_error(error="unknown", status=500):
+    return (jsonify({"error": error}), status)
 
 
 def login_required(f):
     @functools.wraps(f)
     def wrapper(*args, **kwargs):
         if not get_login_user():
-            return ('', 401)
+            res_error('login_required', 401)
         return f(*args, **kwargs)
     return wrapper
 
@@ -50,7 +60,7 @@ def admin_login_required(f):
     @functools.wraps(f)
     def wrapper(*args, **kwargs):
         if not get_login_administrator():
-            return ('', 401)
+            res_error('login_required', 401)
         return f(*args, **kwargs)
     return wrapper
 
@@ -90,6 +100,8 @@ def get_events():
         events = []
         for event_id in event_ids:
             event = get_event(event_id)
+            for sheet in event['sheets'].values():
+                del sheet['detail']
             events.append(event)
         conn.commit()
     except MySQLdb.Error as e:
@@ -126,19 +138,19 @@ def get_event(event_id, login_user_id=None):
             if login_user_id and reservation['user_id'] == login_user_id:
                 sheet['mine'] = True
             sheet['reserve'] = True
-            sheet['reserved_at'] = reservation['reserved_at'].strftime('%s')
+            sheet['reserved_at'] = int(reservation['reserved_at'].timestamp())
         else:
             event['remains'] += 1
             event['sheets'][sheet['rank']]['remains'] += 1
 
         event['sheets'][sheet['rank']]['detail'].append(sheet)
 
-        #del sheet['id']
-        #del sheet['price']
-        #del sheet['rank']
+        del sheet['id']
+        del sheet['price']
+        del sheet['rank']
 
-    event['public'] = event['public_fg']
-    event['closed'] = event['closed_fg']
+    event['public'] = True if event['public_fg'] else False
+    event['closed'] = True if event['closed_fg'] else False
     del event['public_fg']
     del event['closed_fg']
     return event
@@ -176,10 +188,6 @@ def validate_rank(rank):
     return cur.fetchone()
 
 
-def body_params():
-    pass
-
-
 def render_report_csv(reports):
     reports = sorted(reports, key=lambda x:x['sold_at'])
 
@@ -202,7 +210,9 @@ def render_report_csv(reports):
 @app.route('/')
 def get_index():
     user = get_login_user()
-    events = jsonify(get_events())  # TODO: sanitzed
+    events = []
+    for event in get_events():
+        events.append(sanitize_event(event))
     return flask.render_template('index.html', user=user, events=events)
 
 
@@ -223,19 +233,19 @@ def get_initialize():
 
 @app.route('/api/users', methods=['POST'])
 def post_users():
-    nickname = flask.request.form['nickname']
-    login_name = flask.request.form['login_name']
-    password = flask.request.form['password']
+    nickname = flask.request.json['nickname']
+    login_name = flask.request.json['login_name']
+    password = flask.request.json['password']
 
     conn = dbh()
     conn.autocommit(False)
     cur = conn.cursor()
     try:
-        cur.execute("DSELECT * FROM users WHERE login_name = %s", [login_name])
+        cur.execute("SELECT * FROM users WHERE login_name = %s", [login_name])
         duplicated = cur.fetchone()
         if duplicated:
             conn.rollback()
-            return ('', 409)
+            return res_error('duplicated', 409)
         cur.execute(
             "INSERT INTO users (login_name, pass_hash, nickname) VALUES (%s, SHA2(%s, 256), %s)",
             [login_name, password, nickname])
@@ -243,8 +253,9 @@ def post_users():
         conn.commit()
     except MySQLdb.Error as e:
         conn.rollback()
-        return ('', 500)
-    return jsonify({id: user_id, nickname: nickname})
+        print(e)
+        return res_error()
+    return jsonify({"id": user_id, "nickname": nickname})
 
 
 @app.route('/api/users/<int:user_id>')
@@ -268,17 +279,17 @@ def get_users(user_id):
         del event['remains']
 
         if row['canceled_at']:
-            canceled_at = row['canceled_at'].strftime('%s')
+            canceled_at = int(row['canceled_at'].timestamp())
         else:
             canceled_at = None
 
         recent_reservations.append({
-            "id": row['id'],
+            "id": int(row['id']),
             "event": event,
             "sheet_rank": row['sheet_rank'],
-            "sheet_num": row['sheet_num'],
-            "price": price,
-            "reserved_at": row['reserved_at'].strftime('%s'),
+            "sheet_num": int(row['sheet_num']),
+            "price": int(price),
+            "reserved_at": int(row['reserved_at'].timestamp()),
             "canceled_at": canceled_at,
         })
 
@@ -298,7 +309,7 @@ def get_users(user_id):
         event = get_event(row['event_id'])
         for sheet in event['sheets'].values():
             del sheet['detail']
-            recent_events.append(event)
+        recent_events.append(event)
     user['recent_events'] = recent_events
 
     return jsonify(user)
@@ -306,24 +317,26 @@ def get_users(user_id):
 
 @app.route('/api/actions/login', methods=['POST'])
 def post_login():
-    login_name = flask.request.form['login_name']
-    password = flask.request.form['password']
+    login_name = flask.request.json['login_name']
+    password = flask.request.json['password']
 
     cur = dbh().cursor()
 
-    cur.execute('SELECT  * FROM users WHERE login_name = %s', [login_name])
+    cur.execute('SELECT * FROM users WHERE login_name = %s', [login_name])
     user = cur.fetchone()
-    cur.execute('SELECT SHA2(?, 256) AS pass_hash', [password])
+    cur.execute('SELECT SHA2(%s, 256) AS pass_hash', [password])
     pass_hash = cur.fetchone()
-    if not user or pass_hash['pass_hash'] != user['pass_hash']: flask.abort(401)
+    if not user or pass_hash['pass_hash'] != user['pass_hash']:
+        return res_error("authentication_failed", 401)
 
     flask.session['user_id'] = user["id"]
     user = get_login_user()
     return flask.jsonify(user)
 
 
-@app.route('/api/actions/logout')
-def get_logout():
+@app.route('/api/actions/logout', methods=['POST'])
+@login_required
+def post_logout():
     flask.session.pop('user_id', None)
     return ('', 204)
 
@@ -332,23 +345,112 @@ def get_logout():
 def get_events_api():
     events = []
     for event in get_events():
-        sanitize_event(event)
+        events.append(sanitize_event(event))
     return jsonify(events)
 
 
 @app.route('/api/events/<int:event_id>')
 def get_events_by_id(event_id):
-    user = get_login_user() or {}
-    event = get_event(event_id, user['id'])
-    if not event or not event["public"]: flask.abort(404)
+    user = get_login_user()
+    if user: event = get_event(event_id, user['id'])
+    else: event = get_event(event_id)
+
+    if not event or not event["public"]:
+        return res_error("not_found", 404)
 
     event = sanitize_event(event)
     return jsonify(event)
 
 
-@app.route('/api/events/:id/actions/reserve', methods=['POST'])
-def post_reserve():
-    pass
+@app.route('/api/events/<int:event_id>/actions/reserve', methods=['POST'])
+@login_required
+def post_reserve(event_id):
+    rank = flask.request.json["sheet_rank"]
+
+    user = get_login_user()
+    event = get_event(event_id, user['id'])
+
+    if not event and event['public']:
+        return res_error("invalid_event", 404)
+    if not validate_rank(rank):
+        return res_error("invalid_rank", 400)
+
+    sheet = None
+    reservation_id = 0
+
+    while True:
+        cur = dbh().cursor()
+        cur.execute(
+            "SELECT * FROM sheets WHERE id NOT IN (SELECT sheet_id FROM reservations WHERE event_id = %s AND canceled_at IS NULL FOR UPDATE) AND `rank` =%s ORDER BY RAND() LIMIT 1",
+            [event['id'], rank])
+        sheet = cur.fetchone()
+        if not sheet:
+            return res_error("sold_out", 409)
+        try:
+            conn = dbh()
+            conn.autocommit(False)
+            cur = conn.cursor()
+            cur.execute(
+                "INSERT INTO reservations (event_id, sheet_id, user_id, reserved_at) VALUES (%s, %s, %s, %s)",
+                [event['id'], sheet['id'], user['id'], datetime.utcnow().strftime("%F %T.%f")])
+            reservation_id = cur.lastrowid
+            conn.commit()
+        except MySQLdb.Error as e:
+            conn.rollback()
+            print(e)
+        break
+
+    content = jsonify({
+        "id": reservation_id,
+        "sheet_rank": rank,
+        "sheet_num": sheet['num']})
+    return flask.Response(content, status=202, mimetype='application/json')
+
+
+@app.route('/api/events/<int:event_id>/sheets/<rank>/<int:num>/reservation', methods=['DELETE'])
+@login_required
+def delete_reserve(event_id, rank, num):
+    user = get_login_user()
+    event = get_event(event_id, user['id'])
+
+    if not event and event['public']:
+        return res_error("invalid_event", 404)
+    if not validate_rank(rank):
+        return res_error("invalid_rank", 404)
+
+    cur = dbh().cursor()
+    cur.execute('SELECT * FROM sheets WHERE `rank` = %s AND num = %s', [rank, num])
+    sheet = cur.fetchone()
+    if not sheet:
+        return res_error("invalid_event", 404)
+
+    try:
+        conn = dbh()
+        conn.autocommit(False)
+        cur = conn.cursor()
+
+        cur.execute(
+            "SELECT * FROM reservations WHERE event_id = %s AND sheet_id = %s AND canceled_at IS NULL GROUP BY event_id HAVING reserved_at = MIN(reserved_at) FOR UPDATE",
+            [event['id'], sheet['id']])
+        reservation = cur.fetchone()
+
+        if not reservation:
+            conn.rollback()
+            return res_error("not_reserved", 400)
+        if reservation['user_id'] != user['id']:
+            conn.rollback()
+            return res_error("not_permitted", 403)
+
+        cur.execute(
+            "UPDATE reservations SET canceled_at = %s WHERE id = %s",
+            [datetime.utcnow().strftime("%F %T.%f"), reservation['id']])
+        conn.commit()
+    except MySQLdb.Error as e:
+        conn.rollback()
+        print(e)
+        return res_error()
+
+    return flask.Response(status=204)
 
 
 @app.route('/admin')
@@ -360,18 +462,18 @@ def get_admin():
 
 @app.route('/admin/api/actions/login', methods=['POST'])
 def post_adin_login():
-    login_name = flask.request.form['login_name']
-    password = flask.request.form['password']
+    login_name = flask.request.json['login_name']
+    password = flask.request.json['password']
 
     cur = dbh().cursor()
 
     cur.execute('SELECT * FROM administrators WHERE login_name = %s', [login_name])
     administrator = cur.fetchone()
-    cur.execute('SELECT SHA2(?, 256) AS pass_hash', [password])
+    cur.execute('SELECT SHA2(%s, 256) AS pass_hash', [password])
     pass_hash = cur.fetchone()
 
-    if not administrator or pass_hash['pass_hash'] !=  administrator['pass_hash']:
-        return ('', 401)
+    if not administrator or pass_hash['pass_hash'] != administrator['pass_hash']:
+        return res_error("authentication_failed", 401)
 
     flask.session['administrator_id'] = administrator['id']
     administrator = get_login_administrator()
@@ -394,9 +496,9 @@ def get_admin_events_api():
 @app.route('/admin/api/events', methods=['POST'])
 @admin_login_required
 def post_admin_events_api():
-    title = flask.request.form['title']
-    public = flask.request.form['public']
-    price = flask.request.form['price']
+    title = flask.request.json['title']
+    public = flask.request.json['public']
+    price = flask.request.json['price']
 
     conn = dbh()
     conn.autocommit(False)
@@ -409,6 +511,7 @@ def post_admin_events_api():
         conn.commit()
     except MySQLdb.Error as e:
         conn.rollback()
+        print(e)
     return jsonify(get_event(event_id))
 
 
@@ -423,8 +526,8 @@ def get_admin_events_by_id(event_id):
 @app.route('/admin/api/events/<int:event_id>actions/edit', methods=['POST'])
 @admin_login_required
 def post_event_edit(event_id):
-    public = flask.request.form['public']
-    closed = flask.request.form['closed']
+    public = flask.request.json['public']
+    closed = flask.request.json['closed']
     if closed: public = False
 
     event = get_event(event_id)
@@ -504,4 +607,6 @@ def get_admin_sales(event_id):
 
 
 if __name__ == "__main__":
-    app.run(port=5000, debug=True, threaded=True)
+    app.config['SECRET_KEY'] = 'tagomoris'
+
+    app.run(port=8080, debug=True, threaded=True)
