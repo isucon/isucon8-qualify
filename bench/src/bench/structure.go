@@ -659,6 +659,11 @@ func (s *State) GetCopiedEvents() (events []*Event) {
 	return
 }
 
+func CopyEvent(src *Event) *Event {
+	dest := *src // copy
+	return &dest
+}
+
 func FilterEventsToAllowDelay(src []*Event, timeBefore time.Time) (filtered []*Event) {
 	filtered = make([]*Event, 0, len(src))
 	for _, e := range src {

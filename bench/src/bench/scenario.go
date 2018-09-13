@@ -448,8 +448,8 @@ func CheckGetEvent(ctx context.Context, state *State) error {
 	state.getRandomPublicSoldOutEventRWMtx.RLock()
 	defer state.getRandomPublicSoldOutEventRWMtx.RUnlock()
 
-	event := state.GetRandomPublicEvent()
-	if event == nil {
+	beforeEvent := CopyEvent(state.GetRandomPublicEvent())
+	if beforeEvent == nil {
 		log.Printf("warn: CheckGetEvent: no public event")
 		return nil
 	}
@@ -476,10 +476,17 @@ func CheckGetEvent(ctx context.Context, state *State) error {
 
 	err := checker.Play(ctx, &CheckAction{
 		Method:             "GET",
-		Path:               fmt.Sprintf("/api/events/%d", event.ID),
+		Path:               fmt.Sprintf("/api/events/%d", beforeEvent.ID),
 		ExpectedStatusCode: 200,
 		Description:        "公開イベントを取得できること",
-		CheckFunc: checkJsonEventResponse(event, func(e *JsonEvent) error {
+		CheckFunc: checkJsonEventResponse(beforeEvent, func(event JsonEvent) error {
+			afterEvent := state.GetEventByID(beforeEvent.ID)
+
+			err := checkEventList(state, []*Event{beforeEvent}, []JsonEvent{event}, []*Event{afterEvent})
+			if err != nil {
+				return err
+			}
+
 			return nil
 		}),
 	})
@@ -1623,7 +1630,7 @@ func checkJsonFullEventResponse(event *Event) func(res *http.Response, body *byt
 	}
 }
 
-func checkJsonEventResponse(event *Event, cb func(e *JsonEvent) error) func(res *http.Response, body *bytes.Buffer) error {
+func checkJsonEventResponse(event *Event, cb func(e JsonEvent) error) func(res *http.Response, body *bytes.Buffer) error {
 	return func(res *http.Response, body *bytes.Buffer) error {
 		bytes := body.Bytes()
 		dec := json.NewDecoder(body)
@@ -1636,7 +1643,7 @@ func checkJsonEventResponse(event *Event, cb func(e *JsonEvent) error) func(res 
 			return fatalErrorf("正しいイベントを取得できません")
 		}
 		if cb != nil {
-			return cb(&jsonEvent)
+			return cb(jsonEvent)
 		}
 		return nil
 	}
