@@ -218,5 +218,4 @@ http://isucon.net/ における予選の結果発表をもって、この保存�
 また、以下のURLにこれまで返答された質問などがまとめられています。
 何かある時には一度ご覧ください。
 
-(TODO:これは去年のままなのであとで直す)
-[https://gist.github.com/941/300fb47c4016d32fa4d6291c1a61364d](https://gist.github.com/941/300fb47c4016d32fa4d6291c1a61364d)
+[ISUCON8faq.md](https://gist.github.com/941/9897ba542465368d941f956fc0be4590)
