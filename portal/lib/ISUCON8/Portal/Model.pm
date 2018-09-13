@@ -8,7 +8,6 @@ use Time::Piece;
 use Tie::IxHash;
 use URI;
 use Encode;
-use Digest::SHA qw(sha1_hex);
 use Digest::MurmurHash3 qw(murmur128_x64);
 use MIME::Base64 qw(encode_base64url decode_base64url);
 use File::Slurp qw(read_file write_file);
@@ -16,9 +15,6 @@ use Data::Recursive::Encode;
 use Capture::Tiny qw(capture);
 use Furl;
 use IO::Socket::SSL qw/SSL_VERIFY_NONE/;
-
-use Crypt::CBC;
-use Crypt::OpenSSL::AES;
 
 use ISUCON8::Portal::Exception;
 use ISUCON8::Portal::Web::ViewFunctions();
