@@ -2,6 +2,7 @@ package ISUCON8::Portal::Web::Controller::Team;
 use strict;
 use warnings;
 use feature 'state';
+use List::Util qw(uniq);
 
 sub get_login {
     my ($self, $c) = @_;
@@ -58,6 +59,9 @@ sub get_dashboard {
     my $top_teams   = $model->get_team_scores({ limit => 10 });
     my $recent_jobs = $model->get_team_jobs({ team_id => $team_id, limit => 10 });
 
+    my $chart_data = $model->get_chart_data({
+        team_ids => [ uniq +(map { $_->{team_id} } @$top_teams), $team_id ],
+    });
     my ($target_server) = grep { $_->{is_target_host} } @$servers;
 
     return $c->render('dashboard.tx', {
@@ -68,6 +72,7 @@ sub get_dashboard {
         score         => $score,
         top_teams     => $top_teams,
         recent_jobs   => $recent_jobs,
+        chart_data    => $chart_data,
     });
 }
 
@@ -141,6 +146,19 @@ sub get_servers {
         score   => $score,
         servers => $servers,
     });
+}
+
+sub get_scores {
+    my ($self, $c) = @_;
+    my $team_id = $c->team_id;
+    my $model   = $c->mode('Team');
+
+    my $team          = $model->get_team({ id => $team_id });
+    my $score         = $model->get_latest_score({ team_id => $team_id });
+    my $scores        = $model->get_team_scores({});
+    my $all_score_map = $model->get_all_score_map();
+
+    return $c->res_404;
 }
 
 1;

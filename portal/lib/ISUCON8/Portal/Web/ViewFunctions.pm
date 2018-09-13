@@ -6,6 +6,7 @@ use parent qw(Exporter);
 use Module::Functions;
 use File::Spec;
 use Time::Piece;
+use JavaScript::Value::Escape;
 
 our @EXPORT = get_public_functions();
 
@@ -32,6 +33,12 @@ sub ellipsis {
     my ($str, $max_length) = @_;
     return $str unless length $str > $max_length;
     return substr($str, 0, $max_length - 3) . '...';
+}
+
+sub json {
+    javascript_value_escape(
+        JSON::XS->new->utf8->encode(@_)
+    );
 }
 
 sub html_line_break  {
