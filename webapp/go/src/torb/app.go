@@ -36,23 +36,28 @@ type Event struct {
 	ClosedFg bool   `json:"closed,omitempty"`
 	Price    int64  `json:"price,omitempty"`
 
-	Total   int               `json:"total"`
-	Remains int               `json:"remains"`
-	Sheets  map[string]*Sheet `json:"sheets,omitempty"`
+	Total   int                `json:"total"`
+	Remains int                `json:"remains"`
+	Sheets  map[string]*Sheets `json:"sheets,omitempty"`
+}
+
+type Sheets struct {
+	Total   int      `json:"total"`
+	Remains int      `json:"remains"`
+	Detail  []*Sheet `json:"detail,omitempty"`
+	Price   int64    `json:"price"`
 }
 
 type Sheet struct {
-	ID    int64  `json:"id,omitempty"`
-	Rank  string `json:"rank,omitempty"`
-	Num   int64  `json:"num,omitempty"`
-	Price int64  `json:"price,omitempty"`
+	ID    int64  `json:"-"`
+	Rank  string `json:"-"`
+	Num   int64  `json:"num"`
+	Price int64  `json:"-"`
 
-	Total      int        `json:"total"`
-	Remains    int        `json:"remains"`
-	Detail     []*Sheet   `json:"detail,omitempty"`
-	Mine       bool       `json:"mine,omitempty"`
-	Reserved   bool       `json:"reserved,omitempty"`
-	ReservedAt *time.Time `json:"reserved_at,omitempty"`
+	Mine           bool       `json:"mine,omitempty"`
+	Reserved       bool       `json:"reserved,omitempty"`
+	ReservedAt     *time.Time `json:"-"`
+	ReservedAtUnix int64      `json:"reserved_at,omitempty"`
 }
 
 type Reservation struct {
@@ -220,11 +225,11 @@ func getEvent(eventID, loginUserID int64) (*Event, error) {
 	if err := db.QueryRow("SELECT * FROM events WHERE id = ?", eventID).Scan(&event.ID, &event.Title, &event.PublicFg, &event.ClosedFg, &event.Price); err != nil {
 		return nil, err
 	}
-	event.Sheets = map[string]*Sheet{
-		"S": &Sheet{},
-		"A": &Sheet{},
-		"B": &Sheet{},
-		"C": &Sheet{},
+	event.Sheets = map[string]*Sheets{
+		"S": &Sheets{},
+		"A": &Sheets{},
+		"B": &Sheets{},
+		"C": &Sheets{},
 	}
 
 	rows, err := db.Query("SELECT * FROM sheets ORDER BY `rank`, num")
@@ -247,7 +252,7 @@ func getEvent(eventID, loginUserID int64) (*Event, error) {
 		if err == nil {
 			sheet.Mine = reservation.UserID == loginUserID
 			sheet.Reserved = true
-			sheet.ReservedAt = reservation.ReservedAt
+			sheet.ReservedAtUnix = reservation.ReservedAt.Unix()
 		} else if err == sql.ErrNoRows {
 			event.Remains++
 			event.Sheets[sheet.Rank].Remains++
@@ -256,10 +261,6 @@ func getEvent(eventID, loginUserID int64) (*Event, error) {
 		}
 
 		event.Sheets[sheet.Rank].Detail = append(event.Sheets[sheet.Rank].Detail, &sheet)
-
-		sheet.ID = 0
-		sheet.Price = 0
-		sheet.Rank = ""
 	}
 
 	return &event, nil
