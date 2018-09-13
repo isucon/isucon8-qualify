@@ -43,6 +43,7 @@ CREATE TABLE IF NOT EXISTS teams (
 CREATE TABLE IF NOT EXISTS servers (
     `group_id` varchar(64) NOT NULL,
     `hostname` varchar(64) NOT NULL,
+    `password` varchar(64) NOT NULL,
     `global_ip` varchar(64) NOT NULL,
     `private_ip` varchar(64) NOT NULL,
     `private_network` varchar(64) NOT NULL,
@@ -51,6 +52,8 @@ CREATE TABLE IF NOT EXISTS servers (
     `node` varchar(64) NOT NULL,
     `is_bench_host` tinyint(1) NOT NULL,
     `is_target_host` tinyint(1) NOT NULL,
+    `created_at` int(10) unsigned NOT NULL,
+    `updated_at` int(10) unsigned NOT NULL,
     PRIMARY KEY (`group_id`, `global_ip`),
     KEY idx_group_id_bench_ip (`group_id`, `bench_ip`),
     KEY idx_node (`node`)
