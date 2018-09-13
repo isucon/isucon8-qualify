@@ -117,9 +117,9 @@ def get_events(filter=lambda e: True):
 
 def get_event(event_id, login_user_id=None):
     cur = dbh().cursor()
-    cur.execute("SELECT * FROM events WHERE id = %s", [str(event_id)])
+    cur.execute("SELECT * FROM events WHERE id = %s", [event_id])
     event = cur.fetchone()
-    # if not event: return event
+    if not event: return None
 
     event["total"] = 0
     event["remains"] = 0
