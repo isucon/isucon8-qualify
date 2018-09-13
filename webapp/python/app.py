@@ -7,7 +7,7 @@ import copy
 import json
 from io import StringIO
 import csv
-from datetime import datetime
+from datetime import datetime, timezone
 
 
 base_path = pathlib.Path(__file__).resolve().parent.parent
@@ -143,7 +143,7 @@ def get_event(event_id, login_user_id=None):
             if login_user_id and reservation['user_id'] == login_user_id:
                 sheet['mine'] = True
             sheet['reserved'] = True
-            sheet['reserved_at'] = int(reservation['reserved_at'].timestamp())
+            sheet['reserved_at'] = int(reservation['reserved_at'].replace(tzinfo=timezone.utc).timestamp())
         else:
             event['remains'] += 1
             event['sheets'][sheet['rank']]['remains'] += 1
@@ -289,7 +289,7 @@ def get_users(user_id):
         del event['remains']
 
         if row['canceled_at']:
-            canceled_at = int(row['canceled_at'].timestamp())
+            canceled_at = int(row['canceled_at'].replace(tzinfo=timezone.utc).timestamp())
         else:
             canceled_at = None
 
@@ -299,7 +299,7 @@ def get_users(user_id):
             "sheet_rank": row['sheet_rank'],
             "sheet_num": int(row['sheet_num']),
             "price": int(price),
-            "reserved_at": int(row['reserved_at'].timestamp()),
+            "reserved_at": int(row['reserved_at'].replace(tzinfo=timezone.utc).timestamp()),
             "canceled_at": canceled_at,
         })
 

@@ -226,7 +226,7 @@ async function validateRank(rank: string): Promise<boolean> {
 }
 
 function parseTimestampToEpoch(timestamp: string) {
-  return Math.floor(new Date(timestamp).getTime() / 1000);
+  return Math.floor(new Date(timestamp+"Z").getTime() / 1000);
 }
 
 fastify.get("/", { beforeHandler: fillinUser }, async (request, reply) => {
