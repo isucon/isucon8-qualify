@@ -249,6 +249,7 @@ func prepareReservationsDataSet() {
 					SheetID:    sheet.ID,
 					SheetRank:  sheet.Rank,
 					SheetNum:   sheet.Num,
+					Price:      event.Price + sheet.Price,
 					ReservedAt: reservedAt,
 					CanceledAt: canceledAt,
 				}
