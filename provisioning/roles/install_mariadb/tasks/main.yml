@@ -20,12 +20,10 @@
     content: |
       [mysqld]
       sql_mode=STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION
-  register: mariadb_my_cnf
 
 - name: Restart mariadb
   become: yes
   become_user: root
-  when: mariadb_my_cnf.changed
   systemd:
     name: mariadb
     state: restarted
