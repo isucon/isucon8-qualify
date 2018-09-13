@@ -4,7 +4,7 @@ requires 'Amon2::Web';
 requires 'Amon2::Web::Dispatcher::RouterBoom';
 requires 'Capture::Tiny';
 requires 'Class::Accessor::Fast';
-requires 'DBD::mysql';
+requires 'DBD::mysql', '<= 4.046';
 requires 'DBIx::Handler';
 requires 'Data::Recursive::Encode';
 requires 'Data::Validator::Recursive';
