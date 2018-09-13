@@ -468,7 +468,7 @@ def get_admin():
     administrator = get_login_administrator()
     if administrator: events=get_events()
     else: events={}
-    return flask.render_template('admin.html', events=events, base_url=make_base_url(flask.request))
+    return flask.render_template('admin.html', administrator=administrator, events=events, base_url=make_base_url(flask.request))
 
 
 @app.route('/admin/api/actions/login', methods=['POST'])
