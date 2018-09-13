@@ -491,7 +491,7 @@ def post_adin_login():
     return jsonify(administrator)
 
 
-@app.route('/admin/api/actions/logout')
+@app.route('/admin/api/actions/logout', methods=['POST'])
 @admin_login_required
 def get_admin_logout():
     flask.session.pop('administrator_id', None)
