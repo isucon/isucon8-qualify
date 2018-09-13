@@ -2,6 +2,12 @@
 	"version": 0,
 	"dependencies": [
 		{
+			"importpath": "github.com/LK4D4/trylock",
+			"repository": "https://github.com/LK4D4/trylock",
+			"revision": "5d1441de670510a33233d8746b2d32f00355fa8b",
+			"branch": "master"
+		},
+		{
 			"importpath": "github.com/PuerkitoBio/goquery",
 			"repository": "https://github.com/PuerkitoBio/goquery",
 			"revision": "ce645ea5e67a713599b7415f21f0786451fa9554",
@@ -14,9 +20,33 @@
 			"branch": "master"
 		},
 		{
+			"importpath": "github.com/comail/colog",
+			"repository": "https://github.com/comail/colog",
+			"revision": "fba8e7b1f46c3607f09760ce3880066e7ff57c5a",
+			"branch": "master"
+		},
+		{
+			"importpath": "github.com/k0kubun/pp",
+			"repository": "https://github.com/k0kubun/pp",
+			"revision": "e057ee7a28277be4d2af303443b6da377768181f",
+			"branch": "master"
+		},
+		{
 			"importpath": "github.com/marcw/cachecontrol",
 			"repository": "https://github.com/marcw/cachecontrol",
 			"revision": "30341fe9a7d531c7bc6414af55ceb59b9e61499a",
+			"branch": "master"
+		},
+		{
+			"importpath": "github.com/mattn/go-colorable",
+			"repository": "https://github.com/mattn/go-colorable",
+			"revision": "efa589957cd060542a26d2dd7832fd6a6c6c3ade",
+			"branch": "master"
+		},
+		{
+			"importpath": "github.com/mattn/go-isatty",
+			"repository": "https://github.com/mattn/go-isatty",
+			"revision": "6ca4dbf54d38eea1a992b3c722a76a5d1c4cb25c",
 			"branch": "master"
 		},
 		{
@@ -25,18 +55,6 @@
 			"revision": "1c05540f6879653db88113bc4a2b70aec4bd491f",
 			"branch": "master",
 			"path": "/html"
-		},
-		{
-			"importpath": "github.com/comail/colog",
-			"repository": "https://github.com/comail/colog",
-			"revision": "fba8e7b1f46c3607f09760ce3880066e7ff57c5a",
-			"branch": "master"
-		},
-		{
-			"importpath": "github.com/LK4D4/trylock",
-			"repository": "https://github.com/LK4D4/trylock",
-			"revision": "5d1441de670510a33233d8746b2d32f00355fa8b",
-			"branch": "master"
 		}
 	]
 }
