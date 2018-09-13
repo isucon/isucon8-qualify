@@ -9,7 +9,6 @@
    <link rel="shortcut icon" href="/favicon.ico" type="image/vnd.microsoft.icon" />
    <link rel="stylesheet" href="/css/bootstrap.min.css">
    <link rel="stylesheet" href="/css/layout.css">
-
  </head>
 
  <body>
@@ -21,7 +20,7 @@
          <nav class="my-2 my-md-0 mr-md-3">
            <a class="p-2 text-dark" href="#" v-on:click.stop.prevent="signIn" v-if="!currentUser">サインイン</a>
            <a class="p-2 text-dark" href="#" v-on:click.stop.prevent="signUp" v-if="!currentUser">サインアップ</a>
-           <a class="p-2 text-dark" href="#" v-on:click.stop.prevent="showMyPage" v-if="currentUser">マイページ: </a>
+           <a class="p-2 text-dark" href="#" v-on:click.stop.prevent="showMyPage" v-if="currentUser">マイページ: {{ currentUser.nickname }}</a>
            <a class="p-2 text-dark" href="#" v-on:click.stop.prevent="signOut" v-if="currentUser">サインアウト</a>
          </nav>
        </div>
@@ -29,7 +28,7 @@
        <div class="events">
          <h3>開催中のイベント</h3>
          <div class="list-group">
-           <a href="#" v-for="event in events" v-on:click.stop.prevent="" class="list-group-item" >
+           <a href="#" v-for="event in events" v-on:click.stop.prevent="open(event.id)" class="list-group-item" >
              <div class="d-flex w-100 justify-content-between">
                <h5 class="mb-1">{{ event.title }}</h5>
                <small class="text-muted">{{event.remains}} / {{event.total}}</small>
@@ -126,17 +125,17 @@
            <div class="modal-dialog modal-lg event-modal-dialog" role="document">
              <div class="modal-content">
                <div class="modal-header">
-                 <h5 class="modal-title"> event.title </h5>
+                 <h5 class="modal-title"> {{event.title}} </h5>
                  <button type="button" class="close" data-dismiss="modal" aria-label="Cancel">
                    <span aria-hidden="true">&times;</span>
                  </button>
                </div>
                <div class="modal-body">
                  <div class="d-flex w-100">
-                   <small class="text-muted"> event.remains  /  event.total </small>
+                   <small class="text-muted"> {{event.remains}}  /  {{event.total}} </small>
                  </div>
                  <div class="d-flex w-100" v-for="rank in ranks">
-                   <span class="rank"> rank </span>
+                   <span class="rank"> {{rank}} </span>
                    <div class="progress remaining-sheets-bar">
                      <div class="progress-bar" role="progressbar" v-bind:aria-valuenow="event.sheets[rank].remains" aria-valuemin="0" v-bind:aria-valuemax="event.sheets[rank].total" v-bind:style="{ width: 100 * (event.sheets[rank].remains/event.sheets[rank].total) + '%' }"> event.sheets[rank].remains </div>
                    </div>
@@ -145,14 +144,14 @@
                    <table class="table" v-for="rank in ranks">
                      <thead>
                        <tr>
-                         <th colspan="25"> rank </td>
+                         <th colspan="25"> {{rank}}</td>
                        </tr>
                      </thead>
                      <tbody>
                        <tr v-for="n in divRange(event.sheets[rank].total, 25)">
                          <td v-for="i in 25" v-bind:class="{ 'table-dark': event.sheets[rank].detail[(n-1)*25+(i-1)].reserved }">
                            <span v-bind:class="{ 'mine': event.sheets[rank].detail[(n-1)*25+(i-1)].mine }" v-on:click.stop.prevent="freeSheet(rank, event.sheets[rank].detail[(n-1)*25+(i-1)].num)">
-                              event.sheets[rank].detail[(n-1)*25+(i-1)].num
+                             {{ event.sheets[rank].detail[(n-1)*25+(i-1)].num }}
                            </span>
                          </td>
                        </tr>
@@ -162,7 +161,7 @@
                </div>
                <div class="modal-footer">
                  <div class="btn-group" role="group" aria-label="Reserve sheet">
-                   <button type="buttom" class="btn btn-primary" v-for="rank in ranks" v-bind:disabled="isSoldOut(rank)" v-on:click.stop.prevent="reserveSheet(rank)"> rank 席  event.sheets[rank].price 円</button>
+                   <button type="buttom" class="btn btn-primary" v-for="rank in ranks" v-bind:disabled="isSoldOut(rank)" v-on:click.stop.prevent="reserveSheet(rank)">{{ rank }}席 {{ event.sheets[rank].price }}円</button>
                  </div>
                  <button type="button" class="btn btn-secondary" data-dismiss="modal">閉じる</button>
                </div>
@@ -174,7 +173,7 @@
            <div class="modal-dialog modal-lg my-page-modal-dialog" role="document">
              <div class="modal-content">
                <div class="modal-header">
-                 <h5 class="modal-title">マイページ:  user.nickname </h5>
+                 <h5 class="modal-title">マイページ: {{ user.nickname }}</h5>
                  <button type="button" class="close" data-dismiss="modal" aria-label="Cancel">
                    <span aria-hidden="true">&times;</span>
                  </button>
@@ -182,7 +181,7 @@
                <div class="modal-body">
                  <div class="row">
                    <dt class="col-sm-2">予約総額</dt>
-                   <dd class="col-sm-10"> user.total_price 円</dd>
+                   <dd class="col-sm-10">{{ user.total_price }}円</dd>
                  </div>
                  <div class="row">
                    <div class="col">
@@ -190,10 +189,10 @@
                      <div class="list-group">
                        <a href="#" v-for="event in user.recent_events" v-on:click.stop.prevent="openEvent(event)" class="list-group-item" >
                          <div>
-                           <h5 class="mb-1"> event.title </h5>
-                           <small class="text-muted"> event.remains  /  event.total  (<span v-text="event.closed ? '終了' : event.public ? '公開中' : '非公開'"></span>）</small>
+                           <h5 class="mb-1">{{ event.title }}</h5>
+                           <small class="text-muted">{{ event.remains }} / {{ event.total }} (<span v-text="event.closed ? '終了' : event.public ? '公開中' : '非公開'"></span>）</small>
                          </div>
-                         <span class="badge badge-dark" v-for="rank in ranks"> rank  <small> event.sheets[rank].price 円</small></span>
+                         <span class="badge badge-dark" v-for="rank in ranks">{{ rank }} <small>{{ event.sheets[rank].price }}円</small></span>
                        </a>
                        <div class="d-flex w-100 justify-content-between" v-if="user.recent_events.length === 0">
                          まだ予約済のイベントはありません
@@ -205,10 +204,10 @@
                      <div class="list-group">
                        <a href="#" v-for="reservation in user.recent_reservations" v-on:click.stop.prevent="openEvent(reservation.event)" class="list-group-item" >
                          <div>
-                           <h5 class="mb-1"> reservation.event.title </h5>
+                           <h5 class="mb-1">{{ reservation.event.title }}</h5>
                            <small class="text-muted"><span v-text="reservation.event.closed ? '終了' : reservation.event.public ? '公開中' : '非公開'"></span></small>
                          </div>
-                         <small class="text-muted"> formatDateTime(reservation.reserved_at) :  reservation.sheet_rank - reservation.sheet_num <span v-if="reservation.canceled_at"><br />(キャンセル済:  formatDateTime(reservation.canceled_at) ）</span></small>
+                         <small class="text-muted">{{ formatDateTime(reservation.reserved_at) }}: {{ reservation.sheet_rank }}-{{ reservation.sheet_num }}<span v-if="reservation.canceled_at"><br />(キャンセル済: {{ formatDateTime(reservation.canceled_at) }}）</span></small>
                        </a>
                        <div class="d-flex w-100 justify-content-between" v-if="user.recent_reservations.length === 0">
                          まだ予約済の席はありません
