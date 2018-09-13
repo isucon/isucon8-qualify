@@ -10,7 +10,7 @@
     - install_php
     - install_python
     - install_ruby
-    - deploy_torb
+    - deploy_webapp
     - prepare_webapp_server
     - initialize_db
     - start_perl_webapp

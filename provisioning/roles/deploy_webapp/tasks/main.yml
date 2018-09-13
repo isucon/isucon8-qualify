@@ -6,7 +6,7 @@
     path=/home/isucon/torb
     state=directory
 
-- name: deploy torb (without bench)
+- name: deploy torb webapp
   become: yes
   become_user: isucon
   synchronize:
@@ -20,15 +20,19 @@
       - "--exclude=README.md"
       - "--exclude=admin"
       - "--exclude=bench"
+      - "--exclude=portal"
       - "--exclude=provisioning"
       - "--exclude=bench/vendor/src"
       - "--exclude=webapp/*/run_local.sh"
+      - "--exclude=webapp/nodejs/node_modules"
       - "--exclude=webapp/go/vendor/src"
       - "--exclude=webapp/go/torb"
       - "--exclude=webapp/perl/local"
       - "--exclude=webapp/perl/t"
       - "--exclude=webapp/php/run_local.php"
       - "--exclude=webapp/php/vendor"
+      - "--exclude=webapp/python/__pycache__"
+      - "--exclude=webapp/python/venv"
       - "--exclude=webapp/ruby/.bundle"
 
 - name: chown torb
