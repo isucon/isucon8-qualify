@@ -470,6 +470,9 @@ func CheckGetEvent(ctx context.Context, state *State) error {
 		beforeEvent = CopyEvent(state.GetRandomPublicEvent())
 	} else {
 		beforeEvent = CopyEvent(state.GetEventByID(reservation.EventID))
+		if !beforeEvent.PublicFg {
+			beforeEvent = nil
+		}
 	}
 	if beforeEvent == nil {
 		return nil

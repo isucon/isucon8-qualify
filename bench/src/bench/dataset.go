@@ -253,6 +253,10 @@ func prepareReservationsDataSet() {
 					ReservedAt: reservedAt,
 					CanceledAt: canceledAt,
 				}
+				event.ReserveRequestedCount++
+				event.ReserveCompletedCount++
+				event.CancelRequestedCount++
+				event.CancelCompletedCount++
 				DataSet.Reservations = append(DataSet.Reservations, reservation)
 
 				if reservedAt == minUnixTimestamp {
