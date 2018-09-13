@@ -39,7 +39,7 @@ sub enqueue_job {
 
             ($stmt, @bind) = $self->sql->select(
                 { teams => 't' },
-                ['s.*'],
+                [\'s.*'],
                 {},
                 {
                     join => {

@@ -8,3 +8,4 @@
     - deploy_webapp
     - deploy_portal
     - prepare_portal_web
+    - start_portal_web

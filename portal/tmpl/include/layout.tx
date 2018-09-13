@@ -15,6 +15,7 @@
   <script src="<: static_file('/static/js/xsrf-token.js') :>"></script>
   <link href="<: static_file('/static/css/main.css') :>" rel="stylesheet" type="text/css" media="screen">
   <script src="<: static_file('/static/js/main.js') :>"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.7.2/Chart.bundle.min.js"></script>
 </head>
 <body>
     <!-- START NAV -->
@@ -89,7 +90,7 @@
                                 <span class="icon">
                                     <i class="fas fa-server"></i>
                                 </span>
-                                <span>Benchmarker Settings</span>
+                                <span>Servers</span>
                         </a>
                     </li>
                     <li>

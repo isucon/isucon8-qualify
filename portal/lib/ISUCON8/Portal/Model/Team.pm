@@ -8,6 +8,8 @@ use parent 'ISUCON8::Portal::Model';
 use ISUCON8::Portal::Exception;
 use ISUCON8::Portal::Constants::Common;
 use Encode qw(encode_utf8);
+use Time::Piece;
+use List::Util qw(uniq);
 
 use Mouse;
 
@@ -63,6 +65,9 @@ sub get_team {
                 },
             );
             $team = $dbh->selectrow_hashref($stmt, undef, @bind);
+            return unless $team;
+
+            $team->{category_display_name} = TEAM_CATEGORY_TO_DISPLAY_NAME_MAP->{ $team->{category} };
         });
     };
     if (my $e = $@) {
@@ -75,6 +80,39 @@ sub get_team {
     }
 
     return $team;
+}
+
+sub get_teams {
+    my ($self, $params) = @_;
+    my $ids = $params->{ids};
+
+    my $teams = [];
+    eval {
+        $self->db->run(sub {
+            my $dbh = shift;
+            my ($stmt, @bind) = $self->sql->select(
+                'teams',
+                ['*'],
+                {
+                    @$ids ? (id => $ids) : (),
+                },
+            );
+            $teams = $dbh->selectall_arrayref($stmt, { Slice => {} }, @bind);
+            for my $row (@$teams) {
+                $row->{category_display_name} = TEAM_CATEGORY_TO_DISPLAY_NAME_MAP->{ $row->{category} };
+            }
+        });
+    };
+    if (my $e = $@) {
+        $e->rethrow if ref $e eq 'ISUCON8::Portal::Exception';
+        ISUCON8::Portal::Exception->throw(
+            code    => ERROR_INTERNAL_ERROR,
+            message => "$e",
+            logger  => sub { $self->log->critf(@_) },
+        );
+    }
+
+    return $teams;
 }
 
 sub get_servers {
@@ -165,7 +203,7 @@ sub get_team_scores {
                         { -desc => 's.latest_score' },
                         { -asc  => 't.id' },
                     ],
-                    $limit ? { limit => $limit } : (),
+                    $limit ? (limit => $limit) : (),
                 },
             );
             $scores = $dbh->selectall_arrayref($stmt, { Slice => {} }, @bind);
@@ -185,6 +223,107 @@ sub get_team_scores {
     }
 
     return $scores;
+}
+
+sub get_chart_data {
+    my ($self, $params) = @_;
+    # ランキング順に指定する
+    my $team_ids = $params->{team_ids};
+    $team_ids = [1, 2];
+
+    my $char_data = {};
+    eval {
+        my $scores = $self->db->run(sub {
+            my $dbh = shift;
+            my ($stmt, @bind) = $self->sql->select(
+                'all_scores',
+                ['*'],
+                {
+                    @$team_ids ? (team_id => $team_ids) : (),
+                },
+                {
+                    order_by => { -asc => 'created_at' },
+                },
+            );
+            return $dbh->selectall_arrayref($stmt, { Slice => {} }, @bind);
+        });
+        return unless @$scores;
+
+        my $min_time = do {
+            my $t   = localtime($scores->[0]{created_at});
+            my $min = $t->min < 30 ? 0 : 30;
+            my $datetime = sprintf(
+                '%04d-%02d-%02d %02d:%02d:00',
+                $t->year, $t->mon, $t->mday, $t->hour, $min,
+            );
+            $self->unixtime_stamp($datetime);
+        };
+        my $max_time = do {
+            my $t = localtime($scores->[0]{created_at});
+            my $min;
+            if ($t->min < 30) {
+                $min = 30;
+            }
+            else {
+                $t = $t + 60 * 60;
+                $min = 0;
+            }
+            my $datetime = sprintf(
+                '%04d-%02d-%02d %02d:%02d:00',
+                $t->year, $t->mon, $t->mday, $t->hour, $min,
+            );
+            $self->unixtime_stamp($datetime);
+        };
+
+        my $team_score_map = {};
+        my $labels         = [];
+        for my $row (@$scores) {
+            push @$labels, $row->{created_at};
+            push @{ $team_score_map->{ $row->{team_id} } }, $row;
+        }
+        unshift @$labels, $min_time;
+        push @$labels, $max_time;
+        $labels = [ uniq @$labels ];
+
+        $char_data->{labels} = $labels;
+
+        my $teams    = $self->get_teams({ ids => $team_ids });
+        my $team_map = { map { $_->{id} => $_ } @$teams };
+        my $list     = [];
+        for my $team_id (@$team_ids) {
+            my $team   = $team_map->{ $team_id };
+            my $scores = $team_score_map->{ $team_id };
+            my $data   = [];
+            for my $label (@$labels) {
+                if (scalar @$scores && $label == $scores->[0]{created_at}) {
+                    push @$data, shift(@$scores)->{score};
+                }
+                else {
+                    push @$data, $data->[-1];
+                }
+            }
+
+            push @$list, {
+                team   => $team,
+                scores => $data,
+            };
+        }
+
+        $char_data->{list}   = $list;
+        $char_data->{labels} = [
+            map { $self->from_unixtime($_) } @{ $char_data->{labels} }
+        ];
+    };
+    if (my $e = $@) {
+        $e->rethrow if ref $e eq 'ISUCON8::Portal::Exception';
+        ISUCON8::Portal::Exception->throw(
+            code    => ERROR_INTERNAL_ERROR,
+            message => "$e",
+            logger  => sub { $self->log->critf(@_) },
+        );
+    }
+
+    return $char_data;
 }
 
 sub get_team_job {
@@ -239,7 +378,7 @@ sub get_team_jobs {
                 },
                 {
                     order_by => { -desc => 'updated_at' },
-                    $limit ? { limit => $limit } : (),
+                    $limit ? (limit => $limit) : (),
                 },
             );
             $jobs = $dbh->selectall_arrayref($stmt, { Slice => {} }, @bind);
@@ -255,6 +394,46 @@ sub get_team_jobs {
     }
 
     return $jobs;
+}
+
+sub change_benchmark_target {
+    my ($self, $params) = @_;
+    my $group_id  = $params->{group_id};
+    my $global_ip = $params->{global_ip};
+
+    my $is_success = 0;
+    my $err        = undef;
+    eval {
+        $self->db->txn(sub {
+            my $dbh = shift;
+            my ($stmt, @bind) = $self->sql->update(
+                'servers',
+                {
+                    is_target_host => \['IF(global_ip = ?, 1, 0)', $global_ip],
+                    updated_at     => \'UNIX_TIMESTAMP()',
+                },
+                {
+                    group_id => $group_id,
+                },
+            );
+            my $rc = $dbh->do($stmt, undef, @bind);
+            unless ($rc > 0) {
+                $err = 'Affected Rows = 0. Really?';
+                return;
+            }
+            $is_success = 1;
+        });
+    };
+    if (my $e = $@) {
+        $e->rethrow if ref $e eq 'ISUCON8::Portal::Exception';
+        ISUCON8::Portal::Exception->throw(
+            code    => ERROR_INTERNAL_ERROR,
+            message => "$e",
+            logger  => sub { $self->log->critf(@_) },
+        );
+    }
+
+    return $is_success, $err;
 }
 
 1;

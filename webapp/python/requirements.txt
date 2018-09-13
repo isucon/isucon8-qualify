@@ -1,1 +1,4 @@
 gunicorn
+mysqlclient==1.3.13
+Flask==1.0.2
+Jinja2==2.10
