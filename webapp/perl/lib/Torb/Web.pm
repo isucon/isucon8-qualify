@@ -76,7 +76,7 @@ get '/' => [qw/fillin_user/] => sub {
 get '/initialize' => sub {
     my ($self, $c) = @_;
 
-    system+File::Spec->catfile($self->root_dir, '..', '..', 'db', 'init.sh');
+    system+File::Spec->catfile($self->root_dir, '../../db/init.sh');
 
     return $c->req->new_response(204, [], '');
 };

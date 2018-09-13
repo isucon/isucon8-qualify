@@ -10,6 +10,7 @@ import (
 	"io"
 	"log"
 	"os"
+	"os/exec"
 	"sort"
 	"strconv"
 	"strings"
@@ -349,21 +350,14 @@ func main() {
 		})
 	}, fillinUser)
 	e.GET("/initialize", func(c echo.Context) error {
-		tx, err := db.Begin()
+		cmd := exec.Command("../../db/init.sh")
+		cmd.Stdin = os.Stdin
+		cmd.Stdout = os.Stdout
+		err := cmd.Run()
 		if err != nil {
-			return err
+			return nil
 		}
-		tx.Exec("DELETE FROM users WHERE id > 1000")
-		tx.Exec("DELETE FROM reservations WHERE id > 1000")
-		tx.Exec("UPDATE reservations SET canceled_at = NULL")
-		tx.Exec("DELETE FROM events WHERE id > 3")
-		tx.Exec("UPDATE events SET public_fg = 0, closed_fg = 1")
-		tx.Exec("UPDATE events SET public_fg = 1, closed_fg = 0 WHERE id = 1")
-		tx.Exec("UPDATE events SET public_fg = 1, closed_fg = 0 WHERE id = 2")
-		tx.Exec("UPDATE events SET public_fg = 0, closed_fg = 0 WHERE id = 3")
-		if err := tx.Commit(); err != nil {
-			return err
-		}
+
 		return c.NoContent(204)
 	})
 	e.POST("/api/users", func(c echo.Context) error {
