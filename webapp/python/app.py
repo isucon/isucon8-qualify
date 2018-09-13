@@ -380,7 +380,7 @@ def post_reserve(event_id):
     user = get_login_user()
     event = get_event(event_id, user['id'])
 
-    if not event and event['public']:
+    if not event or not event['public']:
         return res_error("invalid_event", 404)
     if not validate_rank(rank):
         return res_error("invalid_rank", 400)
@@ -423,7 +423,7 @@ def delete_reserve(event_id, rank, num):
     user = get_login_user()
     event = get_event(event_id, user['id'])
 
-    if not event and event['public']:
+    if not event or not event['public']:
         return res_error("invalid_event", 404)
     if not validate_rank(rank):
         return res_error("invalid_rank", 404)
