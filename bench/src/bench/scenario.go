@@ -448,17 +448,32 @@ func CheckGetEvent(ctx context.Context, state *State) error {
 	state.getRandomPublicSoldOutEventRWMtx.RLock()
 	defer state.getRandomPublicSoldOutEventRWMtx.RUnlock()
 
-	beforeEvent := CopyEvent(state.GetRandomPublicEvent())
-	if beforeEvent == nil {
-		log.Printf("warn: CheckGetEvent: no public event")
-		return nil
-	}
+	timeBefore := time.Now().Add(-1 * parameter.AllowableDelay)
 
 	user, checker, userPush := state.PopRandomUser()
 	if user == nil {
 		return nil
 	}
 	defer userPush()
+
+	var reservation *Reservation
+	if rid := user.Status.LastReservation.GetID(timeBefore); rid != 0 {
+		reservations := state.GetReservations()
+		reservation = reservations[rid]
+		if reservation.MaybeCanceled(timeBefore) {
+			reservation = nil
+		}
+	}
+
+	var beforeEvent *Event
+	if reservation == nil {
+		beforeEvent = CopyEvent(state.GetRandomPublicEvent())
+	} else {
+		beforeEvent = CopyEvent(state.GetEventByID(reservation.EventID))
+	}
+	if beforeEvent == nil {
+		return nil
+	}
 
 	switch rand.Intn(3) {
 	case 0:
@@ -485,6 +500,28 @@ func CheckGetEvent(ctx context.Context, state *State) error {
 			err := checkEventList(state, []*Event{beforeEvent}, []JsonEvent{event}, []*Event{afterEvent})
 			if err != nil {
 				return err
+			}
+
+			if reservation == nil {
+				return nil
+			}
+
+			sheet := event.Sheets[reservation.SheetRank].Details[reservation.SheetNum-1]
+			if !sheet.Reserved {
+				return fatalErrorf("シート(%s-%d)が予約されていません(id:%d)", reservation.SheetRank, reservation.SheetNum, event.ID)
+			}
+			if user.Status.Online {
+				if !sheet.Mine {
+					return fatalErrorf("シート(%s-%d)の保有者がユーザー(id:%d)ではありません(id:%d)", reservation.SheetRank, reservation.SheetNum, user.ID, event.ID)
+				}
+			} else {
+				if sheet.Mine {
+					return fatalErrorf("未ログインのユーザーがキャンセルできるシートが存在します(id:%d)", event.ID)
+				}
+			}
+
+			if sheet.ReservedAt == 0 || !(reservation.ReserveCompletedAt.Unix() == int64(sheet.ReservedAt) || time.Unix(int64(sheet.ReservedAt), 0).Before(reservation.ReserveCompletedAt)) {
+				return fatalErrorf("シート(%s-%d)の予約時刻が正しくありません(id:%d)", reservation.SheetRank, reservation.SheetNum, event.ID)
 			}
 
 			return nil
@@ -1630,18 +1667,41 @@ func checkJsonFullEventResponse(event *Event) func(res *http.Response, body *byt
 	}
 }
 
-func checkJsonEventResponse(event *Event, cb func(e JsonEvent) error) func(res *http.Response, body *bytes.Buffer) error {
+func checkJsonEventResponse(event *Event, cb func(JsonEvent) error) func(res *http.Response, body *bytes.Buffer) error {
 	return func(res *http.Response, body *bytes.Buffer) error {
 		bytes := body.Bytes()
+
 		dec := json.NewDecoder(body)
 		jsonEvent := JsonEvent{}
 		err := dec.Decode(&jsonEvent)
 		if err != nil {
 			return fatalErrorf("Jsonのデコードに失敗 %s %v", string(bytes), err)
 		}
-		if jsonEvent.ID != event.ID || jsonEvent.Title != event.Title {
-			return fatalErrorf("正しいイベントを取得できません")
+
+		// basic checks
+		if jsonEvent.ID != event.ID || jsonEvent.Title != event.Title || len(jsonEvent.Sheets) != len(DataSet.SheetKinds) {
+			return fatalErrorf("正しいイベントを取得できません(id:%d)", event.ID)
 		}
+		for rank, sheets := range jsonEvent.Sheets {
+			sheetKind := DataSet.SheetKindMap[rank]
+			if int(sheetKind.Total) != len(sheets.Details) {
+				return fatalErrorf("シートの詳細情報が取得できません(id:%d)", event.ID)
+			}
+
+			reservedCount := 0
+			for i, sheet := range sheets.Details {
+				if int(sheet.Num) != i+1 {
+					return fatalErrorf("シートの順番が違います(id:%d)", event.ID)
+				}
+				if sheet.Reserved {
+					reservedCount++
+				}
+			}
+			if reservedCount != int(sheets.Total-sheets.Remains) {
+				return fatalErrorf("シートの予約状況が矛盾しています(id:%d)", event.ID)
+			}
+		}
+
 		if cb != nil {
 			return cb(jsonEvent)
 		}

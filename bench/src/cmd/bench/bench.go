@@ -12,6 +12,7 @@ import (
 	"net/http"
 	_ "net/http/pprof"
 	"net/url"
+	"os"
 	"runtime"
 	"sort"
 	"strings"
@@ -411,6 +412,7 @@ func startBenchmark(remoteAddrs []string) *BenchResult {
 	addCheckFunc(benchFunc{"CheckCreateEvent", bench.CheckCreateEvent})
 	addCheckFunc(benchFunc{"CheckMyPage", bench.CheckMyPage})
 	addCheckFunc(benchFunc{"CheckCancelReserveSheet", bench.CheckCancelReserveSheet})
+	addCheckFunc(benchFunc{"CheckGetEvent", bench.CheckGetEvent})
 
 	addEveryCheckFunc(benchFunc{"CheckSheetReservationEntropy", bench.CheckSheetReservationEntropy})
 	addEveryCheckFunc(benchFunc{"CheckMyPage", bench.CheckMyPage})
@@ -607,5 +609,9 @@ func main() {
 			log.Fatalln(err)
 		}
 		log.Println("result json saved to ", output)
+	}
+
+	if !result.Pass {
+		os.Exit(1)
 	}
 }
