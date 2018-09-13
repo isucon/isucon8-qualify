@@ -265,7 +265,7 @@ def post_users():
         conn.rollback()
         print(e)
         return res_error()
-    return jsonify({"id": user_id, "nickname": nickname})
+    return (jsonify({"id": user_id, "nickname": nickname}), 201)
 
 
 @app.route('/api/users/<int:user_id>')
