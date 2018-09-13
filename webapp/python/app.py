@@ -138,7 +138,7 @@ def get_event(event_id, login_user_id=None):
         if reservation:
             if login_user_id and reservation['user_id'] == login_user_id:
                 sheet['mine'] = True
-            sheet['reserve'] = True
+            sheet['reserved'] = True
             sheet['reserved_at'] = int(reservation['reserved_at'].timestamp())
         else:
             event['remains'] += 1
