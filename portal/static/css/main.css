@@ -41,3 +41,10 @@ section.table-list {
 .card-header.is-dark .card-header-title {
     color: hsl(0, 0%, 96%);
 }
+
+.card-header.is-info {
+    background-color: hsl(204, 86%, 53%);
+}
+.card-header.is-info .card-header-title {
+    color: #fff;
+}

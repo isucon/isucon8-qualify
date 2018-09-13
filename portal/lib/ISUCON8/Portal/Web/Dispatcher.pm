@@ -22,8 +22,10 @@ get  '/servers'         => 'Team#get_servers';
 post '/servers'         => 'Team#post_servers';
 get  '/members'         => 'Team#get_members';
 post '/members'         => 'Team#post_members';
-post '/api/job/enqueue' => 'API#enqueue_job';
-post '/api/job/cancel'  => 'API#cancel_job';
+
+post '/api/job/enqueue'   => 'API#enqueue_job';
+post '/api/job/cancel'    => 'API#cancel_job';
+post '/api/target/change' => 'API#change_target';
 
 get  '/admin'                 => 'Admin#get_index';
 get  '/admin/login'           => 'Admin#get_login';

@@ -124,7 +124,23 @@ sub get_job_detail {
 
 sub get_servers {
     my ($self, $c) = @_;
-    $c->res_404;
+    my $team_id = $c->team_id;
+    my $model   = $c->model('Team');
+
+    my $team    = $model->get_team({ id => $team_id });
+    my $score   = $model->get_latest_score({ team_id => $team_id });
+    my $servers = $model->get_servers({ group_id => $team->{group_id} });
+
+    unless ($servers) {
+        return $c->res_404;
+    }
+
+    return $c->render('servers.tx', {
+        page    => 'servers',
+        team    => $team,
+        score   => $score,
+        servers => $servers,
+    });
 }
 
 1;
