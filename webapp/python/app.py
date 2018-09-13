@@ -538,8 +538,8 @@ def get_admin_events_by_id(event_id):
 @app.route('/admin/api/events/<int:event_id>/actions/edit', methods=['POST'])
 @admin_login_required
 def post_event_edit(event_id):
-    public = flask.request.json['public']
-    closed = flask.request.json['closed']
+    public = flask.request.json['public'] if 'public' in flask.request.json.keys() else False
+    closed = flask.request.json['closed'] if 'closed' in flask.request.json.keys() else False
     if closed: public = False
 
     event = get_event(event_id)
