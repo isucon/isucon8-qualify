@@ -596,7 +596,12 @@ func (s *State) pushNewEventLocked(event *Event, createdAt time.Time, caller str
 	newEventSheets := []*EventSheet{}
 	for _, sheetKind := range DataSet.SheetKinds {
 		for i := uint(0); i < sheetKind.Total; i++ {
-			eventSheet := &EventSheet{event.ID, sheetKind.Rank, NonReservedNum, event.Price + sheetKind.Price}
+			eventSheet := &EventSheet{
+				EventID: event.ID,
+				Rank:    sheetKind.Rank,
+				Num:     NonReservedNum,
+				Price:   event.Price + sheetKind.Price,
+			}
 			newEventSheets = append(newEventSheets, eventSheet)
 		}
 	}
