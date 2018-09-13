@@ -414,6 +414,7 @@ func startBenchmark(remoteAddrs []string) *BenchResult {
 
 	addEveryCheckFunc(benchFunc{"CheckSheetReservationEntropy", bench.CheckSheetReservationEntropy})
 	addEveryCheckFunc(benchFunc{"CheckMyPage", bench.CheckMyPage})
+	addEveryCheckFunc(benchFunc{"CheckGetEvent", bench.CheckGetEvent})
 
 	addPostTestFunc(benchFunc{"CheckReport", bench.CheckReport})
 

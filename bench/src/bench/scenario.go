@@ -434,7 +434,54 @@ func LoadGetEvent(ctx context.Context, state *State) error {
 		Path:               fmt.Sprintf("/api/events/%d", event.ID),
 		ExpectedStatusCode: 200,
 		Description:        "公開イベントを取得できること",
-		CheckFunc:          checkJsonEventResponse(event),
+		CheckFunc:          checkJsonEventResponse(event, nil),
+	})
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func CheckGetEvent(ctx context.Context, state *State) error {
+	// LoadGetEvent() can run concurrently, but CheckCancelReserveSheet() can not
+	state.getRandomPublicSoldOutEventRWMtx.RLock()
+	defer state.getRandomPublicSoldOutEventRWMtx.RUnlock()
+
+	event := state.GetRandomPublicEvent()
+	if event == nil {
+		log.Printf("warn: CheckGetEvent: no public event")
+		return nil
+	}
+
+	user, checker, userPush := state.PopRandomUser()
+	if user == nil {
+		return nil
+	}
+	defer userPush()
+
+	switch rand.Intn(3) {
+	case 0:
+		err := loginAppUser(ctx, checker, user)
+		if err != nil {
+			return err
+		}
+	case 1:
+		err := logoutAppUser(ctx, checker, user)
+		if err != nil {
+			return err
+		}
+		// case 2: do nothing
+	}
+
+	err := checker.Play(ctx, &CheckAction{
+		Method:             "GET",
+		Path:               fmt.Sprintf("/api/events/%d", event.ID),
+		ExpectedStatusCode: 200,
+		Description:        "公開イベントを取得できること",
+		CheckFunc: checkJsonEventResponse(event, func(e *JsonEvent) error {
+			return nil
+		}),
 	})
 	if err != nil {
 		return err
@@ -1576,7 +1623,7 @@ func checkJsonFullEventResponse(event *Event) func(res *http.Response, body *byt
 	}
 }
 
-func checkJsonEventResponse(event *Event) func(res *http.Response, body *bytes.Buffer) error {
+func checkJsonEventResponse(event *Event, cb func(e *JsonEvent) error) func(res *http.Response, body *bytes.Buffer) error {
 	return func(res *http.Response, body *bytes.Buffer) error {
 		bytes := body.Bytes()
 		dec := json.NewDecoder(body)
@@ -1587,6 +1634,9 @@ func checkJsonEventResponse(event *Event) func(res *http.Response, body *bytes.B
 		}
 		if jsonEvent.ID != event.ID || jsonEvent.Title != event.Title {
 			return fatalErrorf("正しいイベントを取得できません")
+		}
+		if cb != nil {
+			return cb(&jsonEvent)
 		}
 		return nil
 	}
@@ -1727,7 +1777,7 @@ func CheckCreateEvent(ctx context.Context, state *State) error {
 		Path:               fmt.Sprintf("/api/events/%d", event.ID),
 		ExpectedStatusCode: 200,
 		Description:        "公開イベントを取得できること",
-		CheckFunc:          checkJsonEventResponse(event),
+		CheckFunc:          checkJsonEventResponse(event, nil),
 	})
 	if err != nil {
 		return err
