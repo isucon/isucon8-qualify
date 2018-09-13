@@ -454,11 +454,12 @@ def delete_reserve(event_id, rank, num):
     return flask.Response(status=204)
 
 
-@app.route('/admin')
+@app.route('/admin/')
 def get_admin():
     administrator = get_login_administrator()
-    if administrator:
-        return flask.render_template('admin.html', events=get_events())
+    if administrator: events=get_events()
+    else: events={}
+    return flask.render_template('admin.html', events=events)
 
 
 @app.route('/admin/api/actions/login', methods=['POST'])
