@@ -36,7 +36,7 @@
                         <div class="notification">...</div>
                     </div>
                     <button class="modal-close is-large" aria-label="close"></button>
-                  </div>
+                </div>
                 <p>※ベンチマークが開始されるまでに1〜2分ほどかかる場合があります。</p>
             </div>
         </article>
@@ -102,7 +102,8 @@
                         <thead>
                             <tr>
                                 <th>Rank</th>
-                                <th>Team</th>
+                                <th>Id</th>
+                                <th>Name</th>
                                 <th>Members</th>
                                 <th>LatestScore</th>
                                 <th>BestScore</th>
@@ -113,6 +114,7 @@
                             : for $top_teams -> $row {
                             <tr <: if $row.team_id == $team.id { :>class="is-selected"<: } :>>
                                 <td class="has-text-right"><: $~row.count :></td>
+                                <td class="has-text-right"><: $row.team_id :></td>
                                 <td><: ellipsis($row.name, 30) :></td>
                                 <td class="has-text-right"><: $row.category_display_name :></td>
                                 <td class="has-text-right"><: $row.latest_score | commify :></td>
