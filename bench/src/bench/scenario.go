@@ -61,21 +61,6 @@ func checkJsonErrorResponse(errorCode string) func(res *http.Response, body *byt
 }
 
 func checkEventList(state *State, eventsBeforeRequest []*Event, events []JsonEvent, eventsAfterResponse []*Event) error {
-	ok := sort.SliceIsSorted(events, func(i, j int) bool {
-		return events[i].ID < events[j].ID
-	})
-	if !ok {
-		return fatalErrorf("イベントの順番が正しくありません")
-	}
-
-	if len(events) == 0 {
-		log.Println("warn: checkEventList: events is empty")
-		return fatalErrorf("イベントの数が正しくありません")
-	} else if len(events) < len(eventsBeforeRequest) {
-		log.Printf("warn: checkEventList: len(events):%d < len(eventsBeforeRequest):%d\n", len(events), len(eventsBeforeRequest))
-		return fatalErrorf("イベントの数が正しくありません")
-	}
-
 	eventsMap := map[uint]JsonEvent{}
 	for _, e := range events {
 		eventsMap[e.ID] = e
@@ -153,15 +138,20 @@ func checkEventList(state *State, eventsBeforeRequest []*Event, events []JsonEve
 		}
 		for _, sheetKind := range DataSet.SheetKinds {
 			rank := sheetKind.Rank
+
+			eventAfterResponse.reservationMtx.RLock()
+			defer eventAfterResponse.reservationMtx.RUnlock()
+
 			err = checkRemains(
 				e.ID,
 				DataSet.SheetKindMap[rank].Total,
-				*eventBeforeRequest.CancelCompletedRT.getPointer(rank),
-				*eventAfterResponse.ReserveRequestedRT.getPointer(rank),
+				eventBeforeRequest.CancelCompletedRT.Get(rank),
+				eventAfterResponse.ReserveRequestedRT.Get(rank),
 				e.Sheets[rank].Remains,
-				*eventAfterResponse.CancelRequestedRT.getPointer(rank),
-				*eventBeforeRequest.ReserveCompletedRT.getPointer(rank))
+				eventAfterResponse.CancelRequestedRT.Get(rank),
+				eventBeforeRequest.ReserveCompletedRT.Get(rank))
 			if err != nil {
+				log.Printf("warn: eventID=%d remains=%d is not included in count range (%d-%d) \n", e.ID, e.Sheets[rank].Remains, e.Sheets[rank].Total-eventAfterResponse.CancelRequestedRT.Get(rank), e.Sheets[rank].Total-eventBeforeRequest.ReserveCompletedRT.Get(rank))
 				return fatalErrorf("イベント(id:%d)の%s席の残座席数が正しくありません", e.ID, rank)
 			}
 		}
@@ -170,7 +160,7 @@ func checkEventList(state *State, eventsBeforeRequest []*Event, events []JsonEve
 	return nil
 }
 
-func checkJsonFullUserResponse(check func(*JsonFullUser) error) func(res *http.Response, body *bytes.Buffer) error {
+func checkJsonFullUserResponse(user *AppUser, check func(*JsonFullUser) error) func(res *http.Response, body *bytes.Buffer) error {
 	return func(res *http.Response, body *bytes.Buffer) error {
 		bytes := body.Bytes()
 		dec := json.NewDecoder(body)
@@ -179,6 +169,13 @@ func checkJsonFullUserResponse(check func(*JsonFullUser) error) func(res *http.R
 		err := dec.Decode(&v)
 		if err != nil {
 			return fatalErrorf("Jsonのデコードに失敗 %s %v", string(bytes), err)
+		}
+		if user.ID != v.ID {
+			log.Printf("warn: expected id=%d but got id=%d\n", user.ID, v.ID)
+			return fatalErrorf("正しいユーザーを取得できません")
+		} else if user.Nickname != v.Nickname {
+			log.Printf("warn: expected nickname=%s but got nickname=%s (user_id=%d)\n", user.Nickname, v.Nickname, user.ID)
+			return fatalErrorf("正しいユーザーを取得できません")
 		}
 
 		return check(&v)
@@ -357,7 +354,7 @@ func LoadReserveCancelSheet(ctx context.Context, state *State) error {
 		return nil
 	}
 
-	reservation, err := reserveSheet(ctx, state, userChecker, user.ID, eventSheet)
+	reservation, err := reserveSheet(ctx, state, userChecker, user, eventSheet)
 	if reservation == nil && err == nil {
 		return nil
 	}
@@ -366,7 +363,7 @@ func LoadReserveCancelSheet(ctx context.Context, state *State) error {
 	}
 	defer eventSheetPush() // NOTE: push only after reserve succeeds
 
-	already_locked, err := cancelSheet(ctx, state, userChecker, eventSheet, reservation)
+	already_locked, err := cancelSheet(ctx, state, userChecker, user, eventSheet, reservation)
 	if err != nil {
 		return err
 	}
@@ -397,7 +394,7 @@ func LoadReserveSheet(ctx context.Context, state *State) error {
 		return nil
 	}
 
-	reservation, err := reserveSheet(ctx, state, userChecker, user.ID, eventSheet)
+	reservation, err := reserveSheet(ctx, state, userChecker, user, eventSheet)
 	if reservation == nil && err == nil {
 		return nil
 	}
@@ -409,6 +406,7 @@ func LoadReserveSheet(ctx context.Context, state *State) error {
 	return nil
 }
 
+// 売り切れたイベントをひたすらF5してキャンセルが出るのを待つユーザがいる
 func LoadGetEvent(ctx context.Context, state *State) error {
 	// LoadGetEvent() can run concurrently, but CheckCancelReserveSheet() can not
 	state.getRandomPublicSoldOutEventRWMtx.RLock()
@@ -436,7 +434,101 @@ func LoadGetEvent(ctx context.Context, state *State) error {
 		Path:               fmt.Sprintf("/api/events/%d", event.ID),
 		ExpectedStatusCode: 200,
 		Description:        "公開イベントを取得できること",
-		CheckFunc:          checkJsonEventResponse(event),
+		CheckFunc:          checkJsonEventResponse(event, nil),
+	})
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func CheckGetEvent(ctx context.Context, state *State) error {
+	// LoadGetEvent() can run concurrently, but CheckCancelReserveSheet() can not
+	state.getRandomPublicSoldOutEventRWMtx.RLock()
+	defer state.getRandomPublicSoldOutEventRWMtx.RUnlock()
+
+	timeBefore := time.Now().Add(-1 * parameter.AllowableDelay)
+
+	user, checker, userPush := state.PopRandomUser()
+	if user == nil {
+		return nil
+	}
+	defer userPush()
+
+	var reservation *Reservation
+	if rid := user.Status.LastReservation.GetID(timeBefore); rid != 0 {
+		reservations := state.GetReservations()
+		reservation = reservations[rid]
+		if reservation.MaybeCanceled(timeBefore) {
+			reservation = nil
+		}
+	}
+
+	var beforeEvent *Event
+	if reservation == nil {
+		beforeEvent = CopyEvent(state.GetRandomPublicEvent())
+	} else {
+		beforeEvent = CopyEvent(state.GetEventByID(reservation.EventID))
+		if !beforeEvent.PublicFg {
+			beforeEvent = nil
+		}
+	}
+	if beforeEvent == nil {
+		return nil
+	}
+
+	switch rand.Intn(3) {
+	case 0:
+		err := loginAppUser(ctx, checker, user)
+		if err != nil {
+			return err
+		}
+	case 1:
+		err := logoutAppUser(ctx, checker, user)
+		if err != nil {
+			return err
+		}
+		// case 2: do nothing
+	}
+
+	err := checker.Play(ctx, &CheckAction{
+		Method:             "GET",
+		Path:               fmt.Sprintf("/api/events/%d", beforeEvent.ID),
+		ExpectedStatusCode: 200,
+		Description:        "公開イベントを取得できること",
+		CheckFunc: checkJsonEventResponse(beforeEvent, func(event JsonEvent) error {
+			afterEvent := state.GetEventByID(beforeEvent.ID)
+
+			err := checkEventList(state, []*Event{beforeEvent}, []JsonEvent{event}, []*Event{afterEvent})
+			if err != nil {
+				return err
+			}
+
+			if reservation == nil {
+				return nil
+			}
+
+			sheet := event.Sheets[reservation.SheetRank].Details[reservation.SheetNum-1]
+			if !sheet.Reserved {
+				return fatalErrorf("シート(%s-%d)が予約されていません(id:%d)", reservation.SheetRank, reservation.SheetNum, event.ID)
+			}
+			if user.Status.Online {
+				if !sheet.Mine {
+					return fatalErrorf("シート(%s-%d)の保有者がユーザー(id:%d)ではありません(id:%d)", reservation.SheetRank, reservation.SheetNum, user.ID, event.ID)
+				}
+			} else {
+				if sheet.Mine {
+					return fatalErrorf("未ログインのユーザーがキャンセルできるシートが存在します(id:%d)", event.ID)
+				}
+			}
+
+			if sheet.ReservedAt == 0 || !(reservation.ReserveCompletedAt.Unix() == int64(sheet.ReservedAt) || time.Unix(int64(sheet.ReservedAt), 0).Before(reservation.ReserveCompletedAt)) {
+				return fatalErrorf("シート(%s-%d)の予約時刻が正しくありません(id:%d)", reservation.SheetRank, reservation.SheetNum, event.ID)
+			}
+
+			return nil
+		}),
 	})
 	if err != nil {
 		return err
@@ -767,13 +859,34 @@ func CheckTopPage(ctx context.Context, state *State) error {
 					var events []JsonEvent
 					err := json.Unmarshal([]byte(attr.Val), &events)
 					if err != nil {
-						return fatalErrorf("イベント一覧のJsonデコードに失敗 %s %v", attr.Val, err)
+						return fatalErrorf("トップページのイベント一覧のJsonデコードに失敗 %s %v", attr.Val, err)
+					}
+
+					if len(events) == 0 {
+						log.Println("warn: checkEventList: events is empty")
+						return fatalErrorf("トップページのイベントの数が正しくありません")
+					} else if len(events) < len(eventsBeforeRequest) {
+						log.Printf("warn: checkEventList: len(events):%d < len(eventsBeforeRequest):%d\n", len(events), len(eventsBeforeRequest))
+						return fatalErrorf("トップページのイベントの数が正しくありません")
+					}
+
+					ok := sort.SliceIsSorted(events, func(i, j int) bool {
+						return events[i].ID < events[j].ID
+					})
+					if !ok {
+						return fatalErrorf("トップページのイベントの順番が正しくありません")
 					}
 
 					eventsAfterResponse := FilterPublicEvents(state.GetEvents())
 					err = checkEventList(state, eventsBeforeRequest, events, eventsAfterResponse)
 					if err != nil {
-						return err
+						var msg string
+						if ferr, ok := err.(*fatalError); ok {
+							msg = ferr.msg
+						} else {
+							msg = err.Error()
+						}
+						return fatalErrorf("トップページのイベント一覧: %s", msg)
 					}
 
 					found++
@@ -866,13 +979,34 @@ func CheckAdminTopPage(ctx context.Context, state *State) error {
 					var events []JsonEvent
 					err := json.Unmarshal([]byte(attr.Val), &events)
 					if err != nil {
-						return fatalErrorf("イベント一覧のJsonデコードに失敗 %s %v", attr.Val, err)
+						return fatalErrorf("管理画面のイベント一覧のJsonデコードに失敗 %s %v", attr.Val, err)
+					}
+
+					if len(events) == 0 {
+						log.Println("warn: checkEventList: events is empty")
+						return fatalErrorf("管理画面のイベントの数が正しくありません")
+					} else if len(events) < len(eventsBeforeRequest) {
+						log.Printf("warn: checkEventList: len(events):%d < len(eventsBeforeRequest):%d\n", len(events), len(eventsBeforeRequest))
+						return fatalErrorf("管理画面のイベントの数が正しくありません")
+					}
+
+					ok := sort.SliceIsSorted(events, func(i, j int) bool {
+						return events[i].ID < events[j].ID
+					})
+					if !ok {
+						return fatalErrorf("管理画面のイベントの順番が正しくありません")
 					}
 
 					eventsAfterResponse := state.GetEvents()
 					err = checkEventList(state, eventsBeforeRequest, events, eventsAfterResponse)
 					if err != nil {
-						return err
+						var msg string
+						if ferr, ok := err.(*fatalError); ok {
+							msg = ferr.msg
+						} else {
+							msg = err.Error()
+						}
+						return fatalErrorf("管理画面のイベント一覧: %s", msg)
 					}
 
 					found++
@@ -918,13 +1052,237 @@ func CheckMyPage(ctx context.Context, state *State) error {
 		return err
 	}
 
+	// Assume that public events are not modified (closed or private)
+	timeBefore := time.Now().Add(-1 * parameter.AllowableDelay)
+	eventsBeforeRequestOrig := FilterEventsToAllowDelay(state.GetCopiedEvents(), timeBefore)
+
 	err = checker.Play(ctx, &CheckAction{
 		Method:             "GET",
 		Path:               fmt.Sprintf("/api/users/%d", user.ID),
 		ExpectedStatusCode: 200,
 		Description:        "ページが表示されること",
-		CheckFunc: checkJsonFullUserResponse(func(user *JsonFullUser) error {
-			// TODO
+		CheckFunc: checkJsonFullUserResponse(user, func(fullUser *JsonFullUser) error {
+			// check total price range
+			if !(user.Status.NegativeTotalPrice <= fullUser.TotalPrice || fullUser.TotalPrice <= user.Status.PositiveTotalPrice) {
+				log.Printf("warn: miss match user total price expected=%s got=%d userID=%d\n", user.Status.TotalPriceString(), fullUser.TotalPrice, fullUser.ID)
+				return fatalErrorf("予約総額が最新の状態ではありません userID=%d", fullUser.ID)
+			}
+
+			// check duplicate and filter expected events
+			var eventsBeforeRequest []*Event
+			var eventsAfterResponse []*Event
+			{
+				seen := map[uint]struct{}{}
+				for _, r := range fullUser.RecentReservations {
+					_, exists := seen[r.ReservationID]
+					if exists {
+						return fatalErrorf("最近予約した席が重複しています userID=%d", fullUser.ID)
+					}
+
+					seen[r.ReservationID] = struct{}{}
+				}
+
+				seen = map[uint]struct{}{}
+				for _, e := range fullUser.RecentEvents {
+					_, exists := seen[e.ID]
+					if exists {
+						return fatalErrorf("最近予約したイベントが重複しています userID=%d", fullUser.ID)
+					}
+
+					seen[e.ID] = struct{}{}
+				}
+
+				// filter events
+				for _, e := range eventsBeforeRequestOrig {
+					_, exists := seen[e.ID]
+					if !exists {
+						continue
+					}
+
+					eventsBeforeRequest = append(eventsBeforeRequest, e)
+				}
+				for _, e := range state.GetEvents() {
+					_, exists := seen[e.ID]
+					if !exists {
+						continue
+					}
+
+					eventsAfterResponse = append(eventsAfterResponse, e)
+				}
+			}
+
+			// check first recent reservation id
+			if len(fullUser.RecentReservations) >= 1 {
+				r := fullUser.RecentReservations[0]
+				if id := user.Status.LastReservation.GetID(timeBefore); id != 0 {
+					maybeID := user.Status.LastMaybeReservation.GetID(timeBefore)
+					if r.ReservationID != id && r.ReservationID != maybeID {
+						log.Printf("warn: miss match user first recent reservation userID=%d\n", fullUser.ID)
+						log.Printf("info: r.ReservationID=%d id=%d maybeID=%d\n", r.ReservationID, id, maybeID)
+						return fatalErrorf("最近予約した席が最新の状態ではありません userID=%d", fullUser.ID)
+					}
+				}
+			}
+
+			reservationMap := state.GetReservations()
+			reservations := []*Reservation{}
+			for _, r := range fullUser.RecentReservations {
+				// check event details
+				if e := state.GetEventByID(r.Event.ID); e == nil {
+					return fatalErrorf("最近予約した席のイベント情報(id)が正しくありません userID=%d", fullUser.ID)
+				} else if r.Event.Title != e.Title {
+					return fatalErrorf("最近予約した席のイベント情報(title)が正しくありません userID=%d", fullUser.ID)
+				} else if r.Event.Closed != e.ClosedFg {
+					return fatalErrorf("最近予約した席のイベント情報(closed)が正しくありません userID=%d", fullUser.ID)
+				} else if r.Event.Public != e.PublicFg {
+					return fatalErrorf("最近予約した席のイベント情報(public)が正しくありません userID=%d", fullUser.ID)
+				}
+
+				// check sheet details
+				reservation, ok := reservationMap[r.ReservationID]
+				if !ok {
+					// skip
+					log.Printf("warn: skip unknown reservation id:%d userID=%d\n", r.ReservationID, fullUser.ID)
+					continue
+				}
+				if r.Event.ID != reservation.EventID {
+					log.Printf("info: miss match reservation event id got=%d expected=%d\n", r.Event.ID, reservation.EventID)
+					return fatalErrorf("最近予約した席のイベントが正しくありません userID=%d reservationID=%d", fullUser.ID, reservation.ID)
+				}
+				if r.SheetRank != reservation.SheetRank {
+					log.Printf("info: miss match reservation sheet rank got=%d expected=%d\n", r.SheetRank, reservation.SheetRank)
+					return fatalErrorf("最近予約した席のランクが正しくありません userID=%d reservationID=%d", fullUser.ID, reservation.ID)
+				}
+				if r.SheetNum != reservation.SheetNum {
+					log.Printf("info: miss match reservation sheet num got=%d expected=%d\n", r.SheetNum, reservation.SheetNum)
+					return fatalErrorf("最近予約した席の席番号が正しくありません userID=%d reservationID=%d", fullUser.ID, reservation.ID)
+				}
+				if r.Price != reservation.Price {
+					log.Printf("info: miss match reservation price got=%d expected=%d\n", r.Price, reservation.Price)
+					return fatalErrorf("最近予約した席の価格が正しくありません userID=%d reservationID=%d", fullUser.ID, reservation.ID)
+				}
+
+				// check reserved at
+				if r.ReservedAt == 0 {
+					return fatalErrorf("最近予約した席の予約時刻が正しくありません userID=%d reservationID=%d", fullUser.ID, reservation.ID)
+				}
+				if reservation.ReserveCompletedAt.IsZero() {
+					log.Printf("warn: invalid reservation object is got=%#v\n", reservation)
+					return nil
+				} else if reservedAt := time.Unix(int64(r.ReservedAt), 0); reservation.ReserveCompletedAt.Before(reservedAt) {
+					log.Printf("warn: reserved at should be (reservationID:%d) %s < %s\n", reservation.ID, reservedAt, reservation.ReserveCompletedAt)
+					return fatalErrorf("最近予約した席の予約時刻が正しくありません userID=%d reservationID=%d", fullUser.ID, reservation.ID)
+				}
+
+				// check canceled at
+				canceledAt := int64(r.CanceledAt)
+				if canceledAt == 0 {
+					if !reservation.CancelCompletedAt.IsZero() && reservation.CancelCompletedAt.Before(timeBefore) {
+						// should not be canceled
+						log.Printf("warn: miss match reservation cancellation status expected=canceled userID=%d reservationID=%d\n", fullUser.ID, reservation.ID)
+						return fatalErrorf("最近予約した席のキャンセル状態が正しくありません userID=%d reservationID=%d", fullUser.ID, reservation.ID)
+					}
+				} else {
+					if reservation.CancelRequestedAt.IsZero() {
+						log.Printf("warn: miss match reservation cancellation status expected=not-canceled userID=%d reservationID=%d\n", fullUser.ID, reservation.ID)
+						return fatalErrorf("最近予約した席のキャンセル時刻が正しくありません userID=%d reservationID=%d", fullUser.ID, reservation.ID)
+					}
+
+					cancelRequestedAt := reservation.CancelRequestedAt.Unix()
+					if reservation.CancelCompletedAt.IsZero() {
+						if !(cancelRequestedAt <= canceledAt) {
+							log.Printf("warn: miss match reservation cancellation status expected=not-canceled userID=%d reservationID=%d\n", fullUser.ID, reservation.ID)
+							return fatalErrorf("最近予約した席のキャンセル時刻が正しくありません userID=%d reservationID=%d", fullUser.ID, reservation.ID)
+						}
+					} else {
+						cancelCompletedAt := reservation.CancelCompletedAt.Unix()
+						if !(cancelRequestedAt <= canceledAt && canceledAt <= cancelCompletedAt) {
+							log.Printf("warn: miss match reservation cancellation status expected=not-canceled userID=%d reservationID=%d\n", fullUser.ID, reservation.ID)
+							return fatalErrorf("最近予約した席のキャンセル時刻が正しくありません userID=%d reservationID=%d", fullUser.ID, reservation.ID)
+						}
+					}
+				}
+
+				// add reservations
+				reservations = append(reservations, reservation)
+			}
+
+			// check order
+			if len(reservations) >= 2 {
+				last := reservations[0]
+				for _, r := range reservations[1:] {
+					if last.LastMaybeUpdatedAt().Before(r.LastUpdatedAt()) {
+						log.Printf("warn: miss match user recent reservation order userID=%d\n", fullUser.ID)
+						return fatalErrorf("最近予約した席の順番が正しくありません")
+					}
+				}
+			}
+
+			// check first recent event id
+			if len(fullUser.RecentEvents) >= 1 {
+				e := fullUser.RecentEvents[0]
+				if id := user.Status.LastReservedEvent.GetID(timeBefore); id != 0 {
+					maybeID := user.Status.LastMaybeReservedEvent.GetID(timeBefore)
+					if e.ID != id && e.ID != maybeID {
+						log.Printf("warn: miss match user first recent event userID=%d\n", fullUser.ID)
+						log.Printf("info: e.ID=%d id=%d maybeID=%d\n", e.ID, id, maybeID)
+						return fatalErrorf("最近予約したイベントが最新の状態ではありません")
+					}
+				}
+			}
+
+			// check event details
+			if len(fullUser.RecentEvents) >= 0 {
+				events := make([]JsonEvent, len(fullUser.RecentEvents))
+				for i, re := range fullUser.RecentEvents {
+					// check event status
+					if e := state.GetEventByID(re.ID); e == nil {
+						return fatalErrorf("最近予約したイベントのイベント情報(id)が正しくありません")
+					} else if re.Closed != e.ClosedFg {
+						return fatalErrorf("最近予約したイベントのイベント情報(closed)が正しくありません")
+					} else if re.Public != e.PublicFg {
+						return fatalErrorf("最近予約したイベントのイベント情報(public)が正しくありません")
+					}
+
+					events[i] = re.JsonEvent
+				}
+
+				err := checkEventList(state, eventsBeforeRequest, events, eventsAfterResponse)
+				if err != nil {
+					var msg string
+					if ferr, ok := err.(*fatalError); ok {
+						msg = ferr.msg
+					} else {
+						msg = err.Error()
+					}
+					return fatalErrorf("最近予約したイベント一覧(userID=%d): %s", user.ID, msg)
+				}
+			}
+
+			// check order
+			if len(fullUser.RecentEvents) >= 2 {
+				eventOrderMap := map[uint]int{}
+				for i := len(fullUser.RecentReservations) - 1; i >= 0; i-- {
+					r := fullUser.RecentReservations[i]
+					eventOrderMap[r.Event.ID] = i
+				}
+
+				lastOrder := 0
+				for _, e := range fullUser.RecentEvents {
+					order, ok := eventOrderMap[e.ID]
+					if !ok {
+						continue
+					}
+
+					if lastOrder > order {
+						log.Printf("warn: miss match user recent event order userID=%d (%#v)\n", fullUser.ID, fullUser.RecentEvents)
+						log.Printf("info: order=%d lastOrder=%d\n", order, lastOrder)
+						return fatalErrorf("最近予約したイベントの順番が正しくありません userID=%d", fullUser.ID)
+					}
+					lastOrder = order
+				}
+			}
+
 			return nil
 		}),
 	})
@@ -982,9 +1340,9 @@ func CheckCancelReserveSheet(ctx context.Context, state *State) error {
 	}
 
 	// For simplicity, s.reservedEventSheets are not modified in this method.
-	eventSheet := &EventSheet{eventID, rank, 0}
+	eventSheet := &EventSheet{eventID, rank, NonReservedNum, event.Price + DataSet.SheetKindMap[rank].Price}
 
-	already_locked, err := cancelSheet(ctx, state, cacnelChecker, eventSheet, reservation)
+	already_locked, err := cancelSheet(ctx, state, cacnelChecker, cancelUser, eventSheet, reservation)
 	if err != nil {
 		return err
 	}
@@ -992,7 +1350,7 @@ func CheckCancelReserveSheet(ctx context.Context, state *State) error {
 		return nil
 	}
 
-	_, err = reserveSheet(ctx, state, reserveChecker, reserveUser.ID, eventSheet)
+	_, err = reserveSheet(ctx, state, reserveChecker, reserveUser, eventSheet)
 	if err != nil {
 		return err
 	}
@@ -1040,7 +1398,7 @@ func CheckReserveSheet(ctx context.Context, state *State) error {
 	eventID := eventSheet.EventID
 	rank := eventSheet.Rank
 
-	reservation, err := reserveSheet(ctx, state, userChecker, user.ID, eventSheet)
+	reservation, err := reserveSheet(ctx, state, userChecker, user, eventSheet)
 	if reservation == nil && err == nil {
 		return nil
 	}
@@ -1049,7 +1407,7 @@ func CheckReserveSheet(ctx context.Context, state *State) error {
 	}
 	defer eventSheetPush() // NOTE: push only after reserve succeeds
 
-	already_locked, err := cancelSheet(ctx, state, userChecker, eventSheet, reservation)
+	already_locked, err := cancelSheet(ctx, state, userChecker, user, eventSheet, reservation)
 	if err != nil {
 		return err
 	}
@@ -1311,17 +1669,43 @@ func checkJsonFullEventResponse(event *Event) func(res *http.Response, body *byt
 	}
 }
 
-func checkJsonEventResponse(event *Event) func(res *http.Response, body *bytes.Buffer) error {
+func checkJsonEventResponse(event *Event, cb func(JsonEvent) error) func(res *http.Response, body *bytes.Buffer) error {
 	return func(res *http.Response, body *bytes.Buffer) error {
 		bytes := body.Bytes()
+
 		dec := json.NewDecoder(body)
 		jsonEvent := JsonEvent{}
 		err := dec.Decode(&jsonEvent)
 		if err != nil {
 			return fatalErrorf("Jsonのデコードに失敗 %s %v", string(bytes), err)
 		}
-		if jsonEvent.ID != event.ID || jsonEvent.Title != event.Title {
-			return fatalErrorf("正しいイベントを取得できません")
+
+		// basic checks
+		if jsonEvent.ID != event.ID || jsonEvent.Title != event.Title || len(jsonEvent.Sheets) != len(DataSet.SheetKinds) {
+			return fatalErrorf("正しいイベントを取得できません(id:%d)", event.ID)
+		}
+		for rank, sheets := range jsonEvent.Sheets {
+			sheetKind := DataSet.SheetKindMap[rank]
+			if int(sheetKind.Total) != len(sheets.Details) {
+				return fatalErrorf("シートの詳細情報が取得できません(id:%d)", event.ID)
+			}
+
+			reservedCount := 0
+			for i, sheet := range sheets.Details {
+				if int(sheet.Num) != i+1 {
+					return fatalErrorf("シートの順番が違います(id:%d)", event.ID)
+				}
+				if sheet.Reserved {
+					reservedCount++
+				}
+			}
+			if reservedCount != int(sheets.Total-sheets.Remains) {
+				return fatalErrorf("シートの予約状況が矛盾しています(id:%d)", event.ID)
+			}
+		}
+
+		if cb != nil {
+			return cb(jsonEvent)
 		}
 		return nil
 	}
@@ -1338,6 +1722,7 @@ func eventPostJSON(event *Event) map[string]interface{} {
 func eventEditJSON(event *Event) map[string]bool {
 	return map[string]bool{
 		"public": event.PublicFg,
+		"closed": event.ClosedFg,
 	}
 }
 
@@ -1461,7 +1846,7 @@ func CheckCreateEvent(ctx context.Context, state *State) error {
 		Path:               fmt.Sprintf("/api/events/%d", event.ID),
 		ExpectedStatusCode: 200,
 		Description:        "公開イベントを取得できること",
-		CheckFunc:          checkJsonEventResponse(event),
+		CheckFunc:          checkJsonEventResponse(event, nil),
 	})
 	if err != nil {
 		return err
@@ -1844,7 +2229,7 @@ func CheckSheetReservationEntropy(ctx context.Context, state *State) error {
 		source = state.GetReservationsInEventID(event.ID)
 
 		// NOTE(karupa): skip smallest or biggest source
-		if l := len(source); !(10 < l && l < 6000) {
+		if l := len(source); !(10 < l && l < 600) {
 			continue
 		}
 
@@ -2061,13 +2446,13 @@ func checkJsonReservationResponse(reserved *JsonReservation) func(res *http.Resp
 	}
 }
 
-func reserveSheet(ctx context.Context, state *State, checker *Checker, userID uint, eventSheet *EventSheet) (*Reservation, error) {
+func reserveSheet(ctx context.Context, state *State, checker *Checker, user *AppUser, eventSheet *EventSheet) (*Reservation, error) {
 	eventID := eventSheet.EventID
 	rank := eventSheet.Rank
 
 	reserved := &JsonReservation{ReservationID: 0, SheetRank: rank, SheetNum: 0}
-	reservation := &Reservation{ID: 0, EventID: eventID, UserID: userID, SheetRank: rank, SheetNum: 0}
-	logID := state.BeginReservation(reservation)
+	reservation := &Reservation{ID: 0, EventID: eventID, UserID: user.ID, SheetRank: rank, Price: eventSheet.Price, SheetNum: 0}
+	logID := state.BeginReservation(user, reservation)
 
 	err := checker.Play(ctx, &CheckAction{
 		Method:             "POST",
@@ -2080,23 +2465,26 @@ func reserveSheet(ctx context.Context, state *State, checker *Checker, userID ui
 		CheckFunc: checkJsonReservationResponse(reserved),
 	})
 	if err != nil {
+		user.Status.PositiveTotalPrice += eventSheet.Price
 		return nil, err
 	}
 
 	reservation.ID = reserved.ReservationID
 	reservation.SheetNum = reserved.SheetNum
-	state.CommitReservation(logID, reservation)
+	state.CommitReservation(logID, user, reservation)
 	eventSheet.Num = reserved.SheetNum
 
+	log.Printf("debug: reserve userID:%d(total-price:%s) eventID:%d reservedID:%d(%s-%d) price:%d\n", user.ID, user.Status.TotalPriceString(), eventID, reserved.ReservationID, reserved.SheetRank, reserved.SheetNum, eventSheet.Price)
 	return reservation, nil
 }
 
-func cancelSheet(ctx context.Context, state *State, checker *Checker, eventSheet *EventSheet, reservation *Reservation) (already_locked bool, err error) {
+func cancelSheet(ctx context.Context, state *State, checker *Checker, user *AppUser, eventSheet *EventSheet, reservation *Reservation) (already_locked bool, err error) {
 	// If somebody is canceling, nobody else should not cancel because, otherwise, double cancelation occurs.
 	// To achieve it, we use trylock instead of mutex.Lock()
-	ok := reservation.CancelMtx.TryLock()
+	mtx := reservation.CancelMtx()
+	ok := mtx.TryLock()
 	if ok {
-		defer reservation.CancelMtx.Unlock()
+		defer mtx.Unlock()
 	} else {
 		log.Printf("debug: reservation:%d is already locked to cancel\n", reservation.ID)
 		return true, nil
@@ -2106,7 +2494,7 @@ func cancelSheet(ctx context.Context, state *State, checker *Checker, eventSheet
 	rank := reservation.SheetRank
 	sheetNum := reservation.SheetNum
 
-	logID := state.BeginCancelation(reservation)
+	logID := state.BeginCancelation(user, reservation)
 
 	err = checker.Play(ctx, &CheckAction{
 		Method:             "DELETE",
@@ -2118,7 +2506,7 @@ func cancelSheet(ctx context.Context, state *State, checker *Checker, eventSheet
 		return false, err
 	}
 
-	state.CommitCancelation(logID, reservation)
+	state.CommitCancelation(logID, user, reservation)
 	eventSheet.Num = NonReservedNum
 
 	return false, nil

@@ -3,6 +3,7 @@ package bench
 import (
 	"log"
 	"math/rand"
+	"strconv"
 	"sync"
 	"time"
 
@@ -20,7 +21,7 @@ type JsonFullUser struct {
 	JsonUser
 
 	TotalPrice         uint                   `json:"total_price"`
-	RecentEvents       []*JsonEvent           `json:"recent_events"`
+	RecentEvents       []*JsonFullEvent       `json:"recent_events"`
 	RecentReservations []*JsonFullReservation `json:"recent_reservations"`
 }
 
@@ -32,9 +33,17 @@ type JsonAdministrator struct {
 // [{"remains":999,"id":1,"title":"「風邪をひいたなう」しか","sheets":{"S":{"price":8000,"total":50,"remains":49},"A":{"total":150,"price":6000,"remains":150},"C":{"remains":0,"total":0},"c":{"remains":500,"price":3000,"total":500},"B":{"total":300,"price":4000,"remains":300}},"total":1000}];
 
 type JsonSheet struct {
-	Price   uint `json:"price"`
-	Total   uint `json:"total"`
-	Remains uint `json:"remains"`
+	Price   uint              `json:"price"`
+	Total   uint              `json:"total"`
+	Remains uint              `json:"remains"`
+	Details []JsonSheetDetail `json:"detail"`
+}
+
+type JsonSheetDetail struct {
+	Num        uint `json:"num"`
+	Mine       bool `json:"mine"`
+	Reserved   bool `json:"reserved"`
+	ReservedAt uint `json:"reserved_at"`
 }
 
 type JsonEvent struct {
@@ -54,7 +63,7 @@ type JsonFullEvent struct {
 }
 
 type JsonReservation struct {
-	ReservationID uint   `json:"reservation_id"`
+	ReservationID uint   `json:"id"`
 	SheetRank     string `json:"sheet_rank"`
 	SheetNum      uint   `json:"sheet_num"`
 }
@@ -62,10 +71,17 @@ type JsonReservation struct {
 type JsonFullReservation struct {
 	JsonReservation
 
-	Event      *JsonFullEvent `json:"event"`
-	Price      uint           `json:"price"`
-	ReservedAt uint           `json:"reserved_at"`
-	CanceledAt uint           `json:"canceled_at"`
+	Event      *JsonEventInFullReservation `json:"event"`
+	Price      uint                        `json:"price"`
+	ReservedAt uint                        `json:"reserved_at"`
+	CanceledAt uint                        `json:"canceled_at"`
+}
+
+type JsonEventInFullReservation struct {
+	ID     uint   `json:"id"`
+	Title  string `json:"title"`
+	Public bool   `json:"public"`
+	Closed bool   `json:"closed"`
 }
 
 type JsonError struct {
@@ -78,9 +94,53 @@ type AppUser struct {
 	LoginName string
 	Password  string
 
-	Status struct {
-		Online bool
+	Status AppUserStatus
+}
+
+type AppUserStatus struct {
+	Online bool
+
+	PositiveTotalPrice uint
+	NegativeTotalPrice uint
+
+	LastReservedEvent      idWithUpdatedAt
+	LastMaybeReservedEvent idWithUpdatedAt
+	LastReservation        idWithUpdatedAt
+	LastMaybeReservation   idWithUpdatedAt
+}
+
+func (s *AppUserStatus) TotalPriceString() string {
+	if s.PositiveTotalPrice == s.NegativeTotalPrice {
+		return strconv.FormatUint(uint64(s.NegativeTotalPrice), 10)
 	}
+
+	return strconv.FormatUint(uint64(s.PositiveTotalPrice), 10) + "-" + strconv.FormatUint(uint64(s.NegativeTotalPrice), 10)
+}
+
+type idWithUpdatedAt struct {
+	id        uint
+	updatedAt time.Time
+}
+
+func (i *idWithUpdatedAt) SetID(id uint) {
+	i.id = id
+	i.updatedAt = time.Now()
+}
+
+func (i *idWithUpdatedAt) SetIDWithTime(id uint, t time.Time) {
+	i.id = id
+	i.updatedAt = t
+}
+
+func (i *idWithUpdatedAt) GetID(timeBefore time.Time) uint {
+	if i.updatedAt.IsZero() {
+		return 0
+	}
+	if i.updatedAt.After(timeBefore) {
+		return 0
+	}
+
+	return i.id
 }
 
 type Administrator struct {
@@ -102,7 +162,7 @@ type Event struct {
 	Price     uint
 	CreatedAt time.Time
 
-	reservationMtx        sync.Mutex
+	reservationMtx        sync.RWMutex
 	ReserveRequestedCount uint
 	ReserveCompletedCount uint
 	CancelRequestedCount  uint
@@ -138,6 +198,10 @@ func (rt *ReservationTickets) getPointer(rank string) *uint {
 	return nil
 }
 
+func (rt *ReservationTickets) Get(rank string) uint {
+	return *rt.getPointer(rank)
+}
+
 type SheetKind struct {
 	Rank  string
 	Total uint
@@ -168,13 +232,19 @@ type Reservation struct {
 	SheetID    uint // Used only in initial reservations. 0 is set for rest because reserve API does not return it
 	SheetRank  string
 	SheetNum   uint
+	Price      uint
 	ReservedAt int64 // Used only in initial reservations. 0 is set for rest because reserve API does not return it
+	CanceledAt int64 // Used only in initial reservations. 0 is set for rest because reserve API does not return it
 
 	// ReserveRequestedAt time.Time
 	ReserveCompletedAt time.Time
-	CancelMtx          trylock.Mutex
+	cancelMtx          trylock.Mutex
 	CancelRequestedAt  time.Time
 	CancelCompletedAt  time.Time
+}
+
+func (r Reservation) CancelMtx() trylock.Mutex {
+	return r.cancelMtx
 }
 
 func (r Reservation) Canceled(timeBefore time.Time) bool {
@@ -183,6 +253,23 @@ func (r Reservation) Canceled(timeBefore time.Time) bool {
 
 func (r Reservation) MaybeCanceled(timeBefore time.Time) bool {
 	return !r.CancelRequestedAt.IsZero() && r.CancelRequestedAt.Before(timeBefore)
+}
+
+func (r Reservation) LastUpdatedAt() time.Time {
+	if !r.CancelCompletedAt.IsZero() {
+		return r.CancelCompletedAt
+	}
+	return r.ReserveCompletedAt
+}
+
+func (r Reservation) LastMaybeUpdatedAt() time.Time {
+	if !r.CancelCompletedAt.IsZero() {
+		return r.CancelCompletedAt
+	}
+	if !r.CancelRequestedAt.IsZero() {
+		return r.CancelRequestedAt
+	}
+	return r.ReserveCompletedAt
 }
 
 type BenchDataSet struct {
@@ -209,6 +296,7 @@ type EventSheet struct {
 	EventID uint
 	Rank    string
 	Num     uint
+	Price   uint
 }
 
 type State struct {
@@ -322,6 +410,7 @@ func (s *State) PopRandomUser() (*AppUser, *Checker, func()) {
 	s.users[n-1] = nil
 	s.users = s.users[:n-1]
 
+	log.Printf("debug: PopRandomUser %d %s %s\n", u.ID, u.LoginName, u.Nickname)
 	return u, s.getCheckerLocked(u), func() { s.PushUser(u) }
 }
 
@@ -352,6 +441,7 @@ func (s *State) PopUserByID(userID uint) (*AppUser, *Checker, func()) {
 	s.users[n-1] = nil
 	s.users = s.users[:n-1]
 
+	log.Printf("debug: PopUserByID %d %s %s\n", u.ID, u.LoginName, u.Nickname)
 	return u, s.getCheckerLocked(u), func() { s.PushUser(u) }
 }
 
@@ -359,6 +449,7 @@ func (s *State) PushUser(u *AppUser) {
 	s.mtx.Lock()
 	defer s.mtx.Unlock()
 
+	log.Printf("debug: PushUser %d %s %s\n", u.ID, u.LoginName, u.Nickname)
 	s.users = append(s.users, u)
 }
 
@@ -505,7 +596,12 @@ func (s *State) pushNewEventLocked(event *Event, createdAt time.Time, caller str
 	newEventSheets := []*EventSheet{}
 	for _, sheetKind := range DataSet.SheetKinds {
 		for i := uint(0); i < sheetKind.Total; i++ {
-			eventSheet := &EventSheet{event.ID, sheetKind.Rank, NonReservedNum}
+			eventSheet := &EventSheet{
+				EventID: event.ID,
+				Rank:    sheetKind.Rank,
+				Num:     NonReservedNum,
+				Price:   event.Price + sheetKind.Price,
+			}
 			newEventSheets = append(newEventSheets, eventSheet)
 		}
 	}
@@ -526,7 +622,7 @@ func (s *State) pushInitialClosedEventLocked(event *Event, createdAt time.Time) 
 
 	for _, sheetKind := range DataSet.SheetKinds {
 		for i := uint(0); i < sheetKind.Total; i++ {
-			eventSheet := &EventSheet{event.ID, sheetKind.Rank, i + 1}
+			eventSheet := &EventSheet{event.ID, sheetKind.Rank, i + 1, event.Price + sheetKind.Price}
 			s.reservedEventSheets = append(s.reservedEventSheets, eventSheet)
 		}
 	}
@@ -554,6 +650,19 @@ func (s *State) GetEvents() (events []*Event) {
 	return
 }
 
+// Returns s.events[n]
+func (s *State) GetEventByID(eventID uint) *Event {
+	s.mtx.Lock()
+	defer s.mtx.Unlock()
+
+	for _, e := range s.events {
+		if e.ID == eventID {
+			return e
+		}
+	}
+	return nil
+}
+
 // Returns a deep copy of s.events
 func (s *State) GetCopiedEvents() (events []*Event) {
 	s.mtx.Lock()
@@ -566,6 +675,15 @@ func (s *State) GetCopiedEvents() (events []*Event) {
 	}
 
 	return
+}
+
+func CopyEvent(src *Event) *Event {
+	if src == nil {
+		return nil
+	}
+
+	dest := *src // copy
+	return &dest
 }
 
 func FilterEventsToAllowDelay(src []*Event, timeBefore time.Time) (filtered []*Event) {
@@ -751,6 +869,17 @@ func FilterReservationsToAllowDelay(src map[uint]*Reservation, timeBefore time.T
 	return
 }
 
+func FilterReservationsByUserID(src map[uint]*Reservation, userID uint) (filtered map[uint]*Reservation) {
+	filtered = make(map[uint]*Reservation, len(src))
+
+	for id, reservation := range src {
+		if reservation.UserID == userID {
+			filtered[id] = reservation
+		}
+	}
+	return
+}
+
 func (s *State) GetRandomNonCanceledReservationInEventID(eventID uint) *Reservation {
 	reservations := s.GetReservationsInEventID(eventID)
 
@@ -779,7 +908,7 @@ func (e *Event) GetReserveRequestedCount() uint {
 	return e.ReserveRequestedCount
 }
 
-func (s *State) BeginReservation(reservation *Reservation) (logID uint64) {
+func (s *State) BeginReservation(lockedUser *AppUser, reservation *Reservation) (logID uint64) {
 	{
 		s.reservationMtx.Lock()
 		defer s.reservationMtx.Unlock()
@@ -796,11 +925,15 @@ func (s *State) BeginReservation(reservation *Reservation) (logID uint64) {
 		event.ReserveRequestedCount++
 		*event.ReserveRequestedRT.getPointer(rank)++
 	}
+	{
+		lockedUser.Status.PositiveTotalPrice += reservation.Price
+		lockedUser.Status.LastMaybeReservedEvent.SetID(reservation.EventID)
+	}
 	logID = s.appendReserveLog(reservation)
 	return
 }
 
-func (s *State) CommitReservation(logID uint64, reservation *Reservation) {
+func (s *State) CommitReservation(logID uint64, lockedUser *AppUser, reservation *Reservation) {
 	{
 		s.reservationMtx.Lock()
 		defer s.reservationMtx.Unlock()
@@ -820,11 +953,16 @@ func (s *State) CommitReservation(logID uint64, reservation *Reservation) {
 		event.ReserveCompletedCount++
 		*event.ReserveCompletedRT.getPointer(rank)++
 	}
+	{
+		lockedUser.Status.NegativeTotalPrice += reservation.Price
+		lockedUser.Status.LastReservedEvent.SetID(reservation.EventID)
+		lockedUser.Status.LastReservation.SetID(reservation.ID)
+	}
 	s.deleteReserveLog(logID, reservation)
 	return
 }
 
-func (s *State) BeginCancelation(reservation *Reservation) (logID uint64) {
+func (s *State) BeginCancelation(lockedUser *AppUser, reservation *Reservation) (logID uint64) {
 	{
 		s.reservationMtx.Lock()
 		defer s.reservationMtx.Unlock()
@@ -843,11 +981,16 @@ func (s *State) BeginCancelation(reservation *Reservation) (logID uint64) {
 		event.CancelRequestedCount++
 		*event.CancelRequestedRT.getPointer(rank)++
 	}
+	{
+		lockedUser.Status.NegativeTotalPrice -= reservation.Price
+		lockedUser.Status.LastMaybeReservedEvent.SetID(reservation.EventID)
+		lockedUser.Status.LastMaybeReservation.SetID(reservation.ID)
+	}
 	logID = s.appendReserveLog(reservation)
 	return
 }
 
-func (s *State) CommitCancelation(logID uint64, reservation *Reservation) {
+func (s *State) CommitCancelation(logID uint64, lockedUser *AppUser, reservation *Reservation) {
 	{
 		s.reservationMtx.Lock()
 		defer s.reservationMtx.Unlock()
@@ -865,6 +1008,11 @@ func (s *State) CommitCancelation(logID uint64, reservation *Reservation) {
 
 		event.CancelCompletedCount++
 		*event.CancelCompletedRT.getPointer(rank)++
+	}
+	{
+		lockedUser.Status.PositiveTotalPrice -= reservation.Price
+		lockedUser.Status.LastReservedEvent.SetID(reservation.EventID)
+		lockedUser.Status.LastReservation.SetID(reservation.ID)
 	}
 	s.deleteCancelLog(logID, reservation)
 	return

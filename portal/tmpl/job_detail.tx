@@ -1,0 +1,61 @@
+: cascade "include/layout.tx"
+
+: override content -> {
+<div class="column is-9">
+    <nav class="breadcrumb" aria-label="breadcrumbs">
+        <ul>
+            <li><a href="/">ISUCON8</a></li>
+            <li class="is-active"><a href="#" aria-current="page">Show All Jobs</a></li>
+        </ul>
+    </nav>
+
+    : include "include/team_header.tx"
+
+    <section class="table-list">
+        <div class="card events-card">
+            <header class="card-header is-dark">
+                <p class="card-header-title">
+                    <span class="icon">
+                        <i class="fas fa-list-alt"></i>
+                    </span>
+                    <span>Job</span>
+                </p>
+            </header>
+            <div class="card-table">
+                <div class="content">
+                    <table class="table is-fullwidth is-striped">
+                        <tbody>
+                            <tr>
+                                <th width="10%">JobId</th>
+                                <td><: $job.id :></td>
+                            </tr>
+                            <tr>
+                                <th width="10%">Score</th>
+                                <td><: $job.result_score | commify :></td>
+                            </tr>
+                            <tr>
+                                <th width="10%">Status</th>
+                                <td><: $job.result_status :></td>
+                            </tr>
+                            <tr>
+                                <th width="10%">State</th>
+                                <td><: $job.state :></td>
+                            </tr>
+                            <tr>
+                                <th width="10%">UpdatedAt</th>
+                                <td><: $job.updated_at | unixtime2time :></td>
+                            </tr>
+                            <tr>
+                                <th width="10%">Errors</th>
+                                <td style="font-size: 0.85rem">
+                                    <: $job.result_json.error.join("\n") | html_line_break :>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </section>    
+</div>
+: }

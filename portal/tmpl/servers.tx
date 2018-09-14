@@ -1,0 +1,116 @@
+: cascade "include/layout.tx"
+
+: override content -> {
+<div class="column is-9">
+    <nav class="breadcrumb" aria-label="breadcrumbs">
+        <ul>
+            <li><a href="/">ISUCON8</a></li>
+            <li class="is-active"><a href="#" aria-current="page">Servers</a></li>
+        </ul>
+    </nav>
+
+    : include "include/team_header.tx"
+
+    <section class="table-list">
+        <div class="card events-card">
+            <header class="card-header is-info">
+                <p class="card-header-title">
+                    <span class="icon">
+                        <i class="fas fa-server"></i>
+                    </span>
+                    <span>Servers</span>
+                </p>
+            </header>
+            <div class="card-table">
+                <div class="content">
+                    <table class="table is-fullwidth is-striped">
+                        <thead>
+                            <tr>
+                                <th>Hostname</th>
+                                <th>Password</th>
+                                <th>Global IP</th>
+                                <th>Private IP</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <div class="control">
+                                : for $servers -> $row {
+                                : next if $row.is_bench_host
+                                <tr>
+                                    <td>
+                                        <label class="radio">
+                                            <input type="radio" name="target" value="<: $row.global_ip :>" <: $row.is_target_host ? 'checked' : '' :>>
+                                            <: $row.hostname :>
+                                        </label>
+                                    </td>
+                                    <td><: $row.password :></td>
+                                    <td><: $row.global_ip :></td>
+                                    <td><: $row.private_ip :></td>
+                                </tr>
+                                : }
+                            </div>
+                        </tbody>
+                    </table>
+                </div>
+                <div class="notification">
+                    <!-- dummy -->
+                    <form method="post"></form>
+                    <button class="button is-info" id="btn-change-target">Change Benchmark Target</button>
+                    <p>※ ベンチマーカーがアクセスするサーバーを変更することができます。</p>
+                </div>
+                <div class="modal" id="change-target-modal">
+                        <div class="modal-background"></div>
+                        <div class="modal-content">
+                            <div class="notification">...</div>
+                        </div>
+                        <button class="modal-close is-large" aria-label="close"></button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>    
+</div>
+: }
+
+: override script -> {
+<script>
+"use strict";
+(function() {
+    var modalId = "#change-target-modal";
+    $(modalId).find(".modal-background, .modal-close").click(function() {
+        $(modalId).removeClass("is-active");
+        $(modalId).find(".notification").text("...");
+        $(modalId).find(".notification").removeClass("is-success");
+        $(modalId).find(".notification").removeClass("is-danger");
+    })
+
+    $("#btn-change-target").click(function(e) {
+        var THIS = this;
+        THIS.disabled = true;
+        var global_ip = $('input[name=target]:checked').val()
+        var sendData = {
+            'global_ip': global_ip,
+            'XSRF-TOKEN': $('input[name="XSRF-TOKEN"]').val(),
+        };
+        $.post("/api/target/change", sendData).done(function(data) {
+            console.log(data);
+            if (data.success) {
+                $(modalId).find(".notification").addClass("is-success");
+                $(modalId).find(".notification").text("Successfully changed!!");
+            } else {
+                $(modalId).find(".notification").addClass("is-danger");
+                $(modalId).find(".notification").text(data.error);
+            }
+            $(modalId).addClass("is-active");
+        }).fail(function(data) {
+            $(modalId).find(".notification").text("エラーが発生しました！！！！？！！？！");
+            $(modalId).find(".notification").addClass("is-danger");
+            $(modalId).addClass("is-active");
+        }).always(function() {
+            THIS.disabled = false;
+        });
+    });
+})();
+</script>
+: }
+    

@@ -12,7 +12,7 @@ var (
 		&StaticFile{"/css/bootstrap.min.css", 140930, "a7022c6fa83d91db67738d6e3cd3252d"},
 		&StaticFile{"/css/layout.css", 707, "25d20a88af77ba832e0d25a99ebe67c3"},
 		&StaticFile{"/favicon.ico", 1092, "07b21a6c8984e04d108064c585411601"},
-		&StaticFile{"/js/admin.js", 8094, "7e7e742d98b50e16f965145a3c222346"},
+		&StaticFile{"/js/admin.js", 8454, "f3739b2c9ba150e2a2c4f53d7194fea2"},
 		&StaticFile{"/js/app.js", 10204, "43f9dccae02a8dab134b20c053e41f7b"},
 		&StaticFile{"/js/bootstrap-waitingfor.min.js", 2074, "c6167b2ec19dc56b16aa94511a15964c"},
 		&StaticFile{"/js/bootstrap.bundle.min.js", 70682, "d70c474886678aebe3e9d91965dc8b62"},
@@ -24,5 +24,5 @@ var (
 
 const (
 	ExpectedIndexHash = 888931047
-	ExpectedAdminHash = 2076704920
+	ExpectedAdminHash = 3940591906
 )

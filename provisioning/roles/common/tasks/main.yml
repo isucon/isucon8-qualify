@@ -31,6 +31,15 @@
     group: root
     mode: 0440
 
+- name: Install epel-release
+  become: yes
+  become_user: root
+  yum:
+    pkg: "{{ item }}"
+    state: installed
+  with_items:
+    - epel-release
+
 - name: Install Development Tools
   become: yes
   become_user: root
@@ -49,6 +58,7 @@
     - automake
     - curl
     - dstat
+    - firewalld
     - gdbm-devel
     - git
     - jq
@@ -58,7 +68,17 @@
     - openssl-devel
     - patch
     - readline-devel
+    - sudo
     - zlib-devel
+
+- name: Restart and enable firewalld
+  become: yes
+  become_user: root
+  systemd:
+    name: firewalld
+    state: restarted
+    daemon_reload: yes
+    enabled: yes
 
 - name: Install xbuild
   become: yes
@@ -71,4 +91,6 @@
 - name: mkdir /home/isucon/local for xbuild
   become: yes
   become_user: isucon
-  file: path=/home/isucon/local state=directory
+  file:
+    path=/home/isucon/local
+    state=directory

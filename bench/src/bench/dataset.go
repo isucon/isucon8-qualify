@@ -202,22 +202,70 @@ func prepareSheetDataSet() {
 
 func prepareReservationsDataSet() {
 	minUnixTimestamp := time.Date(2011, 8, 27, 10, 0, 0, 0, JST).Unix()
-	maxUnixTimestamp := time.Date(2017, 10, 21, 10, 0, 0, 0, JST).Unix()
+	maxUnixTimestamp := time.Date(2018, 8, 27, 10, 0, 0, 0, JST).Unix()
 	for _, event := range append(DataSet.Events, DataSet.ClosedEvents...) {
 		if !event.IsSoldOut() {
 			continue
 		}
 		for _, sheet := range DataSet.Sheets {
 			userID := uint(Rng.Intn(len(DataSet.Users)) + 1)
+
+			// TODO(sonots): randomize nsec
+			reservedAt := int64(Rng.Int63n(maxUnixTimestamp-minUnixTimestamp) + minUnixTimestamp)
+
 			reservation := &Reservation{
 				EventID:    event.ID,
 				UserID:     userID,
 				SheetID:    sheet.ID,
 				SheetRank:  sheet.Rank,
 				SheetNum:   sheet.Num,
+				Price:      event.Price + sheet.Price,
 				ReservedAt: int64(Rng.Int63n(maxUnixTimestamp-minUnixTimestamp) + minUnixTimestamp), // TODO(sonots): randomize nsec
+				CanceledAt: 0,
 			}
+			reservation.ReserveCompletedAt = time.Unix(int64(reservation.ReservedAt), 0)
 			DataSet.Reservations = append(DataSet.Reservations, reservation)
+
+			maxCanceled := 30
+			canceledAt := int64(Rng.Int63n(reservedAt-minUnixTimestamp) + minUnixTimestamp)
+			for minUnixTimestamp < canceledAt && canceledAt < reservedAt {
+				if maxCanceled == 0 {
+					break
+				}
+
+				var rng int64 = 86400 * 3
+				if remains := canceledAt - minUnixTimestamp; remains <= 0 {
+					break
+				} else if remains < rng {
+					rng = remains
+				}
+
+				reservedAt = int64(canceledAt - Rng.Int63n(rng))
+
+				userID = uint(Rng.Intn(len(DataSet.Users)) + 1)
+				reservation = &Reservation{
+					EventID:    event.ID,
+					UserID:     userID,
+					SheetID:    sheet.ID,
+					SheetRank:  sheet.Rank,
+					SheetNum:   sheet.Num,
+					Price:      event.Price + sheet.Price,
+					ReservedAt: reservedAt,
+					CanceledAt: canceledAt,
+				}
+				event.ReserveRequestedCount++
+				event.ReserveCompletedCount++
+				event.CancelRequestedCount++
+				event.CancelCompletedCount++
+				DataSet.Reservations = append(DataSet.Reservations, reservation)
+
+				if reservedAt == minUnixTimestamp {
+					break
+				}
+
+				canceledAt = int64(Rng.Int63n(reservedAt-minUnixTimestamp) + minUnixTimestamp)
+				maxCanceled--
+			}
 		}
 	}
 	sort.Slice(DataSet.Reservations, func(i, j int) bool {
@@ -225,8 +273,25 @@ func prepareReservationsDataSet() {
 	})
 
 	nextID := uint(1)
-	for _, reservation := range DataSet.Reservations {
-		reservation.ID = nextID
+	for _, r := range DataSet.Reservations {
+		r.ID = nextID
+
+		r.ReserveCompletedAt = time.Unix(int64(r.ReservedAt), 0)
+		if r.CanceledAt != 0 {
+			r.CancelRequestedAt = time.Unix(int64(r.CanceledAt), 0)
+			r.CancelCompletedAt = time.Unix(int64(r.CanceledAt), 0)
+		}
+
+		user := DataSet.Users[r.UserID-1]
+		user.Status.PositiveTotalPrice += r.Price
+		user.Status.NegativeTotalPrice += r.Price
+
+		reservedAt := time.Unix(int64(r.ReservedAt), 0)
+		user.Status.LastMaybeReservedEvent.SetIDWithTime(r.EventID, reservedAt)
+		user.Status.LastMaybeReservation.SetIDWithTime(r.ID, reservedAt)
+		user.Status.LastReservedEvent.SetIDWithTime(r.EventID, reservedAt)
+		user.Status.LastReservation.SetIDWithTime(r.ID, reservedAt)
+
 		nextID++
 	}
 }
@@ -255,6 +320,10 @@ func fbadf(w io.Writer, f string, params ...interface{}) {
 			} else {
 				params[i] = strconv.Quote("0")
 			}
+		case uint:
+			params[i] = strconv.FormatInt(int64(v), 10)
+		case string:
+			params[i] = strconv.Quote(v)
 		default:
 			params[i] = strconv.Quote(fmt.Sprint(v))
 		}
@@ -263,6 +332,8 @@ func fbadf(w io.Writer, f string, params ...interface{}) {
 }
 
 func GenerateInitialDataSetSQL(outputPath string) {
+	log.Printf("generate dataset SQL: %s\n", outputPath)
+
 	outFile, err := os.Create(outputPath)
 	must(err)
 	defer outFile.Close()
@@ -274,43 +345,76 @@ func GenerateInitialDataSetSQL(outputPath string) {
 	fbadf(w, "BEGIN;")
 
 	// user
-	for _, user := range DataSet.Users {
+	fbadf(w, "INSERT INTO users (id, nickname, login_name, pass_hash) VALUES ")
+	for i, user := range DataSet.Users {
 		passDigest := fmt.Sprintf("%x", sha256.Sum256([]byte(user.Password)))
 		must(err)
-		fbadf(w, "INSERT INTO users (id, nickname, login_name, pass_hash) VALUES (%s, %s, %s, %s);",
-			user.ID, user.Nickname, user.LoginName, passDigest)
+
+		fbadf(w, "(%s, %s, %s, %s)", user.ID, user.Nickname, user.LoginName, passDigest)
+		if i == len(DataSet.Users)-1 {
+			fbadf(w, ";")
+		} else {
+			fbadf(w, ",")
+		}
 	}
 
 	// administrator
-	for _, administrator := range DataSet.Administrators {
+	fbadf(w, "INSERT INTO administrators (id, nickname, login_name, pass_hash) VALUES ")
+	for i, administrator := range DataSet.Administrators {
 		passDigest := fmt.Sprintf("%x", sha256.Sum256([]byte(administrator.Password)))
 		must(err)
-		fbadf(w, "INSERT INTO administrators (id, nickname, login_name, pass_hash) VALUES (%s, %s, %s, %s);",
-			administrator.ID, administrator.Nickname, administrator.LoginName, passDigest)
+
+		fbadf(w, "(%s, %s, %s, %s)", administrator.ID, administrator.Nickname, administrator.LoginName, passDigest)
+		if i == len(DataSet.Administrators)-1 {
+			fbadf(w, ";")
+		} else {
+			fbadf(w, ",")
+		}
 	}
 
 	// event
-	for _, event := range append(DataSet.Events, DataSet.ClosedEvents...) {
-		fbadf(w, "INSERT INTO events (id, title, public_fg, closed_fg, price) VALUES (%s, %s, %s, %s, %s);",
-			event.ID, event.Title, event.PublicFg, event.ClosedFg, event.Price)
+	fbadf(w, "INSERT INTO events (id, title, public_fg, closed_fg, price) VALUES ")
+	events := append(append([]*Event{}, DataSet.Events...), DataSet.ClosedEvents...)
+	for i, event := range events {
+		fbadf(w, "(%s, %s, %s, %s, %s)", event.ID, event.Title, event.PublicFg, event.ClosedFg, event.Price)
+		if i == len(events)-1 {
+			fbadf(w, ";")
+		} else {
+			fbadf(w, ",")
+		}
 	}
 
 	// sheet
-	for _, sheet := range DataSet.Sheets {
-		fbadf(w, "INSERT INTO sheets (id, `rank`, num, price) VALUES (%s, %s, %s, %s);",
-			sheet.ID, sheet.Rank, sheet.Num, sheet.Price)
+	fbadf(w, "INSERT INTO sheets (id, `rank`, num, price) VALUES ")
+	for i, sheet := range DataSet.Sheets {
+		fbadf(w, "(%s, %s, %s, %s)", sheet.ID, sheet.Rank, sheet.Num, sheet.Price)
+		if i == len(DataSet.Sheets)-1 {
+			fbadf(w, ";")
+		} else {
+			fbadf(w, ",")
+		}
 	}
 
 	// reservation
+	fbadf(w, "INSERT INTO reservations (id, event_id, sheet_id, user_id, reserved_at, canceled_at) VALUES ")
 	for i, reservation := range DataSet.Reservations {
-		if i%1000 == 0 {
-			fbadf(w, ";INSERT INTO reservations (id, event_id, sheet_id, user_id, reserved_at) VALUES ")
+		if reservation.CanceledAt > 0 {
+			fbadf(w, "(%s, %s, %s, %s, %s, %s)", reservation.ID, reservation.EventID, reservation.SheetID, reservation.UserID, time.Unix(reservation.ReservedAt, 0).UTC(), time.Unix(reservation.CanceledAt, 0).UTC())
 		} else {
-			fbadf(w, ", ")
+			fbadf(w, "(%s, %s, %s, %s, %s, NULL)", reservation.ID, reservation.EventID, reservation.SheetID, reservation.UserID, time.Unix(reservation.ReservedAt, 0).UTC())
 		}
-		fbadf(w, "(%s, %s, %s, %s, %s)", reservation.ID, reservation.EventID, reservation.SheetID, reservation.UserID, time.Unix(reservation.ReservedAt, 0).UTC().Format("2006-01-02 15:04:05"))
+
+		if i == len(DataSet.Reservations)-1 {
+			fbadf(w, ";")
+		} else if i%10000 == 0 {
+			fbadf(w, ";INSERT INTO reservations (id, event_id, sheet_id, user_id, reserved_at, canceled_at) VALUES ")
+		} else {
+			fbadf(w, ",")
+		}
+
 	}
-	fbadf(w, ";")
 
 	fbadf(w, "COMMIT;")
+
+	log.Printf("created: %s\n", outputPath)
 }

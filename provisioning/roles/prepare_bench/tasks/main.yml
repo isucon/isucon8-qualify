@@ -1,0 +1,7 @@
+---
+- name: Put torb.bench.service
+  become: yes
+  become_user: root
+  copy:
+    src: "{{ env_var }}.torb.bench.service"
+    dest: /etc/systemd/system/torb.bench.service

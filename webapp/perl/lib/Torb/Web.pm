@@ -9,6 +9,7 @@ use JSON::XS 3.00;
 use DBIx::Sunny;
 use Plack::Session;
 use Time::Moment;
+use File::Spec;
 
 filter login_required => sub {
     my $app = shift;
@@ -75,16 +76,7 @@ get '/' => [qw/fillin_user/] => sub {
 get '/initialize' => sub {
     my ($self, $c) = @_;
 
-    my $txn = $self->dbh->txn_scope();
-    $self->dbh->query('DELETE FROM users WHERE id > 1000');
-    $self->dbh->query('DELETE FROM reservations WHERE id > 1000');
-    $self->dbh->query('UPDATE reservations SET canceled_at = NULL');
-    $self->dbh->query('DELETE FROM events WHERE id > 3');
-    $self->dbh->query('UPDATE events SET public_fg = 0, closed_fg = 1');
-    $self->dbh->query('UPDATE events SET public_fg = 1, closed_fg = 0 WHERE id = 1');
-    $self->dbh->query('UPDATE events SET public_fg = 1, closed_fg = 0 WHERE id = 2');
-    $self->dbh->query('UPDATE events SET public_fg = 0, closed_fg = 0 WHERE id = 3');
-    $txn->commit();
+    system+File::Spec->catfile($self->root_dir, '../../db/init.sh');
 
     return $c->req->new_response(204, [], '');
 };
@@ -145,9 +137,6 @@ get '/api/users/{id}' => [qw/login_required/] => sub {
         my $rows = $self->dbh->select_all('SELECT r.*, s.rank AS sheet_rank, s.num AS sheet_num FROM reservations r INNER JOIN sheets s ON s.id = r.sheet_id WHERE r.user_id = ? ORDER BY IFNULL(r.canceled_at, r.reserved_at) DESC LIMIT 5', $user->{id});
         for my $row (@$rows) {
             my $event = $self->get_event($row->{event_id});
-            delete $event->{sheets};
-            delete $event->{total};
-            delete $event->{remains};
 
             my $reservation = {
                 id          => 0+$row->{id},
@@ -160,6 +149,10 @@ get '/api/users/{id}' => [qw/login_required/] => sub {
             };
             push @recent_reservations => $reservation;
 
+            delete $event->{sheets};
+            delete $event->{total};
+            delete $event->{remains};
+            delete $event->{price};
         }
     };
     $user->{recent_reservations} = \@recent_reservations;
@@ -167,7 +160,7 @@ get '/api/users/{id}' => [qw/login_required/] => sub {
 
     my @recent_events;
     {
-        my $rows = $self->dbh->select_all('SELECT DISTINCT event_id FROM reservations WHERE user_id = ? ORDER BY IFNULL(canceled_at, reserved_at) DESC LIMIT 5', $user->{id});
+        my $rows = $self->dbh->select_all('SELECT event_id FROM reservations WHERE user_id = ? GROUP BY event_id ORDER BY MAX(IFNULL(canceled_at, reserved_at)) DESC LIMIT 5', $user->{id});
         for my $row (@$rows) {
             my $event = $self->get_event($row->{event_id});
             delete $event->{sheets}->{$_}->{detail} for keys %{ $event->{sheets} };
@@ -313,7 +306,7 @@ post '/api/events/{id}/actions/reserve' => [qw/allow_json_request login_required
         my $txn = $self->dbh->txn_scope();
         eval {
             $self->dbh->query('INSERT INTO reservations (event_id, sheet_id, user_id, reserved_at) VALUES (?, ?, ?, ?)', $event->{id}, $sheet->{id}, $user->{id}, Time::Moment->now_utc->strftime('%F %T%f'));
-            $reservation_id = $self->dbh->last_insert_id() + 0;
+            $reservation_id = $self->dbh->last_insert_id();
             $txn->commit();
         };
         if ($@) {
@@ -326,9 +319,9 @@ post '/api/events/{id}/actions/reserve' => [qw/allow_json_request login_required
     }
 
     my $res = $c->render_json({
-        reservation_id => $reservation_id,
+        id         => 0+$reservation_id,
         sheet_rank => $rank,
-        sheet_num => $sheet->{num},
+        sheet_num  => 0+$sheet->{num},
     });
     $res->status(202);
     return $res;
