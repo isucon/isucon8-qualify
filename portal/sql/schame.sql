@@ -20,7 +20,7 @@ CREATE TABLE IF NOT EXISTS informations (
 CREATE TABLE IF NOT EXISTS teams (
     `id` int(10) unsigned NOT NULL,
     `group_id` varchar(64) NOT NULL,
-    `state` enum('actived', 'banned') DEFAULT 'actived',
+    `state` enum('active', 'banned') DEFAULT 'active',
     `name` varchar(256) NOT NULL,
     `password` varchar(64) NOT NULL,
     `category` enum('general_one', 'general_two', 'general_three', 'student_one', 'student_two', 'student_three') NOT NULL,
