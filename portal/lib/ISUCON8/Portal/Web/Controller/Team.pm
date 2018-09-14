@@ -64,6 +64,7 @@ sub get_dashboard {
         team_id         => $team_id,
         is_last_spurt   => $c->is_last_spurt,
         last_spurt_time => $c->last_spurt_time,
+        limit           => 30,
     });
     my ($target_server) = grep { $_->{is_target_host} } @$servers;
 

@@ -58,10 +58,17 @@ sub get_dashboard {
 
     my $processiong_jobs = $model->get_processing_jobs;
     my $info             = $model->get_information;
+    my $scores           = $model->get_team_scores({ limit => 30 });
+    my $chart_data       = $model->get_chart_data({
+        team_id => 0,
+        limit   => 30,
+    });
     return $c->render_admin('admin/index.tx', {
         page             => 'dashboard',
         info             => $info,
         processiong_jobs => $processiong_jobs,
+        scores           => $scores,
+        chart_data       => $chart_data,
     });
 }
 
@@ -130,6 +137,15 @@ sub post_information {
         page => 'information',
         info => $info,
     });
+}
+
+sub get_scores {
+    my ($self, $c) = @_;
+}
+
+sub get_servers {
+    my ($self, $c) = @_;
+    $c->res_404;
 }
 
 1;
