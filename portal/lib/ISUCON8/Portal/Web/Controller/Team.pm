@@ -151,14 +151,18 @@ sub get_servers {
 sub get_scores {
     my ($self, $c) = @_;
     my $team_id = $c->team_id;
-    my $model   = $c->mode('Team');
+    my $model   = $c->model('Team');
 
-    my $team          = $model->get_team({ id => $team_id });
-    my $score         = $model->get_latest_score({ team_id => $team_id });
-    my $scores        = $model->get_team_scores({});
-    my $all_score_map = $model->get_all_score_map();
+    my $team   = $model->get_team({ id => $team_id });
+    my $score  = $model->get_latest_score({ team_id => $team_id });
+    my $scores = $model->get_team_scores({});
 
-    return $c->res_404;
+    return $c->render('scores.tx', {
+        page   => 'scores',
+        team   => $team,
+        score  => $score,
+        scores => $scores,
+    });
 }
 
 1;

@@ -131,6 +131,7 @@
             </footer>
         </div>
     </section>
+
     <section class="graph">
         <canvas id="myChart" width="400" height="200"></canvas>
     </section>
