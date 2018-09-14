@@ -481,9 +481,6 @@ func LoadGetEvent(ctx context.Context, state *State) error {
 
 func CheckGetEvent(ctx context.Context, state *State) error {
 	// LoadGetEvent() can run concurrently, but CheckCancelReserveSheet() can not
-	state.getRandomPublicSoldOutEventRWMtx.RLock()
-	defer state.getRandomPublicSoldOutEventRWMtx.RUnlock()
-
 	timeBefore := time.Now().Add(-1 * parameter.AllowableDelay)
 
 	user, checker, userPush := state.PopRandomUser()
