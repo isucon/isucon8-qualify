@@ -74,33 +74,42 @@ sub team_id {
     return $team ? $team->{id} : 0;
 }
 
+sub contest_start_at {
+    my ($c) = @_;
+    state $start_at = $c->config->{contest_period}{start_at};
+}
+
+sub contest_finish_at {
+    my ($c) = @_;
+    state $finish_at = $c->config->{contest_period}{finish_at};
+}
+
+sub last_spurt_time {
+    my ($c) = @_;
+    state $last_spurt_time = $c->contest_finish_at - 60 * 60;
+}
+
 # のこり1時間に迫ったら true
 sub is_last_spurt {
     my ($c) = @_;
-    state $finish_at = $c->config->{contest_period}{finish_at};
-    return time > $finish_at - 60 * 60 ? 1 : 0;
+    return time > $c->last_spurt_time ? 1 : 0;
 }
 
 sub is_started {
     my ($c) = @_;
-    state $start_at = $c->config->{contest_period}{start_at};
-    return time > $start_at ? 1 : 0;
+    return time > $c->contest_finish_at ? 1 : 0;
 }
 
 sub is_finished {
     my ($c) = @_;
-    state $finish_at = $c->config->{contest_period}{finish_at};
-    return time > $finish_at ? 1 : 0;
+    return time > $c->contest_finish_at ? 1 : 0;
 }
 
 sub is_during_the_contest {
     my ($c) = @_;
-    state $contest_period = $c->config->{contest_period};
-    state $start_at  = $contest_period->{start_at};
-    state $finish_at = $contest_period->{finish_at};
 
     my $now = time;
-    return $start_at <= $now && $finish_at >= $now ? 1 : 0;
+    return $c->contest_start_at <= $now && $c->contest_finish_at >= $now ? 1 : 0;
 }
 
 sub render {

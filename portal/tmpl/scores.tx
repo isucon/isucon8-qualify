@@ -21,6 +21,13 @@
                     <span>All Team Scores</span>
                 </p>
             </header>
+            : if c().is_last_spurt {
+                <article class="message is-danger">
+                    <div class="message-body">
+                        <strong>残り1時間切ったのでみせられませぬぞ〜</strong>
+                    </div>
+                </article>
+            : } else {
             <div class="card-table">
                 <div class="content">
                     <table class="table is-fullwidth is-striped">
@@ -52,6 +59,7 @@
                 </div>
             </div>
         </div>
+        : }
     </section>
 </div>
 : }

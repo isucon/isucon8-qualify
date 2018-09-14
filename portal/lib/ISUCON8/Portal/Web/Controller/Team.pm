@@ -60,7 +60,9 @@ sub get_dashboard {
     my $recent_jobs = $model->get_team_jobs({ team_id => $team_id, limit => 10 });
 
     my $chart_data = $model->get_chart_data({
-        team_ids => [ uniq +(map { $_->{team_id} } @$top_teams), $team_id ],
+        team_id         => $team_id,
+        is_last_spurt   => $c->is_last_spurt,
+        last_spurt_time => $c->last_spurt_time,
     });
     my ($target_server) = grep { $_->{is_target_host} } @$servers;
 
