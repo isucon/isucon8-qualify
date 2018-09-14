@@ -406,6 +406,7 @@ func LoadReserveSheet(ctx context.Context, state *State) error {
 	return nil
 }
 
+// 売り切れたイベントをひたすらF5してキャンセルが出るのを待つユーザがいる
 func LoadGetEvent(ctx context.Context, state *State) error {
 	// LoadGetEvent() can run concurrently, but CheckCancelReserveSheet() can not
 	state.getRandomPublicSoldOutEventRWMtx.RLock()
