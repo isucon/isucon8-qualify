@@ -65,7 +65,11 @@ label input {
 }
 
 .state-running {
-    animation: hikaru .8s  infinite;
+    animation: hikaru-yellow .8s  infinite;
+}
+
+.state-waiting {
+    animation: hikaru-brown 1.4s  infinite;
 }
 
 @keyframes hurueru {
@@ -76,9 +80,16 @@ label input {
     100% {transform: translate(0px, 0px) rotateZ(0deg)}
 }
 
-@keyframes hikaru {
+@keyframes hikaru-yellow {
     0% {background-color: rgba(255, 255, 0, 0)}
     25% {background-color: rgba(255, 255, 0, 0.3)}
-    50% {background-color: rgba(255, 255, 0, 0.1)}
+    50% {background-color: rgba(255, 255, 0, 0.01)}
     100% {background-color: rgba(255, 255, 0, 0)}
+}
+
+@keyframes hikaru-brown {
+    0% {background-color: rgba(127, 127, 127, 0)}
+    25% {background-color: rgba(127, 127, 127, 0.2)}
+    50% {background-color: rgba(127, 127, 127, 0.01)}
+    100% {background-color: rgba(127, 127, 127, 0)}
 }
