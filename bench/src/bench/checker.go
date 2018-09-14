@@ -33,6 +33,7 @@ var (
 	UserAgent              = "isucon8q-benchmarker"
 	GetTimeout             = parameter.GetTimeout
 	PostTimeout            = parameter.PostTimeout
+	DeleteTimeout          = parameter.DeleteTimeout
 	InitializeTimeout      = parameter.InitializeTimeout
 	SlowThreshold          = parameter.SlowThreshold
 	MaxCheckerRequest      = parameter.MaxCheckerRequest
@@ -413,6 +414,8 @@ func (c *Checker) Play(ctx context.Context, a *CheckAction) error {
 		timeout = GetTimeout
 		if req.Method == http.MethodPost {
 			timeout = PostTimeout
+		} else if req.Method == http.MethodDelete {
+			timeout = DeleteTimeout
 		}
 	}
 	ctx, cancel := context.WithTimeout(ctx, timeout)

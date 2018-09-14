@@ -14,6 +14,7 @@ var (
 
 	GetTimeout            = 10 * time.Second
 	PostTimeout           = 3 * time.Second
+	DeleteTimeout         = 10 * time.Second
 	InitializeTimeout     = 10 * time.Second
 	SlowThreshold         = 1000 * time.Millisecond
 	MaxCheckerRequest     = 6
