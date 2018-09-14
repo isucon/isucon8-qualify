@@ -911,19 +911,17 @@ func (e *Event) GetReserveRequestedCount() uint {
 func (s *State) BeginReservation(lockedUser *AppUser, reservation *Reservation) (logID uint64) {
 	{
 		s.reservationMtx.Lock()
-		defer s.reservationMtx.Unlock()
-
 		s.reserveRequestedCount++
+		s.reservationMtx.Unlock()
 	}
 	{
 		event := s.FindEventByID(reservation.EventID)
 		rank := reservation.SheetRank
 
 		event.reservationMtx.Lock()
-		defer event.reservationMtx.Unlock()
-
 		event.ReserveRequestedCount++
 		*event.ReserveRequestedRT.getPointer(rank)++
+		event.reservationMtx.Unlock()
 	}
 	{
 		lockedUser.Status.PositiveTotalPrice += reservation.Price
@@ -936,22 +934,20 @@ func (s *State) BeginReservation(lockedUser *AppUser, reservation *Reservation) 
 func (s *State) CommitReservation(logID uint64, lockedUser *AppUser, reservation *Reservation) {
 	{
 		s.reservationMtx.Lock()
-		defer s.reservationMtx.Unlock()
-
 		reservation.ReserveCompletedAt = time.Now()
 		s.reservations[reservation.ID] = reservation
 		s.reserveCompletedCount++
 		assert(uint(len(s.reservations)) == s.reserveCompletedCount)
+		s.reservationMtx.Unlock()
 	}
 	{
 		event := s.FindEventByID(reservation.EventID)
 		rank := reservation.SheetRank
 
 		event.reservationMtx.Lock()
-		defer event.reservationMtx.Unlock()
-
 		event.ReserveCompletedCount++
 		*event.ReserveCompletedRT.getPointer(rank)++
+		event.reservationMtx.Unlock()
 	}
 	{
 		lockedUser.Status.NegativeTotalPrice += reservation.Price

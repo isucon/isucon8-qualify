@@ -139,11 +139,10 @@ func checkEventList(state *State, eventsBeforeRequest []*Event, events []JsonEve
 		if err != nil {
 			return fatalErrorf("イベント(id:%d)の総残座席数が正しくありません", e.ID)
 		}
+
+		eventAfterResponse.reservationMtx.RLock()
 		for _, sheetKind := range DataSet.SheetKinds {
 			rank := sheetKind.Rank
-
-			eventAfterResponse.reservationMtx.RLock()
-			defer eventAfterResponse.reservationMtx.RUnlock()
 
 			err = checkRemains(
 				e.ID,
@@ -155,8 +154,13 @@ func checkEventList(state *State, eventsBeforeRequest []*Event, events []JsonEve
 				eventBeforeRequest.ReserveCompletedRT.Get(rank))
 			if err != nil {
 				log.Printf("warn: eventID=%d remains=%d is not included in count range (%d-%d) \n", e.ID, e.Sheets[rank].Remains, e.Sheets[rank].Total-eventAfterResponse.CancelRequestedRT.Get(rank), e.Sheets[rank].Total-eventBeforeRequest.ReserveCompletedRT.Get(rank))
-				return fatalErrorf("イベント(id:%d)の%s席の残座席数が正しくありません", e.ID, rank)
+				err = fatalErrorf("イベント(id:%d)の%s席の残座席数が正しくありません", e.ID, rank)
+				break
 			}
+		}
+		eventAfterResponse.reservationMtx.RUnlock()
+		if err != nil {
+			return err
 		}
 	}
 
