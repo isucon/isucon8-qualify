@@ -181,4 +181,89 @@ sub get_servers {
     });
 }
 
+sub get_teams {
+    my ($self, $c) = @_;
+    my $model = $c->model('Admin');
+
+    my $info  = $model->get_information;
+    my $teams = $model->get_teams;
+    return $c->render_admin('admin/teams.tx', {
+        page  => 'teams',
+        info  => $info,
+        teams => $teams,
+    });
+}
+
+sub get_team_edit {
+    my ($self, $c, $captured) = @_;
+    state $rule = $c->make_validator(
+        team_id => { isa => 'Str' },
+    );
+
+    my $params = $c->validate($rule, $captured);
+    unless ($params) {
+        $c->log->warnf('validate error: %s', $rule->error->{team_id});
+        return $c->render_admin('admin/team_edit.tx', {
+            page => 'teams',
+        });
+    }
+
+    my $info = $c->model('Admin')->get_information;
+    my $team = $c->model('Team')->get_team({ id => $captured->{team_id} });
+    return $c->render_admin('admin/team_edit.tx', {
+        page => 'teams',
+        info => $info,
+        team => $team,
+    });
+}
+
+sub post_team_edit {
+    my ($self, $c, $captured) = @_;
+    state $capture_rule = $c->make_validator(
+        team_id => { isa => 'Str' },
+    );
+
+    use Mouse::Util::TypeConstraints;
+    state $rule = $c->make_validator(
+        state   => { isa => enum([qw/actived banned/]) },
+        message => { isa => 'Str' },
+        note    => { isa => 'Str' },
+    );
+    no Mouse::Util::TypeConstraints;
+
+    unless ($c->validate($capture_rule, $captured)) {
+        $c->log->warnf('validate error: %s', $rule->error->{message});
+        $c->fillin_form($c->req);
+        return $c->render_admin('admin/team_edit.tx', {
+            page     => 'teams',
+            is_error => 1,
+        });
+    }
+
+    my $params = $c->validate($rule, $c->req->body_parameters->mixed);
+    unless ($params) {
+        $c->log->warnf('validate error: %s', $rule->error->{message});
+        $c->fillin_form($c->req);
+        return $c->render_admin('admin/team_edit.tx', {
+            page     => 'teams',
+            is_error => 1,
+        });
+    }
+
+    my $info = $c->model('Admin')->get_information;
+    $c->model('Admin')->update_team({
+        id      => $captured->{team_id},
+        state   => $params->{state},
+        message => $params->{message},
+        note    => $params->{note},
+    });
+
+    my $team = $c->model('Team')->get_team({ id => $captured->{team_id} });
+    return $c->render_admin('admin/team_edit.tx', {
+        page => 'teams',
+        info => $info,
+        team => $team,
+    });
+}
+
 1;

@@ -157,7 +157,7 @@ sub get_team_scores {
 
 sub get_teams {
     my ($self, $params) = @_;
-    my $ids = $params->{ids};
+    my $ids = $params->{ids} || [];
 
     my $teams = [];
     eval {

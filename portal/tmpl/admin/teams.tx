@@ -1,0 +1,59 @@
+: cascade "include/admin/layout.tx"
+
+: override content -> {
+<div class="column is-9">
+    <nav class="breadcrumb" aria-label="breadcrumbs">
+        <ul>
+            <li><a href="/admin">ISUCON8</a></li>
+            <li class="is-active"><a href="#" aria-current="page">Manage Teams</a></li>
+        </ul>
+    </nav>
+
+    <section class="table-list">
+        <div class="card events-card">
+            <header class="card-header is-info">
+                <p class="card-header-title">
+                    <span class="icon">
+                        <i class="fas fa-server"></i>
+                    </span>
+                    <span>All Teams</span>
+                </p>
+            </header>
+            <div class="card-table">
+                <div class="content">
+                    <table class="table is-fullwidth is-striped">
+                        <thead>
+                            <tr>
+                                <th>Id</th>
+                                <th>Password</th>
+                                <th>Name</th>
+                                <th>Category</th>
+                                <th>State</th>
+                                <th>Message</th>
+                                <th>Note</th>
+                                <th>Updated At</th>
+                                <th>Edit</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            : for $teams -> $row {
+                                <tr>
+                                    <td><: $row.id :></td>
+                                    <td><: $row.password :></td>
+                                    <td><: $row.name :></td>
+                                    <td><: $row.category_display_name :></td>
+                                    <td><: $row.state :></td>
+                                    <td><: $row.message :></td>
+                                    <td><: $row.note :></td>
+                                    <td><: $row.updated_at | from_unixtime :></td>
+                                    <td><a class="button is-small is-link" href="/admin/teams/<: $row.id :>">Edit</a></td>
+                                </tr>
+                            : }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </section>    
+</div>
+: }

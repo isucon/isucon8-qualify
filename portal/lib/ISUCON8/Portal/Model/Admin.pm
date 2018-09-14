@@ -246,4 +246,41 @@ sub get_servers {
     return $servers;
 }
 
+sub update_team {
+    my ($self, $params) = @_;
+    my $team_id = $params->{id};
+    my $message = $params->{message};
+    my $state   = $params->{state};
+    my $note    = $params->{note};
+
+    eval {
+        $self->db->txn(sub {
+            my $dbh = shift;
+            my ($stmt, @bind) = $self->sql->update(
+                'teams',
+                {
+                    state      => $state,
+                    message    => $message,
+                    note       => $note,
+                    updated_at => \'UNIX_TIMESTAMP()',
+                },
+                {
+                    id => $team_id,
+                },
+            );
+            $dbh->do($stmt, undef, @bind);
+        });
+    };
+    if (my $e = $@) {
+        $e->rethrow if ref $e eq 'ISUCON8::Portal::Exception';
+        ISUCON8::Portal::Exception->throw(
+            code    => ERROR_INTERNAL_ERROR,
+            message => "$e",
+            logger  => sub { $self->log->critf(@_) },
+        );
+    }
+
+    return;
+}
+
 1;
