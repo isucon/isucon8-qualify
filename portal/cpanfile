@@ -22,6 +22,7 @@ requires 'Getopt::Long';
 requires 'HTTP::Session2::ServerStore';
 requires 'HTTP::Status';
 requires 'IO::Socket::SSL';
+requires 'JavaScript::Value::Escape';
 requires 'JSON';
 requires 'JSON::XS';
 requires 'Log::Minimal::Instance';
