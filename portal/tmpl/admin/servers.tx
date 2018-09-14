@@ -21,36 +21,51 @@
             </header>
             <div class="card-table">
                 <div class="content">
-                    <table class="table is-fullwidth is-striped">
-                        <thead>
-                            <tr>
-                                <th>Team</th>
-                                <th>Team State</th>
-                                <th>Group Id</th>
-                                <th>Hostname</th>
-                                <th>Password</th>
-                                <th>Global IP</th>
-                                <th>Private IP</th>
-                                <th>Bench IP</th>
-                                <th>Node</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            : for $servers -> $row {
+                    : for $servers_map.keys().sort() -> $team_id {
+                        : my $server_data = $servers_map[$team_id];
+                        <table class="table is-fullwidth is-striped">
+                            <thead>
                                 <tr>
-                                    <td><a href="/admin/teams/<: $row.team_id :>"><: $row.team_id :>: <: $row.team_name :></a></td>
-                                    <td><: $row.team_state :></td>
-                                    <td><: $row.group_id :></td>
-                                    <td><: $row.hostname :></td>
-                                    <td><: $row.password :></td>
-                                    <td><: $row.global_ip :></td>
-                                    <td><: $row.private_ip :></td>
-                                    <td><: $row.bench_ip :></td>
-                                    <td><: $row.node :></td>
+                                    <th colspan="2">Team</th>
+                                    <th>Team State</th>
+                                    <th>Group Id</th>
+                                    <th>Node</th>
                                 </tr>
-                            : }
-                        </tbody>
-                    </table>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td colspan="2">
+                                        <a href="/admin/teams/<: $server_data.team_id :>">
+                                            <: $server_data.team_id :>: <: $server_data.team_name :>
+                                        </a>
+                                    </td>
+                                    <td><: $server_data.team_state :></td>
+                                    <td><: $server_data.group_id :></td>
+                                    <td><: $server_data.node :></td>
+                                </tr>
+                            </tbody>
+                            <thead>
+                                <tr>
+                                    <th>Hostname</th>
+                                    <th>Password</th>
+                                    <th>Global IP</th>
+                                    <th>Private IP</th>
+                                    <th>Bench IP</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                : for $server_data.servers -> $row {
+                                    <tr>
+                                        <td><: $row.hostname :></td>
+                                        <td><: $row.password :></td>
+                                        <td><: $row.global_ip :></td>
+                                        <td><: $row.private_ip :></td>
+                                        <td><: $row.bench_ip :></td>
+                                    </tr>
+                                : }
+                            </tbody>
+                        </table>
+                    : }
                 </div>
             </div>
         </div>

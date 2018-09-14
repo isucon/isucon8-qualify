@@ -160,10 +160,24 @@ sub get_servers {
 
     my $info    = $model->get_information;
     my $servers = $model->get_servers;
+
+    my $servers_map = {};
+    for my $row (@$servers) {
+        my $team_server = $servers_map->{ $row->{team_id} } ||= {
+            team_id    => $row->{team_id},
+            team_name  => $row->{team_name},
+            team_state => $row->{team_state},
+            group_id   => $row->{group_id},
+            node       => $row->{node},
+            servers    => [],
+        };
+        push @{ $team_server->{servers} }, $row;
+    }
+
     return $c->render_admin('admin/servers.tx', {
-        page    => 'servers',
-        info    => $info,
-        servers => $servers,
+        page        => 'servers',
+        info        => $info,
+        servers_map => $servers_map,
     });
 }
 
