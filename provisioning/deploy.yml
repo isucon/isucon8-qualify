@@ -1,0 +1,5 @@
+---
+- hosts: bench
+  roles:
+    - deploy_bench_binary
+    - start_bench_worker
