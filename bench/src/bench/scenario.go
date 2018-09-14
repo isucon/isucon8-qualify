@@ -128,6 +128,8 @@ func checkEventList(state *State, eventsBeforeRequest []*Event, events []JsonEve
 			log.Printf("debug: checkEventList: eventAfterResponse did not exist (eventID:%d)\n", e.ID)
 			continue
 		}
+
+		eventAfterResponse.reservationMtx.RLock()
 		err := checkRemains(
 			e.ID,
 			DataSet.SheetTotal,
@@ -137,10 +139,10 @@ func checkEventList(state *State, eventsBeforeRequest []*Event, events []JsonEve
 			eventAfterResponse.CancelRequestedCount,
 			eventBeforeRequest.ReserveCompletedCount)
 		if err != nil {
-			return fatalErrorf("イベント(id:%d)の総残座席数が正しくありません", e.ID)
+			err = fatalErrorf("イベント(id:%d)の総残座席数が正しくありません", e.ID)
+			goto unlock
 		}
 
-		eventAfterResponse.reservationMtx.RLock()
 		for _, sheetKind := range DataSet.SheetKinds {
 			rank := sheetKind.Rank
 
@@ -158,6 +160,8 @@ func checkEventList(state *State, eventsBeforeRequest []*Event, events []JsonEve
 				break
 			}
 		}
+
+	unlock:
 		eventAfterResponse.reservationMtx.RUnlock()
 		if err != nil {
 			return err
