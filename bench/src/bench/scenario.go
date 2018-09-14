@@ -106,6 +106,9 @@ func checkEventList(state *State, eventsBeforeRequest []*Event, events []JsonEve
 		if e.Title != eventBeforeRequest.Title {
 			return fatalErrorf("イベント(id:%d)のタイトルが正しくありません", e.ID)
 		}
+		if e.Sheets == nil {
+			return fatalErrorf("イベント(id:%d)のシート定義が取得できません", e.ID)
+		}
 		if int(e.Total) != len(DataSet.Sheets) {
 			return fatalErrorf("イベント(id:%d)の総座席数が正しくありません", e.ID)
 		}
@@ -176,6 +179,35 @@ func checkJsonFullUserResponse(user *AppUser, check func(*JsonFullUser) error) f
 		} else if user.Nickname != v.Nickname {
 			log.Printf("warn: expected nickname=%s but got nickname=%s (user_id=%d)\n", user.Nickname, v.Nickname, user.ID)
 			return fatalErrorf("正しいユーザーを取得できません")
+		}
+
+		// basic checks for RecentReservations
+		if v.RecentReservations == nil {
+			return fatalErrorf("最近予約した席を取得できません")
+		}
+		if len(v.RecentReservations) > 5 {
+			return fatalErrorf("最近予約した席が多すぎます")
+		}
+		for _, r := range v.RecentReservations {
+			if r == nil {
+				return fatalErrorf("最近予約した席がnullです")
+			}
+			if r.Event == nil {
+				return fatalErrorf("最近予約した席のイベントがnullです")
+			}
+		}
+
+		// basic checks for RecentEvents
+		if v.RecentEvents == nil {
+			return fatalErrorf("最近予約したイベントを取得できません")
+		}
+		if len(v.RecentEvents) > 5 {
+			return fatalErrorf("最近予約したイベントが多すぎます")
+		}
+		for _, r := range v.RecentEvents {
+			if r == nil {
+				return fatalErrorf("最近予約したイベントがnullです")
+			}
 		}
 
 		return check(&v)
@@ -1682,25 +1714,28 @@ func checkJsonEventResponse(event *Event, cb func(JsonEvent) error) func(res *ht
 
 		// basic checks
 		if jsonEvent.ID != event.ID || jsonEvent.Title != event.Title || len(jsonEvent.Sheets) != len(DataSet.SheetKinds) {
-			return fatalErrorf("正しいイベントを取得できません(id:%d)", event.ID)
+			return fatalErrorf("正しいイベント(id:%d)を取得できません", event.ID)
+		}
+		if jsonEvent.Sheets == nil {
+			return fatalErrorf("イベント(id:%d)のシート定義が取得できません", event.ID)
 		}
 		for rank, sheets := range jsonEvent.Sheets {
 			sheetKind := DataSet.SheetKindMap[rank]
-			if int(sheetKind.Total) != len(sheets.Details) {
-				return fatalErrorf("シートの詳細情報が取得できません(id:%d)", event.ID)
+			if sheets.Details == nil || int(sheetKind.Total) != len(sheets.Details) {
+				return fatalErrorf("イベント(id:%d)のシートの詳細情報が取得できません", event.ID)
 			}
 
 			reservedCount := 0
 			for i, sheet := range sheets.Details {
 				if int(sheet.Num) != i+1 {
-					return fatalErrorf("シートの順番が違います(id:%d)", event.ID)
+					return fatalErrorf("イベント(id:%d)のシートの順番が違います", event.ID)
 				}
 				if sheet.Reserved {
 					reservedCount++
 				}
 			}
 			if reservedCount != int(sheets.Total-sheets.Remains) {
-				return fatalErrorf("シートの予約状況が矛盾しています(id:%d)", event.ID)
+				return fatalErrorf("イベント(id:%d)のシートの予約状況が矛盾しています", event.ID)
 			}
 		}
 
