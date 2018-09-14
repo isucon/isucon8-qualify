@@ -178,6 +178,35 @@ func checkJsonFullUserResponse(user *AppUser, check func(*JsonFullUser) error) f
 			return fatalErrorf("正しいユーザーを取得できません")
 		}
 
+		// basic checks for RecentReservations
+		if v.RecentReservations == nil {
+			return fatalErrorf("最近予約した席を取得できません")
+		}
+		if len(v.RecentReservations) > 5 {
+			return fatalErrorf("最近予約した席が多すぎます")
+		}
+		for _, r := range v.RecentReservations {
+			if r == nil {
+				return fatalErrorf("最近予約した席がnullです")
+			}
+			if r.Event == nil {
+				return fatalErrorf("最近予約した席のイベントがnullです")
+			}
+		}
+
+		// basic checks for RecentEvents
+		if v.RecentEvents == nil {
+			return fatalErrorf("最近予約したイベントを取得できません")
+		}
+		if len(v.RecentEvents) > 5 {
+			return fatalErrorf("最近予約したイベントが多すぎます")
+		}
+		for _, r := range v.RecentEvents {
+			if r == nil {
+				return fatalErrorf("最近予約したイベントがnullです")
+			}
+		}
+
 		return check(&v)
 	}
 }
