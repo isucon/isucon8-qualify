@@ -1,0 +1,59 @@
+: cascade "include/admin/layout.tx"
+
+: override content -> {
+<div class="column is-9">
+    <nav class="breadcrumb" aria-label="breadcrumbs">
+        <ul>
+            <li><a href="/admin">ISUCON8</a></li>
+            <li class="is-active"><a href="#" aria-current="page">Show All Servers</a></li>
+        </ul>
+    </nav>
+
+    <section class="table-list">
+        <div class="card events-card">
+            <header class="card-header is-info">
+                <p class="card-header-title">
+                    <span class="icon">
+                        <i class="fas fa-server"></i>
+                    </span>
+                    <span>Servers</span>
+                </p>
+            </header>
+            <div class="card-table">
+                <div class="content">
+                    <table class="table is-fullwidth is-striped">
+                        <thead>
+                            <tr>
+                                <th>Team</th>
+                                <th>Team State</th>
+                                <th>Group Id</th>
+                                <th>Hostname</th>
+                                <th>Password</th>
+                                <th>Global IP</th>
+                                <th>Private IP</th>
+                                <th>Bench IP</th>
+                                <th>Node</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            : for $servers -> $row {
+                                <tr>
+                                    <td><a href="/admin/teams/<: $row.team_id :>"><: $row.team_id :>: <: $row.team_name :></a></td>
+                                    <td><: $row.team_state :></td>
+                                    <td><: $row.group_id :></td>
+                                    <td><: $row.hostname :></td>
+                                    <td><: $row.password :></td>
+                                    <td><: $row.global_ip :></td>
+                                    <td><: $row.private_ip :></td>
+                                    <td><: $row.bench_ip :></td>
+                                    <td><: $row.node :></td>
+                                </tr>
+                            : }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </section>    
+</div>
+: }

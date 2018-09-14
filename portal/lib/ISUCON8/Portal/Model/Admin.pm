@@ -204,4 +204,46 @@ sub update_information {
     return;
 }
 
+sub get_servers {
+    my ($self, $params) = @_;
+
+    my $servers = [];
+    eval {
+        $self->db->run(sub {
+            my $dbh = shift;
+            my ($stmt, @bind) = $self->sql->select(
+                { teams => 't' },
+                [
+                    \'s.*',
+                    { 't.id'    => 'team_id' },
+                    { 't.name'  => 'team_name' },
+                    { 't.state' => 'team_state' },
+                ],
+                {},
+                {
+                    order_by => [
+                        { -asc => 't.id' },
+                        { -asc => 's.global_ip' },
+                    ],
+                    join     => {
+                        table     => { servers => 's' },
+                        condition => { 't.group_id' => 's.group_id' },
+                    },
+                },
+            );
+            $servers = $dbh->selectall_arrayref($stmt, { Slice => {} }, @bind);
+        });
+    };
+    if (my $e = $@) {
+        $e->rethrow if ref $e eq 'ISUCON8::Portal::Exception';
+        ISUCON8::Portal::Exception->throw(
+            code    => ERROR_INTERNAL_ERROR,
+            message => "$e",
+            logger  => sub { $self->log->critf(@_) },
+        );
+    }
+
+    return $servers;
+}
+
 1;

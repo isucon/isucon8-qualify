@@ -141,11 +141,30 @@ sub post_information {
 
 sub get_scores {
     my ($self, $c) = @_;
+    my $model = $c->model('Admin');
+
+    my $info       = $model->get_information;
+    my $scores     = $model->get_team_scores();
+    my $chart_data = $model->get_chart_data({ team_id => 0 });
+    return $c->render_admin('admin/scores.tx', {
+        page       => 'scores',
+        info       => $info,
+        scores     => $scores,
+        chart_data => $chart_data,
+    });
 }
 
 sub get_servers {
     my ($self, $c) = @_;
-    $c->res_404;
+    my $model = $c->model('Admin');
+
+    my $info    = $model->get_information;
+    my $servers = $model->get_servers;
+    return $c->render_admin('admin/servers.tx', {
+        page    => 'servers',
+        info    => $info,
+        servers => $servers,
+    });
 }
 
 1;

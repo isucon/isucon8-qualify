@@ -1,0 +1,55 @@
+: cascade "include/admin/layout.tx"
+
+: override content -> {
+<div class="column is-9">
+    <nav class="breadcrumb" aria-label="breadcrumbs">
+        <ul>
+            <li><a href="/admin">ISUCON8</a></li>
+            <li class="is-active"><a href="#" aria-current="page">Show All Scores</a></li>
+        </ul>
+    </nav>
+
+    <section class="table-list">
+        <div class="card events-card">
+            <header class="card-header is-danger">
+                <p class="card-header-title">
+                    <span class="icon">
+                        <i class="fas fa-chart-area"></i>
+                    </span>
+                    <span>All Team Scores</span>
+                </p>
+            </header>
+            <div class="card-table">
+                <div class="content">
+                    <table class="table is-fullwidth is-striped">
+                        <thead>
+                            <tr>
+                                <th>Rank</th>
+                                <th>Id</th>
+                                <th>Name</th>
+                                <th>Members</th>
+                                <th>LatestScore</th>
+                                <th>BestScore</th>
+                                <th>FinishTime</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            : for $scores -> $row {
+                            <tr>
+                                <td class="has-text-right"><: $~row.count :></td>
+                                <td class="has-text-right"><: $row.team_id :></td>
+                                <td><a href="/admin/teams/<: $row.team_id :>"><: ellipsis($row.name, 30) :></a></td>
+                                <td class="has-text-right"><: $row.category_display_name :></td>
+                                <td class="has-text-right"><: $row.latest_score | commify :></td>
+                                <td class="has-text-right"><: $row.best_score   | commify :></td>
+                                <td><: $row.updated_at | unixtime2time :></td>
+                            </tr>
+                            : }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </section>
+</div>
+: }
