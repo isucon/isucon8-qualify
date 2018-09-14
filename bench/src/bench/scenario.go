@@ -106,6 +106,9 @@ func checkEventList(state *State, eventsBeforeRequest []*Event, events []JsonEve
 		if e.Title != eventBeforeRequest.Title {
 			return fatalErrorf("イベント(id:%d)のタイトルが正しくありません", e.ID)
 		}
+		if e.Sheets == nil {
+			return fatalErrorf("イベント(id:%d)のシート定義が取得できません", e.ID)
+		}
 		if int(e.Total) != len(DataSet.Sheets) {
 			return fatalErrorf("イベント(id:%d)の総座席数が正しくありません", e.ID)
 		}
@@ -1713,9 +1716,12 @@ func checkJsonEventResponse(event *Event, cb func(JsonEvent) error) func(res *ht
 		if jsonEvent.ID != event.ID || jsonEvent.Title != event.Title || len(jsonEvent.Sheets) != len(DataSet.SheetKinds) {
 			return fatalErrorf("正しいイベントを取得できません(id:%d)", event.ID)
 		}
+		if jsonEvent.Sheets == nil {
+			return fatalErrorf("イベントのシート定義が取得できません(id:%d)", event.ID)
+		}
 		for rank, sheets := range jsonEvent.Sheets {
 			sheetKind := DataSet.SheetKindMap[rank]
-			if int(sheetKind.Total) != len(sheets.Details) {
+			if sheets.Details == nil || int(sheetKind.Total) != len(sheets.Details) {
 				return fatalErrorf("シートの詳細情報が取得できません(id:%d)", event.ID)
 			}
 
