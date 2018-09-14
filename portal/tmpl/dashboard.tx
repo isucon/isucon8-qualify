@@ -162,7 +162,7 @@
                 $(modalId).find(".notification").text("Enqueue successfully!!");
             } else {
                 $(modalId).find(".notification").addClass("is-danger");
-                $(modalId).find(".notification").text(data.error);
+                $(modalId).find(".notification").text(data.error || 'Error!!!');
             }
             $(modalId).addClass("is-active");
         }).fail(function(data) {

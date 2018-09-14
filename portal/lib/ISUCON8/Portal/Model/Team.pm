@@ -192,7 +192,10 @@ sub get_team_scores {
                     's.team_id', 's.latest_score', 's.best_score', 's.updated_at',
                     's.latest_status', 't.name', 't.category',
                 ],
-                {},
+                {
+                    't.state'      => TEAM_STATE_ACTIVED,
+                    's.best_score' => \'IS NOT NULL',
+                },
                 {
                     join => {
                         type      => 'LEFT',

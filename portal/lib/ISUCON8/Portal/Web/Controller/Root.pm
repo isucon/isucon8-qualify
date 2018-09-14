@@ -5,9 +5,7 @@ use feature 'state';
 
 sub get_index {
     my ($self, $c) = @_;
-
-    my $contest_period = $c->config->{contest_period};
-    unless ($c->model('Common')->is_during_the_contest($contest_period)) {
+    unless ($c->is_during_the_contest) {
         return $c->render('landing.tx');
     }
 
