@@ -63,7 +63,7 @@ sub get_dashboard {
         team_id => 0,
         limit   => 30,
     });
-    return $c->render_admin('admin/index.tx', {
+    return $c->render_admin('admin/dashboard.tx', {
         page             => 'dashboard',
         info             => $info,
         processiong_jobs => $processiong_jobs,
