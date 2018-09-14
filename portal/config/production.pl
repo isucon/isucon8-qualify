@@ -25,6 +25,7 @@ my $finish_at = $ENV{ISUCON8_FINISH_AT} || '2018-09-15T18:00:00+09:00';
         finish_at => Time::Moment->from_string($finish_at)->epoch,
     },
     url => {
+        manual      => 'https://ja.wikipedia.org/wiki/%E3%83%9E%E3%83%8B%E3%83%A5%E3%82%A2%E3%83%AB',
         isucon_site => 'http://isucon.net/',
         regulation  => 'http://isucon.net/archives/52445389.html',
         twitter     => 'https://twitter.com/isucon_official',

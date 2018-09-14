@@ -109,6 +109,14 @@
                     </p>
                     <ul class="menu-list">
                         <li>
+                            <a target="_blank" href="<: $config.url.manual :>">
+                                <span class="icon">
+                                    <i class="fas fa-book"></i>
+                                </span>
+                                <span>Manual</span>
+                            </a>
+                        </li>
+                        <li>
                             <a target="_blank" href="<: $config.url.isucon_site :>">
                                 <span class="icon">
                                     <i class="fa fa-home"></i>

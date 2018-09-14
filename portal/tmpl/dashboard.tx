@@ -134,7 +134,7 @@
                 </div>
             </div>
             <footer class="card-footer">
-                <a href="#" class="card-footer-item">View All</a>
+                <a href="/scores" class="card-footer-item">View All</a>
             </footer>
         </div>
         : }
