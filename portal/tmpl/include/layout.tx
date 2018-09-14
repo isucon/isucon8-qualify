@@ -91,16 +91,18 @@
                                     <i class="fas fa-server"></i>
                                 </span>
                                 <span>Servers</span>
-                        </a>
-                    </li>
-                    <li>
-                        <a class="<: is_active($page, 'members') :>" href="/members">
-                                <span class="icon">
-                                    <i class="far fa-address-card"></i>
-                                </span>
-                                <span>Manage Your Team</span>
-                    </a>
-                </li>
+                            </a>
+                        </li>
+                        <!--
+                            <li>
+                                <a class="<: is_active($page, 'members') :>" href="/members">
+                                    <span class="icon">
+                                        <i class="far fa-address-card"></i>
+                                    </span>
+                                    <span>Manage Your Team</span>
+                                </a>
+                            </li>
+                        -->
                     </ul>
                     <p class="menu-label">
                         Links
