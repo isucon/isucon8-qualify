@@ -131,7 +131,7 @@ sub get_job {
                 'teams',
                 ['*'],
                 {
-                    id => $job->{id},
+                    id => $job->{team_id},
                 },
             );
             $job->{team} = $dbh->selectrow_hashref($stmt, undef, @bind);

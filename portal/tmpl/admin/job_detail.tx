@@ -48,9 +48,16 @@
                                 <td><: $job.updated_at | unixtime2time :></td>
                             </tr>
                             <tr>
-                                <th width="10%">Errors</th>
+                                <th width="10%">Message</th>
                                 <td style="font-size: 0.85rem">
-                                    <: $job.result_json.error.join("\n") | html_line_break :>
+                                    <: $job.result_json.message | html_line_break :>
+                                    <!-- <: $job.result_json.error.join("\n") | html_line_break :> -->
+                                </td>
+                            </tr>
+                            <tr>
+                                <th width="10%">Log</th>
+                                <td style="font-size: 0.85rem">
+                                    <: $job.result_json.log.join("\n") | html_line_break :>
                                 </td>
                             </tr>
                         </tbody>
