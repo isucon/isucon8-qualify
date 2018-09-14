@@ -55,11 +55,18 @@ sub get_all_jobs {
         $self->db->run(sub {
             my $dbh = shift;
             my ($stmt, @bind) = $self->sql->select(
-                'bench_queues',
-                ['*'],
+                { 'bench_queues' => 'b' },
+                [
+                    \'b.*',
+                    { 't.name' => 'team_name' },
+                ],
                 {},
                 {
-                    order_by => { -asc => 'id' },
+                    order_by => { -desc => 'id' },
+                    join     => {
+                        table     => { teams => 't' },
+                        condition => { 'b.team_id' => 't.id' },
+                    },
                 },
             );
             $jobs = $dbh->selectall_arrayref($stmt, { Slice => {} }, @bind);
@@ -85,16 +92,22 @@ sub get_processing_jobs {
         $self->db->run(sub {
             my $dbh = shift;
             my ($stmt, @bind) = $self->sql->select(
-                'bench_queues',
-                ['*'],
+                { 'bench_queues' => 'b' },
+                [
+                    \'b.*',
+                    { 't.name' => 'team_name' },
+                ],
                 {
                     state => [ JOB_QUEUE_STATE_WAITING, JOB_QUEUE_STATE_RUNNING ],
                 },
                 {
                     order_by => { -asc => 'id' },
+                    join     => {
+                        table     => { teams => 't' },
+                        condition => { 'b.team_id' => 't.id' },
+                    },
                 },
             );
-            $jobs = $dbh->selectall_arrayref($stmt, { Slice => {} }, @bind);
         });
     };
     if (my $e = $@) {

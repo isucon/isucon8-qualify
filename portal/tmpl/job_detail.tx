@@ -5,7 +5,8 @@
     <nav class="breadcrumb" aria-label="breadcrumbs">
         <ul>
             <li><a href="/">ISUCON8</a></li>
-            <li class="is-active"><a href="#" aria-current="page">Show All Jobs</a></li>
+            <li><a href="/admin/jobs">Show All Jobs</a></li>
+            <li class="is-active"><a href="#" aria-current="page">Job Details</a></li>
         </ul>
     </nav>
 
@@ -30,6 +31,10 @@
                                 <td><: $job.id :></td>
                             </tr>
                             <tr>
+                                <th width="10%">Traget</th>
+                                <td><: $job.target_ip :></td>
+                            </tr>
+                            <tr>
                                 <th width="10%">Score</th>
                                 <td><: $job.result_score | commify :></td>
                             </tr>
@@ -46,9 +51,15 @@
                                 <td><: $job.updated_at | unixtime2time :></td>
                             </tr>
                             <tr>
-                                <th width="10%">Errors</th>
+                                <th width="10%">Message</th>
                                 <td style="font-size: 0.85rem">
-                                    <: $job.result_json.error.join("\n") | html_line_break :>
+                                    <: $job.result_json.message | html_line_break :>
+                                </td>
+                            </tr>
+                            <tr>
+                                <th width="10%">Log</th>
+                                <td style="font-size: 0.85rem">
+                                    <: ($job.result_json.log || []).join("\n") | html_line_break :>
                                 </td>
                             </tr>
                         </tbody>
