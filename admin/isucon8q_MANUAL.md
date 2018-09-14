@@ -151,7 +151,7 @@ $ ~isucon/torb/db/init.sh
 スコアはベンチマーク走行時間内に成功したリクエスト数をベースに計算されます。
 リクエスト当たりの点数は以下のルールで計算され、その合計がベンチマーク走行のスコアとなります。
 
-* 予約( `POST /api/events/\d+/actions/resrve` ) : **10点/1リクエスト**
+* 予約( `POST /api/events/\d+/actions/reserve` ) : **10点/1リクエスト**
 * 予約のキャンセル( `DELETE /api/events/\d+/sheets/\s/\d+/reservation` ) : **10点/1リクエスト**
 * トップページ( `GET /` ): **5点/1リクエスト**
 * イベント詳細( `GET /api/events/\d+`  ): **5点/1リクエスト**
