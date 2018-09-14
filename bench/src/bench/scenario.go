@@ -1714,28 +1714,28 @@ func checkJsonEventResponse(event *Event, cb func(JsonEvent) error) func(res *ht
 
 		// basic checks
 		if jsonEvent.ID != event.ID || jsonEvent.Title != event.Title || len(jsonEvent.Sheets) != len(DataSet.SheetKinds) {
-			return fatalErrorf("正しいイベントを取得できません(id:%d)", event.ID)
+			return fatalErrorf("正しいイベント(id:%d)を取得できません", event.ID)
 		}
 		if jsonEvent.Sheets == nil {
-			return fatalErrorf("イベントのシート定義が取得できません(id:%d)", event.ID)
+			return fatalErrorf("イベント(id:%d)のシート定義が取得できません", event.ID)
 		}
 		for rank, sheets := range jsonEvent.Sheets {
 			sheetKind := DataSet.SheetKindMap[rank]
 			if sheets.Details == nil || int(sheetKind.Total) != len(sheets.Details) {
-				return fatalErrorf("シートの詳細情報が取得できません(id:%d)", event.ID)
+				return fatalErrorf("イベント(id:%d)のシートの詳細情報が取得できません", event.ID)
 			}
 
 			reservedCount := 0
 			for i, sheet := range sheets.Details {
 				if int(sheet.Num) != i+1 {
-					return fatalErrorf("シートの順番が違います(id:%d)", event.ID)
+					return fatalErrorf("イベント(id:%d)のシートの順番が違います", event.ID)
 				}
 				if sheet.Reserved {
 					reservedCount++
 				}
 			}
 			if reservedCount != int(sheets.Total-sheets.Remains) {
-				return fatalErrorf("シートの予約状況が矛盾しています(id:%d)", event.ID)
+				return fatalErrorf("イベント(id:%d)のシートの予約状況が矛盾しています", event.ID)
 			}
 		}
 
