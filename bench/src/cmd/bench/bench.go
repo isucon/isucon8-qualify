@@ -483,6 +483,8 @@ func startBenchmark(remoteAddrs []string) *BenchResult {
 
 	time.Sleep(parameter.AllowableDelay)
 
+	// If backlog, the queue length for completely established sockets waiting to be accepted,
+	// are too large or not configured well, postTest may timeout because of the remained requests.
 	log.Println("postTest()")
 	err = postTest(context.Background(), state)
 	if err != nil {
