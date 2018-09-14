@@ -13,13 +13,8 @@ CREATE TABLE IF NOT EXISTS admin_users (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS admin_messages (
-    `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
     `message` mediumtext,
-    `type` enum('info', 'warning', 'danger') NOT NULL DEFAULT 'info',
-    `disabled` tinyint(1) unsigned NOT NULL,
-    `updated_at` int(10) unsigned NOT NULL,
-    `created_at` int(10) unsigned NOT NULL,
-    PRIMARY KEY `id`
+    `updated_at` int(10) unsigned NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLe IF NOT EXISTS admin_regulations (
@@ -34,6 +29,7 @@ CREATE TABLE IF NOT EXISTS teams (
     `password` varchar(64) NOT NULL,
     `category` enum('general_one', 'general_two', 'general_three', 'student_one', 'student_two', 'student_three') NOT NULL,
     `banned_reason` mediumtext,
+    `admin_message` mediumtext,
     `created_at` int(10) unsigned NOT NULL,
     `updated_at` int(10) unsigned NOT NULL,
     PRIMARY KEY (`id`),
@@ -59,6 +55,7 @@ CREATE TABLE IF NOT EXISTS servers (
     KEY idx_node (`node`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+/*
 CREATE TABLE IF NOT EXISTS team_members (
     `team_id` int(10) unsigned NOT NULL,
     `member_number` tinyint(1) unsigned NOT NULL,
@@ -69,6 +66,7 @@ CREATE TABLE IF NOT EXISTS team_members (
     `updated_at` int(10) unsigned NOT NULL,
     PRIMARY KEY (`team_id`, `member_number`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+*/
 
 CREATE TABLE IF NOT EXISTS team_scores (
     `team_id` int(10) unsigned NOT NULL,
