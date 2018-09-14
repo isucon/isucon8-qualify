@@ -131,7 +131,7 @@
             </footer>
         </div>
     </section>
-    <section>
+    <section class="graph">
         <canvas id="myChart" width="400" height="200"></canvas>
     </section>
 </div>
@@ -243,7 +243,7 @@
             datasets: [
                 : for $chart_data.list -> $row {
                 {
-                    label: '<: $row.team.name :>',
+                    label: '<: $row.team.name :> (<: $row.team.id :>)',
                     data: JSON.parse('<: $row.scores | json :>'),
                     lineTension: 0,
                     backgroundColor: 'rgba(' + labelColors[ <: $~row :> % (labelColors.length - 1) ].join(',')  + ',1)',

@@ -259,7 +259,7 @@ sub get_chart_data {
             $self->unixtime_stamp($datetime);
         };
         my $max_time = do {
-            my $t = localtime($scores->[0]{created_at});
+            my $t = localtime($scores->[-1]{created_at});
             my $min;
             if ($t->min < 30) {
                 $min = 30;
@@ -275,15 +275,13 @@ sub get_chart_data {
             $self->unixtime_stamp($datetime);
         };
 
+        my $labels = [ $min_time, $max_time ];
         my $team_score_map = {};
-        my $labels         = [];
         for my $row (@$scores) {
             push @$labels, $row->{created_at};
             push @{ $team_score_map->{ $row->{team_id} } }, $row;
         }
-        unshift @$labels, $min_time;
-        push @$labels, $max_time;
-        $labels = [ uniq @$labels ];
+        $labels = [ uniq sort { $a <=> $b } @$labels ];
 
         $char_data->{labels} = $labels;
 
@@ -302,6 +300,7 @@ sub get_chart_data {
                     push @$data, $data->[-1];
                 }
             }
+            $data->[-1] = undef; # まだ到達指定な時間なので null にする
 
             push @$list, {
                 team   => $team,

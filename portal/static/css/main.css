@@ -28,6 +28,10 @@ section.table-list {
     margin: 1rem 0;
 }
 
+section.graph {
+    margin: 1rem 0;
+}
+
 .card-header.is-danger {
     background-color: hsl(348, 100%, 61%);
 }

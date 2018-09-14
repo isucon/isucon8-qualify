@@ -56,7 +56,7 @@ sub get_dashboard {
     my $team        = $model->get_team({ id => $team_id });
     my $servers     = $model->get_servers({ group_id => $team->{group_id} });
     my $score       = $model->get_latest_score({ team_id => $team_id });
-    my $top_teams   = $model->get_team_scores({ limit => 10 });
+    my $top_teams   = $model->get_team_scores({ limit => 30 });
     my $recent_jobs = $model->get_team_jobs({ team_id => $team_id, limit => 10 });
 
     my $chart_data = $model->get_chart_data({
