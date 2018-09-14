@@ -12,13 +12,9 @@ CREATE TABLE IF NOT EXISTS admin_users (
     PRIMARY KEY (`name`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
-CREATE TABLE IF NOT EXISTS admin_messages (
+CREATE TABLE IF NOT EXISTS informations (
     `message` mediumtext,
     `updated_at` int(10) unsigned NOT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-
-CREATE TABLe IF NOT EXISTS admin_regulations (
-    `regulation` mediumtext
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS teams (

@@ -10,13 +10,10 @@ use URI;
 use Encode;
 use Digest::MurmurHash3 qw(murmur128_x64);
 use MIME::Base64 qw(encode_base64url decode_base64url);
-use File::Slurp qw(read_file write_file);
 use Data::Recursive::Encode;
-use Capture::Tiny qw(capture);
-use Furl;
-use IO::Socket::SSL qw/SSL_VERIFY_NONE/;
 
 use ISUCON8::Portal::Exception;
+use ISUCON8::Portal::Constants::Common;
 use ISUCON8::Portal::Web::ViewFunctions();
 
 use Mouse;
@@ -79,6 +76,32 @@ sub recursive_decode {
 sub recursive_encode {
     my ($self, $data) = @_;
     Data::Recursive::Encode->encode_utf8($data);
+}
+
+sub get_information {
+    my ($self, $params) = @_;
+
+    my $message;
+    eval {
+        $self->db->run(sub {
+            my $dbh = shift;
+            my ($stmt, @bind) = $self->sql->select(
+                'informations',
+                ['*'],
+            );
+            $message = $dbh->selectrow_hashref($stmt, undef, @bind);
+        });
+    };
+    if (my $e = $@) {
+        $e->rethrow if ref $e eq 'ISUCON8::Portal::Exception';
+        ISUCON8::Portal::Exception->throw(
+            code    => ERROR_INTERNAL_ERROR,
+            message => "$e",
+            logger  => sub { $self->log->critf(@_) },
+        );
+    }
+
+    return $message;
 }
 
 1;

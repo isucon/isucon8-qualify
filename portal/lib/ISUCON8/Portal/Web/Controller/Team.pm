@@ -53,6 +53,7 @@ sub get_dashboard {
     my $team_id = $c->team_id;
     my $model   = $c->model('Team');
 
+    my $info        = $model->get_information;
     my $team        = $model->get_team({ id => $team_id });
     my $servers     = $model->get_servers({ group_id => $team->{group_id} });
     my $score       = $model->get_latest_score({ team_id => $team_id });
@@ -68,6 +69,7 @@ sub get_dashboard {
 
     return $c->render('dashboard.tx', {
         page          => 'dashboard',
+        info          => $info,
         team          => $team,
         servers       => $servers,
         target_server => $target_server,
@@ -83,12 +85,14 @@ sub get_jobs {
     my $team_id = $c->team_id;
     my $model   = $c->model('Team');
 
+    my $info  = $model->get_information;
     my $team  = $model->get_team({ id => $team_id });
     my $score = $model->get_latest_score({ team_id => $team_id });
     my $jobs  = $model->get_team_jobs({ team_id => $team_id });
 
     return $c->render('jobs.tx', {
         page  => 'jobs',
+        info  => $info,
         team  => $team,
         score => $score,
         jobs  => $jobs,
@@ -110,6 +114,7 @@ sub get_job_detail {
     my $team_id = $c->team_id;
     my $model   = $c->model('Team');
 
+    my $info  = $model->get_information;
     my $team  = $model->get_team({ id => $team_id });
     my $score = $model->get_latest_score({ team_id => $team_id });
     my $job   = $model->get_team_job({
@@ -123,6 +128,7 @@ sub get_job_detail {
 
     return $c->render('job_detail.tx', {
         page  => 'jobs',
+        info  => $info,
         team  => $team,
         score => $score,
         job   => $job,
@@ -134,6 +140,7 @@ sub get_servers {
     my $team_id = $c->team_id;
     my $model   = $c->model('Team');
 
+    my $info    = $model->get_information;
     my $team    = $model->get_team({ id => $team_id });
     my $score   = $model->get_latest_score({ team_id => $team_id });
     my $servers = $model->get_servers({ group_id => $team->{group_id} });
@@ -144,6 +151,7 @@ sub get_servers {
 
     return $c->render('servers.tx', {
         page    => 'servers',
+        info    => $info,
         team    => $team,
         score   => $score,
         servers => $servers,
@@ -155,12 +163,14 @@ sub get_scores {
     my $team_id = $c->team_id;
     my $model   = $c->model('Team');
 
+    my $info   = $model->get_information;
     my $team   = $model->get_team({ id => $team_id });
     my $score  = $model->get_latest_score({ team_id => $team_id });
     my $scores = $model->get_team_scores({});
 
     return $c->render('scores.tx', {
         page   => 'scores',
+        info   => $info,
         team   => $team,
         score  => $score,
         scores => $scores,

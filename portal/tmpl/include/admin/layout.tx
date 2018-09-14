@@ -50,6 +50,16 @@
     <!-- END NAV -->
 
     <div class="container">
+        : if $info.message {
+            <article class="message is-info">
+                <div class="message-header">
+                    <p>運営からのお知らせ</p>
+                </div>
+                <div class="message-body">
+                    <: $info.message | html_line_break :>
+                </div>
+            </article>
+        : }
         <div class="columns">
             <div class="column is-3">
                 <aside class="menu">
@@ -87,6 +97,14 @@
                     </p>
                     <ul class="menu-list">
                         <li>
+                            <a class="<: is_active($page, 'information') :>" href="/admin/information">
+                                <span class="icon">
+                                    <i class="fas fa-envelope-open"></i>
+                                </span>
+                                <span>Edit Admin Information</span>
+                            </a>
+                        </li>
+                        <li>
                             <a class="<: is_active($page, 'servers') :>" href="/admin/servers">
                                 <span class="icon">
                                     <i class="fas fa-server"></i>
@@ -99,7 +117,7 @@
                                 <span class="icon">
                                     <i class="far fa-address-card"></i>
                                 </span>
-                                <span>Teams</span>
+                                <span>Manage Teams</span>
                             </a>
                         </li>
                     </ul>

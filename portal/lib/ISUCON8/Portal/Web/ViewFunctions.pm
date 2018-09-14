@@ -29,6 +29,11 @@ sub unixtime2time {
     localtime($unixtime)->strftime("%H:%M:%S")
 }
 
+sub from_unixtime {
+    my $unixtime = shift;
+    localtime($unixtime)->strftime("%Y-%m-%d %H:%M:%S")
+}
+
 sub ellipsis {
     my ($str, $max_length) = @_;
     return $str unless length $str > $max_length;

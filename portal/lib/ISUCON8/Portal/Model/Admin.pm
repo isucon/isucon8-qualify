@@ -164,4 +164,44 @@ sub get_job {
     return $job;
 }
 
+sub update_information {
+    my ($self, $params) = @_;
+    my $message = $params->{message};
+
+    eval {
+        $self->db->txn(sub {
+            my $dbh = shift;
+            my ($stmt, @bind) = $self->sql->update(
+                'informations',
+                {
+                    message    => $message,
+                    updated_at => \'UNIX_TIMESTAMP()',
+                },
+            );
+            my $rv = $dbh->do($stmt, undef, @bind);
+
+            if ($rv == 0) {
+                ($stmt, @bind) = $self->sql->insert(
+                    'informations',
+                    {
+                        message    => $message,
+                        updated_at => \'UNIX_TIMESTAMP()',
+                    },
+                );
+                $dbh->do($stmt, undef, @bind);
+            }
+        });
+    };
+    if (my $e = $@) {
+        $e->rethrow if ref $e eq 'ISUCON8::Portal::Exception';
+        ISUCON8::Portal::Exception->throw(
+            code    => ERROR_INTERNAL_ERROR,
+            message => "$e",
+            logger  => sub { $self->log->critf(@_) },
+        );
+    }
+
+    return;
+}
+
 1;

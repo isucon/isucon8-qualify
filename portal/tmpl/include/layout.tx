@@ -49,6 +49,16 @@
     <!-- END NAV -->
 
     <div class="container">
+        : if $info.message {
+            <article class="message is-info">
+                <div class="message-header">
+                    <p>運営からのお知らせ</p>
+                </div>
+                <div class="message-body">
+                    <: $info.message | html_line_break :>
+                </div>
+            </article>
+        : }
         <div class="columns">
             <div class="column is-3">
                 <aside class="menu">
