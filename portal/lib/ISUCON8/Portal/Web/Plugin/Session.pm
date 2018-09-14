@@ -31,8 +31,7 @@ sub init {
                 }
             }
             else {
-                my $contest_period = $c->config->{contest_period};
-                unless ($c->model('Common')->is_during_the_contest($contest_period)) {
+                unless ($c->is_during_the_contest) {
                     unless ($path eq '/') {
                         return $c->redirect('/');
                     }

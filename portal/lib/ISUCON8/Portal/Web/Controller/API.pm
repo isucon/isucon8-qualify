@@ -3,10 +3,18 @@ use strict;
 use warnings;
 use feature 'state';
 use JSON;
+use ISUCON8::Portal::Constants::Common;
 
 sub enqueue_job {
     my ($self, $c) = @_;
     my $team_id = $c->team_id;
+    my $team    = $c->model('Team')->get_team({ id => $team_id });
+    if ($team->{state} eq TEAM_STATE_BANNED) {
+        return $c->render_json({
+            success => JSON::false,
+            error   => 'Your team was banned!!',
+        });
+    }
 
     my ($is_success, $err) = $c->model('Bench')->enqueue_job({ team_id => $team_id });
 

@@ -60,7 +60,9 @@ sub get_dashboard {
     my $recent_jobs = $model->get_team_jobs({ team_id => $team_id, limit => 10 });
 
     my $chart_data = $model->get_chart_data({
-        team_ids => [ uniq +(map { $_->{team_id} } @$top_teams), $team_id ],
+        team_id         => $team_id,
+        is_last_spurt   => $c->is_last_spurt,
+        last_spurt_time => $c->last_spurt_time,
     });
     my ($target_server) = grep { $_->{is_target_host} } @$servers;
 
@@ -151,14 +153,18 @@ sub get_servers {
 sub get_scores {
     my ($self, $c) = @_;
     my $team_id = $c->team_id;
-    my $model   = $c->mode('Team');
+    my $model   = $c->model('Team');
 
-    my $team          = $model->get_team({ id => $team_id });
-    my $score         = $model->get_latest_score({ team_id => $team_id });
-    my $scores        = $model->get_team_scores({});
-    my $all_score_map = $model->get_all_score_map();
+    my $team   = $model->get_team({ id => $team_id });
+    my $score  = $model->get_latest_score({ team_id => $team_id });
+    my $scores = $model->get_team_scores({});
 
-    return $c->res_404;
+    return $c->render('scores.tx', {
+        page   => 'scores',
+        team   => $team,
+        score  => $score,
+        scores => $scores,
+    });
 }
 
 1;
