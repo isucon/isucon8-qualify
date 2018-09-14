@@ -12,13 +12,12 @@ var (
 	// NumAdministrators = 100 // amount of admin.tsv
 	InitialNumClosedEvents = 5 // # of reservations = # of events * 1000 * (1 + random canceld reservations)
 
-	GetTimeout        = 10 * time.Second
-	PostTimeout       = 3 * time.Second
-	InitializeTimeout = 10 * time.Second
-	SlowThreshold     = 1000 * time.Millisecond
-	MaxCheckerRequest = 6
-	// TODO(sonots):  Current initial app takes 13 sec to login at postTest on my env. Tune somehow.
-	PostTestLoginTimeout  = 20 * time.Second
+	GetTimeout            = 10 * time.Second
+	PostTimeout           = 3 * time.Second
+	InitializeTimeout     = 10 * time.Second
+	SlowThreshold         = 1000 * time.Millisecond
+	MaxCheckerRequest     = 6
+	PostTestLoginTimeout  = 20 * time.Second // postTest takes time because of remained requests. This value was tuned to pass initial app
 	PostTestReportTimeout = 60 * time.Second
 
 	LoadInitialNumGoroutines = 5.0
