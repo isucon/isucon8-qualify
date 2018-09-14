@@ -25,9 +25,16 @@ post '/api/job/cancel'    => 'API#cancel_job';
 post '/api/target/change' => 'API#change_target';
 
 get  '/admin'                 => 'Admin#get_index';
+get  '/admin/dashboard'       => 'Admin#get_dashboard';
 get  '/admin/login'           => 'Admin#get_login';
 post '/admin/login'           => 'Admin#post_login';
 get  '/admin/logout'          => 'Admin#get_logout';
+get  '/admin/information'     => 'Admin#get_information';
+post '/admin/information'     => 'Admin#post_information';
+get  '/admin/jobs'            => 'Admin#get_jobs';
+get  '/admin/jobs/{job_id}'   => 'Admin#get_job_detail';
+get  '/admin/scores'          => 'Admin#get_scores';
+get  '/admin/servers'         => 'Admin#get_servers';
 get  '/admin/teams'           => 'Admin#get_teams';
 get  '/admin/teams/{team_id}' => 'Admin#get_team_edit';
 post '/admin/teams/{team_id}' => 'Admin#post_team_edit';

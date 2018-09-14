@@ -20,15 +20,7 @@ nav.navbar {
     font-weight: 300;
 }
 
-section.info-tiles {
-    margin: 1rem 0;
-}
-
-section.table-list {
-    margin: 1rem 0;
-}
-
-section.graph {
+section {
     margin: 1rem 0;
 }
 

@@ -12,13 +12,9 @@ CREATE TABLE IF NOT EXISTS admin_users (
     PRIMARY KEY (`name`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
-CREATE TABLE IF NOT EXISTS admin_messages (
+CREATE TABLE IF NOT EXISTS informations (
     `message` mediumtext,
     `updated_at` int(10) unsigned NOT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-
-CREATE TABLe IF NOT EXISTS admin_regulations (
-    `regulation` mediumtext
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS teams (
@@ -28,8 +24,8 @@ CREATE TABLE IF NOT EXISTS teams (
     `name` varchar(256) NOT NULL,
     `password` varchar(64) NOT NULL,
     `category` enum('general_one', 'general_two', 'general_three', 'student_one', 'student_two', 'student_three') NOT NULL,
-    `banned_reason` mediumtext,
-    `admin_message` mediumtext,
+    `message` mediumtext,
+    `note` mediumtext,
     `created_at` int(10) unsigned NOT NULL,
     `updated_at` int(10) unsigned NOT NULL,
     PRIMARY KEY (`id`),

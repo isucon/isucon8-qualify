@@ -1,0 +1,150 @@
+: cascade "include/admin/layout.tx"
+
+: override content -> {
+<div class="column is-9">
+    <nav class="breadcrumb" aria-label="breadcrumbs">
+        <ul>
+            <li><a href="/admin">ISUCON8</a></li>
+            <li><a href="/admin/teams">Manager Teams</a></li>
+            <li class="is-active"><a href="#" aria-current="page">Edit Team</a></li>
+        </ul>
+    </nav>
+
+    : if $is_error {
+      <article class="message is-danger">
+        <div class="message-header">
+          <p>Opps!!!</p>
+        </div>
+        <div class="message-body">
+           <strong>Update FAILED!!</strong><br>
+        </div>
+      </article>
+    : }
+
+    <section class="table-list">
+        <div class="card events-card">
+            <header class="card-header is-dark">
+                <p class="card-header-title">
+                    <span class="icon">
+                        <i class="fas fa-list-alt"></i>
+                    </span>
+                    <span>Team Details</span>
+                </p>
+            </header>
+            <div class="card-table">
+                <div class="content">
+                    <table class="table is-fullwidth is-striped">
+                        <tbody>
+                            <tr>
+                                <th width="15%">Id</th>
+                                <td><: $team.id :></td>
+                            </tr>
+                            <tr>
+                                <th width="15%">password</th>
+                                <td><: $team.password :></td>
+                            </tr>
+                            <tr>
+                                <th width="15%">Name</th>
+                                <td><: $team.name :></td>
+                            </tr>
+                            <tr>
+                                <th width="15%">Category</th>
+                                <td><: $team.category_display_name :></td>
+                            </tr>
+                            <tr>
+                                <th width="15%">Group Id</th>
+                                <td><: $team.group_id :></td>
+                            </tr>
+                            <tr>
+                                <th width="15%">Updated At</th>
+                                <td><: $team.updated_at | from_unixtime :></td>
+                            </tr>
+                            <tr>
+                                <th width="15%">Created At</th>
+                                <td><: $team.created_at | from_unixtime :></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="team-edit">
+        <article class="message is-danger">
+            <div class="message-header">
+                <p>
+                    <span class="icon">
+                        <i class="fas fa-envelope-open"></i>
+                    </span>
+                    <span>Edit Team</span>
+                </p>
+            </div>
+            <div class="message-body">
+                <form method="post">
+                    <div class="field is-horizontal">
+                        <div class="field-label is-normal">
+                            <label class="label">State</label>
+                        </div>
+                        <div class="field-body">
+                            <div class="field is-narrow">
+                                <div class="control">
+                                    <div class="select is-fullwidth">
+                                        <select name="state">
+                                            <option values="actived" <: $team.state == 'actived' ? 'selected' : '' :>>actived</option>
+                                            <option values="banned" <: $team.state == 'banned' ? 'selected' : '' :>>banned</option>
+                                        </select>
+                                    </div>
+                                    <p class="help">BANするときは慎重におねがいしますよ！</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="field is-horizontal">
+                        <div class="field-label is-normal">
+                            <label class="label">Message</label>
+                        </div>
+                        <div class="field-body">
+                            <div class="field">
+                                <div class="control">
+                                    <textarea class="textarea" name="message" placeholder="個別のチームに向けた熱い思いを書き記す"><: $team.message :></textarea>
+                                </div>
+                                <p class="help">このチームにだけ見える運コメです。</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="field is-horizontal">
+                        <div class="field-label is-normal">
+                            <label class="label">Note</label>
+                        </div>
+                        <div class="field-body">
+                            <div class="field">
+                                <div class="control">
+                                    <textarea class="textarea" name="note" placeholder="運営向けのメモを書く欄。チームにはみえないよ。"><: $team.note :></textarea>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="field is-horizontal">
+                        <div class="field-label">
+                            <!-- Left empty for spacing -->
+                        </div>
+                        <div class="field-body">
+                            <div class="field">
+                            <div class="control">
+                                <button class="button is-danger">
+                                    Submit
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    </div>
+                </form>
+            </div>
+        </article>
+    </section>
+</div>
+: }

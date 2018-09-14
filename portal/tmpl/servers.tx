@@ -30,6 +30,7 @@
                                 <th>Password</th>
                                 <th>Global IP</th>
                                 <th>Private IP</th>
+                                <th>Bench IP</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -46,6 +47,7 @@
                                     <td><: $row.password :></td>
                                     <td><: $row.global_ip :></td>
                                     <td><: $row.private_ip :></td>
+                                    <td><: $row.bench_ip :></td>
                                 </tr>
                                 : }
                             </div>

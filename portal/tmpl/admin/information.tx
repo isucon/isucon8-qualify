@@ -1,0 +1,40 @@
+: cascade "include/admin/layout.tx"
+
+: override content -> {
+<div class="column is-9">
+    <nav class="breadcrumb" aria-label="breadcrumbs">
+        <ul>
+            <li><a href="/admin">ISUCON8</a></li>
+            <li class="is-active"><a href="#" aria-current="page">Edit Message</a></li>
+        </ul>
+    </nav>
+
+    <section class="enqueue-job">
+        <article class="message is-info">
+            <div class="message-header">
+                <p>
+                    <span class="icon">
+                        <i class="fas fa-envelope-open"></i>
+                    </span>
+                    <span>Edit Message</span>
+                </p>
+            </div>
+            <div class="message-body">
+                <p><strong>Last Updated At: <: $info.updated_at | from_unixtime :></strong></p>
+                <form method="post">
+                    <div class="field">
+                        <div class="control">
+                            <textarea class="textarea is-info" type="text" name="message" placeholder="ここにみんなに知らせたい熱いパッションを書く"><: $info.message :></textarea>
+                        </div>
+                    </div>
+                    <div class="field">
+                        <div class="control">
+                            <button class="button is-link">Submit</button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </article>
+    </section>
+</div>
+: }

@@ -1,15 +1,13 @@
-: cascade "include/layout.tx"
+: cascade "include/admin/layout.tx"
 
 : override content -> {
 <div class="column is-9">
     <nav class="breadcrumb" aria-label="breadcrumbs">
         <ul>
-            <li><a href="/">ISUCON8</a></li>
+            <li><a href="/admin">ISUCON8</a></li>
             <li class="is-active"><a href="#" aria-current="page">Show All Scores</a></li>
         </ul>
     </nav>
-
-    : include "include/team_header.tx"
 
     <section class="table-list">
         <div class="card events-card">
@@ -21,13 +19,6 @@
                     <span>All Team Scores</span>
                 </p>
             </header>
-            : if c().is_last_spurt {
-                <article class="message is-danger">
-                    <div class="message-body">
-                        <strong>残り1時間切ったのでみせられませぬぞ〜</strong>
-                    </div>
-                </article>
-            : } else {
             <div class="card-table">
                 <div class="content">
                     <table class="table is-fullwidth is-striped">
@@ -44,10 +35,10 @@
                         </thead>
                         <tbody>
                             : for $scores -> $row {
-                            <tr <: if $row.team_id == $team.id { :>class="is-selected"<: } :>>
+                            <tr>
                                 <td class="has-text-right"><: $~row.count :></td>
                                 <td class="has-text-right"><: $row.team_id :></td>
-                                <td><: ellipsis($row.name, 30) :></td>
+                                <td><a href="/admin/teams/<: $row.team_id :>"><: ellipsis($row.name, 30) :></a></td>
                                 <td class="has-text-right"><: $row.category_display_name :></td>
                                 <td class="has-text-right"><: $row.latest_score | commify :></td>
                                 <td class="has-text-right"><: $row.best_score   | commify :></td>
@@ -59,7 +50,6 @@
                 </div>
             </div>
         </div>
-        : }
     </section>
 </div>
 : }

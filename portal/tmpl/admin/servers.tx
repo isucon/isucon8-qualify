@@ -1,0 +1,74 @@
+: cascade "include/admin/layout.tx"
+
+: override content -> {
+<div class="column is-9">
+    <nav class="breadcrumb" aria-label="breadcrumbs">
+        <ul>
+            <li><a href="/admin">ISUCON8</a></li>
+            <li class="is-active"><a href="#" aria-current="page">Show All Servers</a></li>
+        </ul>
+    </nav>
+
+    <section class="table-list">
+        <div class="card events-card">
+            <header class="card-header is-info">
+                <p class="card-header-title">
+                    <span class="icon">
+                        <i class="fas fa-server"></i>
+                    </span>
+                    <span>Servers</span>
+                </p>
+            </header>
+            <div class="card-table">
+                <div class="content">
+                    : for $servers_map.keys().sort() -> $team_id {
+                        : my $server_data = $servers_map[$team_id];
+                        <table class="table is-fullwidth is-striped">
+                            <thead>
+                                <tr>
+                                    <th colspan="2">Team</th>
+                                    <th>Team State</th>
+                                    <th>Group Id</th>
+                                    <th>Node</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td colspan="2">
+                                        <a href="/admin/teams/<: $server_data.team_id :>">
+                                            <: $server_data.team_id :>: <: $server_data.team_name :>
+                                        </a>
+                                    </td>
+                                    <td><: $server_data.team_state :></td>
+                                    <td><: $server_data.group_id :></td>
+                                    <td><: $server_data.node :></td>
+                                </tr>
+                            </tbody>
+                            <thead>
+                                <tr>
+                                    <th>Hostname</th>
+                                    <th>Password</th>
+                                    <th>Global IP</th>
+                                    <th>Private IP</th>
+                                    <th>Bench IP</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                : for $server_data.servers -> $row {
+                                    <tr>
+                                        <td><: $row.hostname :></td>
+                                        <td><: $row.password :></td>
+                                        <td><: $row.global_ip :></td>
+                                        <td><: $row.private_ip :></td>
+                                        <td><: $row.bench_ip :></td>
+                                    </tr>
+                                : }
+                            </tbody>
+                        </table>
+                    : }
+                </div>
+            </div>
+        </div>
+    </section>    
+</div>
+: }
