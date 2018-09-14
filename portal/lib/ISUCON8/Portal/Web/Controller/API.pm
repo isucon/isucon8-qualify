@@ -16,7 +16,10 @@ sub enqueue_job {
         });
     }
 
-    my ($is_success, $err) = $c->model('Bench')->enqueue_job({ team_id => $team_id });
+    my ($is_success, $err) = $c->model('Bench')->enqueue_job({
+        team_id  => $team_id,
+        group_id => $team->{group_id},
+    });
 
     if ($is_success) {
         return $c->render_json({ success => JSON::true });

@@ -16,7 +16,8 @@ no Mouse;
 
 sub enqueue_job {
     my ($self, $params) = @_;
-    my $team_id = $params->{team_id};
+    my $team_id  = $params->{team_id};
+    my $group_id = $params->{group_id};
 
     my $is_success = 0;
     my $err        = undef;
@@ -40,7 +41,9 @@ sub enqueue_job {
             ($stmt, @bind) = $self->sql->select(
                 { teams => 't' },
                 [\'s.*'],
-                {},
+                {
+                    group_id => $group_id,
+                },
                 {
                     join => {
                         table     => { 'servers' => 's' },

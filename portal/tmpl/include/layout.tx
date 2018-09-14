@@ -109,6 +109,14 @@
                     </p>
                     <ul class="menu-list">
                         <li>
+                            <a target="_blank" href="<: $config.url.discord :>">
+                                <span class="icon">
+                                    <i class="fab fa-discord"></i>
+                                </span>
+                                <span>Discord</span>
+                            </a>
+                        </li>
+                        <li>
                             <a target="_blank" href="<: $config.url.manual :>">
                                 <span class="icon">
                                     <i class="fas fa-book"></i>
