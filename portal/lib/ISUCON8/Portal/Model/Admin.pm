@@ -4,6 +4,7 @@ use strict;
 use warnings;
 use feature 'state';
 use parent 'ISUCON8::Portal::Model';
+use Encode;
 
 use ISUCON8::Portal::Exception;
 use ISUCON8::Portal::Constants::Common;
@@ -44,6 +45,110 @@ sub find_user {
     }
 
     return $user;
+}
+
+sub get_all_jobs {
+    my ($self, $params) = @_;
+
+    my $jobs = [];
+    eval {
+        $self->db->run(sub {
+            my $dbh = shift;
+            my ($stmt, @bind) = $self->sql->select(
+                'bench_queues',
+                ['*'],
+                {},
+                {
+                    order_by => { -asc => 'id' },
+                },
+            );
+            $jobs = $dbh->selectall_arrayref($stmt, { Slice => {} }, @bind);
+        });
+    };
+    if (my $e = $@) {
+        $e->rethrow if ref $e eq 'ISUCON8::Portal::Exception';
+        ISUCON8::Portal::Exception->throw(
+            code    => ERROR_INTERNAL_ERROR,
+            message => "$e",
+            logger  => sub { $self->log->critf(@_) },
+        );
+    }
+
+    return $jobs;
+}
+
+sub get_processing_jobs {
+    my ($self, $params) = @_;
+
+    my $jobs = [];
+    eval {
+        $self->db->run(sub {
+            my $dbh = shift;
+            my ($stmt, @bind) = $self->sql->select(
+                'bench_queues',
+                ['*'],
+                {
+                    state => [ JOB_QUEUE_STATE_WAITING, JOB_QUEUE_STATE_RUNNING ],
+                },
+                {
+                    order_by => { -asc => 'id' },
+                },
+            );
+            $jobs = $dbh->selectall_arrayref($stmt, { Slice => {} }, @bind);
+        });
+    };
+    if (my $e = $@) {
+        $e->rethrow if ref $e eq 'ISUCON8::Portal::Exception';
+        ISUCON8::Portal::Exception->throw(
+            code    => ERROR_INTERNAL_ERROR,
+            message => "$e",
+            logger  => sub { $self->log->critf(@_) },
+        );
+    }
+
+    return $jobs;
+}
+
+sub get_job {
+    my ($self, $params) = @_;
+    my $job_id= $params->{job_id};
+
+    my $job;
+    eval {
+        $self->db->run(sub {
+            my $dbh = shift;
+            my ($stmt, @bind) = $self->sql->select(
+                'bench_queues',
+                ['*'],
+                {
+                    id => $job_id,
+                },
+            );
+            $job = $dbh->selectrow_hashref($stmt, undef, @bind);
+            return unless $job;
+
+            ($stmt, @bind) = $self->sql->select(
+                'teams',
+                ['*'],
+                {
+                    id => $job->{id},
+                },
+            );
+            $job->{team} = $dbh->selectrow_hashref($stmt, undef, @bind);
+
+            $job->{result_json} = $self->json->decode(encode_utf8 $job->{result_json} || '{}');
+        });
+    };
+    if (my $e = $@) {
+        $e->rethrow if ref $e eq 'ISUCON8::Portal::Exception';
+        ISUCON8::Portal::Exception->throw(
+            code    => ERROR_INTERNAL_ERROR,
+            message => "$e",
+            logger  => sub { $self->log->critf(@_) },
+        );
+    }
+
+    return $job;
 }
 
 1;

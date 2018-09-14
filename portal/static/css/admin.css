@@ -1,11 +1,11 @@
-nav.navbar.is-admin {
-    border-top: 4px solid hsl(348, 100%, 61%);
-}
-
 body {
     background-color: hsl(0, 0%, 96%);
 }
 
 body.is-simple-layout.is-admin {
     background-color: hsl(348, 90%, 68%);
+}
+
+.menu-list a.is-active {
+    background-color: hsl(348, 100%, 61%);
 }

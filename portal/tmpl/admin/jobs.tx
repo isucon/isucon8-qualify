@@ -5,19 +5,10 @@
     <nav class="breadcrumb" aria-label="breadcrumbs">
         <ul>
             <li><a href="/admin">ISUCON8</a></li>
-            <li class="is-active"><a href="#" aria-current="page">Dashboard</a></li>
+            <li class="is-active"><a href="#" aria-current="page">Show All Jobs</a></li>
         </ul>
     </nav>
-    <section class="hero welcome is-small is-danger">
-        <div class="hero-body">
-            <div class="container">
-                <h1 class="title">
-                    いままでで最高の Admin 体験
-                </h1>
-                <h2 class="subtitle">お家に帰るまでが ISUCON</h2>
-            </div>
-        </div>
-    </section>
+
     <section class="table-list">
         <div class="card events-card">
             <header class="card-header is-dark">
@@ -25,7 +16,7 @@
                     <span class="icon">
                         <i class="fas fa-list-alt"></i>
                     </span>
-                    <span>Processing Jobs</span>
+                    <span>Jobs</span>
                 </p>
             </header>
             <div class="card-table">
@@ -33,7 +24,6 @@
                     <table class="table is-fullwidth is-striped">
                         <thead>
                             <tr>
-                                <th>TeamId</th>
                                 <th>JobId</th>
                                 <th>Score</th>
                                 <th>Status</th>
@@ -43,10 +33,9 @@
                             </tr>
                         </thead>
                         <tbody>
-                            : for $processiong_jobs -> $row {
+                            : for $all_jobs -> $row {
                                 <tr>
-                                    <td class="has-text-right"><: $job.id :></td>
-                                    <td class="has-text-right"><: $team.id :></td>
+                                    <td class="has-text-right"><: $row.id :></td>
                                     <td class="has-text-right"><: $row.result_score | commify :></td>
                                     <td><: $row.result_status :></td>
                                     <td><: $row.state :></td>
@@ -58,10 +47,7 @@
                     </table>
                 </div>
             </div>
-            <footer class="card-footer">
-                <a href="/admin/jobs" class="card-footer-item">View All</a>
-            </footer>
         </div>
-    </section>
-</div>                
+    </section>    
+</div>
 : }

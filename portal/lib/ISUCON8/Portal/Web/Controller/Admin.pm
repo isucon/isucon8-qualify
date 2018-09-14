@@ -3,6 +3,11 @@ use strict;
 use warnings;
 use feature 'state';
 
+sub get_index {
+    my ($self, $c) = @_;
+    return $c->redirect('/admin/dashboard');
+}
+
 sub get_login {
     my ($self, $c) = @_;
     if ($c->session->get('admin')) {
@@ -47,9 +52,47 @@ sub get_logout {
     $c->redirect('/admin/login');
 }
 
-sub get_index {
+sub get_dashboard {
     my ($self, $c) = @_;
-    return $c->render_admin('admin/index.tx');
+    my $model = $c->model('Admin');
+
+    my $processiong_jobs = $model->get_processing_jobs;
+    return $c->render_admin('admin/index.tx', {
+        page             => 'dashboard',
+        processiong_jobs => $processiong_jobs,
+    });
+}
+
+sub get_jobs {
+    my ($self, $c) = @_;
+    my $model = $c->model('Admin');
+
+    my $all_jobs = $model->get_all_jobs;
+    return $c->render_admin('admin/jobs.tx', {
+        page     => 'jobs',
+        all_jobs => $all_jobs,
+    });
+}
+
+sub get_job_detail {
+    my ($self, $c, $captured) = @_;
+    state $rule = $c->make_validator(
+        job_id => { isa => 'Str' },
+    );
+
+    my $params = $c->validate($rule, $captured);
+    unless ($params) {
+        $c->log->warnf('validate error: %s', $rule->error->{message});
+        return $c->res_404;
+    }
+
+    my $model = $c->model('Admin');
+
+    my $job = $model->get_job({ job_id => $params->{job_id} });
+    return $c->render_admin('admin/job_detail.tx', {
+        page => 'jobs',
+        job  => $job,
+    });
 }
 
 1;
