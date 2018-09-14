@@ -126,7 +126,7 @@
                     </p>
                     <ul class="menu-list">
                         <li>
-                            <a target="_blank" href="<: $config.url.discrod :>">
+                            <a target="_blank" href="<: $config.url.discord :>">
                                 <span class="icon">
                                     <i class="fab fa-discord"></i>
                                 </span>
