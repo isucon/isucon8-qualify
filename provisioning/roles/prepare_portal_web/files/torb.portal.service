@@ -5,7 +5,7 @@ Description = isucon8 qualifier portal
 WorkingDirectory=/home/isucon/torb/portal
 EnvironmentFile=/home/isucon/torb/portal/env.sh
 
-ExecStart = /home/isucon/local/perl/bin/carton exec plackup -s Gazelle -p 8888 -E production -a script/isucon8-portal-server -R lib
+ExecStart = /home/isucon/local/perl/bin/carton exec -- start_server --port 8888 --pid-file /tmp/torb.portal.pid -- plackup -s Gazelle --min-reqs-per-child 4096 --max-reqs-per-child 8192 --max-workers 32 --timeout 3 -E production -a  script/isucon8-portal-server
 
 Restart   = always
 Type      = simple
