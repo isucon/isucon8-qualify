@@ -64,10 +64,21 @@ label input {
     animation: hurueru .1s  infinite;
 }
 
+.state-running {
+    animation: hikaru .8s  infinite;
+}
+
 @keyframes hurueru {
     0% {transform: translate(0px, 0px) rotateZ(0deg)}
     25% {transform: translate(2px, 2px) rotateZ(1deg)}
     50% {transform: translate(0px, 2px) rotateZ(0deg)}
     75% {transform: translate(2px, 0px) rotateZ(-1deg)}
     100% {transform: translate(0px, 0px) rotateZ(0deg)}
+}
+
+@keyframes hikaru {
+    0% {background-color: rgba(255, 255, 0, 0)}
+    25% {background-color: rgba(255, 255, 0, 0.3)}
+    50% {background-color: rgba(255, 255, 0, 0.1)}
+    100% {background-color: rgba(255, 255, 0, 0)}
 }

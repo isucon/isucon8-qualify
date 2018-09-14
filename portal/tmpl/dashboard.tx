@@ -67,7 +67,7 @@
                         </thead>
                         <tbody>
                             : for $recent_jobs -> $row {
-                                <tr>
+                                <tr class="state-<: $row.state :>">
                                     <td class="has-text-right"><: $row.id :></td>
                                     <td class="has-text-right"><: $row.result_score | commify :></td>
                                     <td><: $row.result_status :></td>
