@@ -120,7 +120,7 @@ sub get_team_scores {
                     's.latest_status', 't.name', 't.category',
                 ],
                 {
-                    't.state'      => TEAM_STATE_ACTIVED,
+                    't.state'      => TEAM_STATE_ACTIVE,
                     's.best_score' => \'IS NOT NULL',
                 },
                 {
@@ -205,7 +205,7 @@ sub get_chart_data {
                 { teams => 't' },
                 ['team_id'],
                 {
-                    't.state' => TEAM_STATE_ACTIVED,
+                    't.state' => TEAM_STATE_ACTIVE,
                     $is_last_spurt ? (
                         's.created_at' => { '<' => $last_spurt_time },
                     ) : (),

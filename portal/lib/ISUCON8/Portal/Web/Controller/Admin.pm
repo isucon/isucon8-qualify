@@ -225,7 +225,7 @@ sub post_team_edit {
 
     use Mouse::Util::TypeConstraints;
     state $rule = $c->make_validator(
-        state   => { isa => enum([qw/actived banned/]) },
+        state   => { isa => enum([qw/active banned/]) },
         message => { isa => 'Str' },
         note    => { isa => 'Str' },
     );

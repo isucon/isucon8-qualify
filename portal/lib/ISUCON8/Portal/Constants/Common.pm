@@ -17,7 +17,7 @@ __PACKAGE__->constants(
 );
 
 __PACKAGE__->constants(
-    TEAM_STATE_ACTIVED => 'actived',
+    TEAM_STATE_ACTIVE  => 'active',
     TEAM_STATE_BANNED  => 'banned',
 );
 

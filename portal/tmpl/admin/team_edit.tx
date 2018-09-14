@@ -91,7 +91,7 @@
                                 <div class="control">
                                     <div class="select is-fullwidth">
                                         <select name="state">
-                                            <option values="actived" <: $team.state == 'actived' ? 'selected' : '' :>>actived</option>
+                                            <option values="active" <: $team.state == 'active' ? 'selected' : '' :>>active</option>
                                             <option values="banned" <: $team.state == 'banned' ? 'selected' : '' :>>banned</option>
                                         </select>
                                     </div>
