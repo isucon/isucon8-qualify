@@ -212,6 +212,9 @@ __SQL__
                 undef,
                 $is_last_spurt ? $last_spurt_time : time, $limit,
             );
+            if ($team_id) {
+                $team_ids = [ uniq(@$team_ids, $team_id) ];
+            }
 
             ($stmt, my @bind) = $self->sql->select(
                 'all_scores',
