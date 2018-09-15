@@ -19,7 +19,7 @@
         </div>
     </section>
     <section class="graph">
-        <canvas id="myChart" width="400" height="200"></canvas>
+        <canvas id="myChart" width="400" height="300"></canvas>
     </section>
     <section class="table-list">
         <div class="card events-card">
