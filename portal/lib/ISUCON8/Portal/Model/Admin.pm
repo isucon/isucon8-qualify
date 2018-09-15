@@ -108,6 +108,7 @@ sub get_processing_jobs {
                     },
                 },
             );
+            $jobs = $dbh->selectall_arrayref($stmt, { Slice => {} }, @bind);
         });
     };
     if (my $e = $@) {
