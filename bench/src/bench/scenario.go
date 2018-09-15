@@ -1979,6 +1979,10 @@ func getReportRecords(s *State, reader *csv.Reader) (map[uint]*ReportRecord, err
 
 		msg := "正しいCSVレポートを取得できません"
 
+		if len(row) != 8 {
+			return nil, fatalErrorf(msg)
+		}
+
 		reservationID, err := strconv.Atoi(row[0])
 		if err != nil {
 			log.Printf("debug: invalid reservationID (line:%d) error:%v\n", line, err)
