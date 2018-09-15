@@ -57,7 +57,7 @@ sub get_all_jobs {
             my ($stmt, @bind) = $self->sql->select(
                 { 'bench_queues' => 'b' },
                 [
-                    \'b.*',
+                    qw/b.id b.state b.result_score b.result_status b.updated_at/,
                     { 't.name' => 'team_name' },
                 ],
                 {},
