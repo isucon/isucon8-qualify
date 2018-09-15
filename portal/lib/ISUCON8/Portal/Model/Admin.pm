@@ -225,7 +225,7 @@ sub get_servers {
                 {
                     order_by => [
                         { -asc => 't.id' },
-                        { -asc => 's.global_ip' },
+                        { -asc => 's.private_ip' },
                     ],
                     join     => {
                         table     => { servers => 's' },
