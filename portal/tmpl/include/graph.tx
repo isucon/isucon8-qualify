@@ -76,6 +76,8 @@
                     borderColor: "rgba(" + labelColors[ <: $~row :> % (labelColors.length - 1) ].join(',')  + ',1)',
                     borderWidth: 2,
                     fill: false,
+                    pointHoverRadius: 4,
+                    pointRadius: 0,
                 },
                 : }
             ],
