@@ -272,4 +272,24 @@ sub post_team_edit {
     });
 }
 
+sub enqueue_all_jobs {
+    my ($self, $c) = @_;
+    my $bench = $c->model('Bench');
+    my $teams = $bench->get_teams;
+
+    my $queued = 0;
+    for my $row (@$teams) {
+        my ($is_success, $err) = $bench->enqueue_job({
+            team_id  => $row->{id},
+            group_id => $row->{group_id},
+        });
+        $queued++ if $is_success;
+    }
+
+    $c->render_json({
+        teams  => scalar @$teams,
+        queued => $queued,
+    });
+}
+
 1;
