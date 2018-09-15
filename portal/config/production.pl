@@ -6,12 +6,12 @@ my $start_at  = $ENV{ISUCON8_START_AT}  || '2018-09-15T10:00:00+09:00';
 my $finish_at = $ENV{ISUCON8_FINISH_AT} || '2018-09-15T18:00:00+09:00';
 
 # 9/15
-my $manual_url  = 'https://gist.github.com/rkmathi/04d02d5fd95ddcf2a9d59ae2b5d79432';
-my $discord_url = 'https://discordapp.com/channels/484181541476368393/489669006387838976';
+# my $manual_url  = 'https://gist.github.com/rkmathi/04d02d5fd95ddcf2a9d59ae2b5d79432';
+# my $discord_url = 'https://discordapp.com/channels/484181541476368393/489669006387838976';
 
 # 9/16
-# my $manual_url  = 'https://gist.github.com/rkmathi/1d08e17671d3952e8d2e873e686b7ea6';
-# my $discord_url = 'https://discordapp.com/channels/484182004989034496/484182004989034498';
+my $manual_url  = 'https://gist.github.com/rkmathi/1d08e17671d3952e8d2e873e686b7ea6';
+my $discord_url = 'https://discordapp.com/channels/484182004989034496/484182004989034498';
 
 +{
     db => {
