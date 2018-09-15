@@ -197,7 +197,7 @@ func runWorkerMode(tempDir, portalUrl string) {
 		stderrReader := bufio.NewReader(stderr)
 		logbuf := new(bytes.Buffer)
 
-		tm := time.AfterFunc(100*time.Second, func() {
+		tm := time.AfterFunc(300*time.Second, func() {
 			defer cancel()
 
 			url := fmt.Sprintf("http://localhost:%d/debug/pprof/goroutine?debug=1", pprofPort)
