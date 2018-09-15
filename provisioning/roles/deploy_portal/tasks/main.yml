@@ -8,6 +8,7 @@
     recursive: yes
     rsync_opts:
       - "--exclude=local"
+      - "--exclude=log"
 
 - name: chown torb/portal
   become: yes
