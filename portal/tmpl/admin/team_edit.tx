@@ -109,6 +109,10 @@
         </div>
     </section>    
 
+    <section class="graph">
+        <canvas id="myChart" width="400" height="200"></canvas>
+    </section>
+
     <section class="team-edit">
         <article class="message is-danger">
             <div class="message-header">
@@ -186,4 +190,10 @@
         </article>
     </section>
 </div>
+: }
+
+: override script -> {
+<script>
+: include "include/graph.tx"
+</script>
 : }

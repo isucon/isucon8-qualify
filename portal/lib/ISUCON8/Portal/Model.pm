@@ -195,7 +195,7 @@ sub get_chart_data {
     my $last_spurt_time = $params->{last_spurt_time};
     my $limit           = $params->{limit};
 
-    my $char_data = {};
+    my $chart_data = {};
     eval {
         my $scores   = [];
         my $team_ids = [];
@@ -261,7 +261,7 @@ __SQL__
         }
         $labels = [ uniq sort { $a <=> $b } @$labels ];
 
-        $char_data->{labels} = $labels;
+        $chart_data->{labels} = $labels;
 
         my $teams    = $self->get_teams({ ids => $team_ids });
         my $team_map = { map { $_->{id} => $_ } @$teams };
@@ -296,9 +296,9 @@ __SQL__
             };
         }
 
-        $char_data->{list}   = $list;
-        $char_data->{labels} = [
-            map { $self->from_unixtime($_) } @{ $char_data->{labels} }
+        $chart_data->{list}   = $list;
+        $chart_data->{labels} = [
+            map { $self->from_unixtime($_) } @{ $chart_data->{labels} }
         ];
     };
     if (my $e = $@) {
@@ -310,7 +310,49 @@ __SQL__
         );
     }
 
-    return $char_data;
+    return $chart_data;
+}
+
+sub get_team_chart_data {
+    my ($self, $params) = @_;
+    my $team_id = $params->{team_id};
+
+    my $chart_data = {};
+    eval {
+        my $scores = $self->db->run(sub {
+            my $dbh = shift;
+            my ($stmt, @bind) = $self->sql->select(
+                'all_scores',
+                ['*'],
+                {
+                    team_id => $team_id,
+                },
+                {
+                    -asc => 'created_at',
+                },
+            );
+            $dbh->selectall_arrayref($stmt, { Slice => {} }, @bind);
+        });
+        my ($team) = @{ $self->get_teams({ ids => [ $team_id ] }) };
+        my $labels = [];
+        my $data   = [];
+        for my $row (@$scores) {
+            push @$labels, $row->{created_at};
+            push @$data, $row->{score};
+        }
+        $chart_data->{list}   = [ { team => $team, scores => $data } ];
+        $chart_data->{labels} = [ map { $self->from_unixtime($_) } @$labels ];
+    };
+    if (my $e = $@) {
+        $e->rethrow if ref $e eq 'ISUCON8::Portal::Exception';
+        ISUCON8::Portal::Exception->throw(
+            code    => ERROR_INTERNAL_ERROR,
+            message => "$e",
+            logger  => sub { $self->log->critf(@_) },
+        );
+    }
+
+    return $chart_data;
 }
 
 1;

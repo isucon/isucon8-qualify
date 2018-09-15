@@ -209,11 +209,15 @@ sub get_team_edit {
     my $info    = $c->model('Admin')->get_information;
     my $team    = $c->model('Team')->get_team({ id => $captured->{team_id} });
     my $servers = $c->model('Team')->get_servers({ group_id => $team->{group_id} });
+    my $chart_data = $c->model('Admin')->get_team_chart_data({
+        team_id => $team->{id},
+    });
     return $c->render_admin('admin/team_edit.tx', {
-        page => 'teams',
-        info    => $info,
-        team    => $team,
-        servers => $servers,
+        page       => 'teams',
+        info       => $info,
+        team       => $team,
+        servers    => $servers,
+        chart_data => $chart_data,
     });
 }
 
