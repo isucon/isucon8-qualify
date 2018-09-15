@@ -21,6 +21,9 @@ sub get_job {
         );
     }
 
+    # 適当な daemon を作るのがめんどかったので定期的に叩かれるここでやる
+    $c->model('Bench')->abort_timeout_job;
+
     my $job = $c->model('Bench')->dequeue_job($params);
     unless ($job) {
         return $c->create_response(HTTP_NO_CONTENT);

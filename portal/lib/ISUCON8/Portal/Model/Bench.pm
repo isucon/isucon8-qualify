@@ -269,7 +269,6 @@ sub abort_job {
     return;
 }
 
-# TODO: 定期的に叩く奴が必要
 sub abort_timeout_job {
     my ($self) = @_;
     my $result_json = { reason => 'Benchmark timeout' };
@@ -286,7 +285,7 @@ sub abort_timeout_job {
                 },
                 {
                     state      => JOB_QUEUE_STATE_RUNNING,
-                    updated_at => { '<' => \'NOW() - INTERVAL 150 SECOND' },
+                    updated_at => { '<' => \'UNIX_TIMESTAMP() - 300' },
                 },
             );
             $dbh->do($stmt, undef, @bind);
