@@ -10,12 +10,18 @@ XX.XX.XX.XX ansible_ssh_user=isucon-admin
 ### torb2-2G-2
 XX.XX.XX.XX  ansible_ssh_user=isucon-admin
 
+### torb3-4
+XX.XX.XX.XX  ansible_ssh_user=isucon-admin
+
 
 [webapp1]
 ### torb1-1G-1
 XX.XX.XX.XX ansible_ssh_user=isucon-admin
 
 ### torb2-1G-1
+XX.XX.XX.XX  ansible_ssh_user=isucon-admin
+
+### torb3-1
 XX.XX.XX.XX  ansible_ssh_user=isucon-admin
 
 
@@ -26,12 +32,18 @@ XX.XX.XX.XX   ansible_ssh_user=isucon-admin
 ### torb2-1G-2
 XX.XX.XX.XX  ansible_ssh_user=isucon-admin
 
+### torb3-2
+XX.XX.XX.XX  ansible_ssh_user=isucon-admin
+
 
 [webapp3]
 ### torb1-1G-3
 XX.XX.XX.XX  ansible_ssh_user=isucon-admin
 
 ### torb2-1G-3
+XX.XX.XX.XX ansible_ssh_user=isucon-admin
+
+### torb3-3
 XX.XX.XX.XX ansible_ssh_user=isucon-admin
 
 
