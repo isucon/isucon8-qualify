@@ -5,7 +5,10 @@
   synchronize:
     src: ../../../../torb/portal
     dest: /home/isucon/torb/
+    delete: yes
     recursive: yes
+    rsync_opts:
+      - "--exclude=local"
 
 - name: chown torb/portal
   become: yes
