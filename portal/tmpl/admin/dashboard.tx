@@ -35,7 +35,6 @@
                             <tr>
                                 <th>TeamId</th>
                                 <th>JobId</th>
-                                <th>Score</th>
                                 <th>Status</th>
                                 <th>State</th>
                                 <th>UpdatedAt</th>
@@ -45,9 +44,8 @@
                         <tbody>
                             : for $processiong_jobs -> $row {
                                 <tr>
-                                    <td class="has-text-right"><: $job.id :></td>
-                                    <td class="has-text-right"><: $team.id :></td>
-                                    <td class="has-text-right"><: $row.result_score | commify :></td>
+                                    <td class="has-text-right"><: $row.team_id :></td>
+                                    <td class="has-text-right"><: $row.id :></td>
                                     <td><: $row.result_status :></td>
                                     <td><: $row.state :></td>
                                     <td><: $row.updated_at | unixtime2time :></td>
