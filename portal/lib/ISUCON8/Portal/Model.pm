@@ -201,28 +201,19 @@ sub get_chart_data {
         my $team_ids = [];
         $self->db->run(sub {
             my $dbh = shift;
-            my ($stmt, @bind) = $self->sql->select(
-                { teams => 't' },
-                ['team_id'],
-                {
-                    't.state' => TEAM_STATE_ACTIVE,
-                    $is_last_spurt ? (
-                        's.created_at' => { '<' => $last_spurt_time },
-                    ) : (),
-                },
-                {
-                    join => {
-                        table     => { all_scores => 's' },
-                        condition => { 't.id' => 's.team_id' },
-                    },
-                    group_by => 's.team_id',
-                    order_by => { -desc => \'MAX(s.score)' },
-                    $limit ? (limit => $limit) : (),
-                },
+            my $stmt = << '__SQL__';
+SELECT A.team_id, A.score, FROM_UNIXTIME(A.created_at) FROM all_scores A
+INNER JOIN (SELECT team_id, MAX(created_at) max_created_at FROM all_scores GROUP BY team_id) B
+ON A.team_id = B.team_id AND A.created_at = B.max_created_at
+WHERE A.created_at <= ? ORDER BY A.score DESC LIMIT ?
+__SQL__
+            $team_ids = $dbh->selectcol_arrayref(
+                $stmt,
+                undef,
+                $is_last_spurt ? $last_spurt_time : time, $limit,
             );
-            $team_ids = $dbh->selectcol_arrayref($stmt, undef, @bind);
 
-            ($stmt, @bind) = $self->sql->select(
+            ($stmt, my @bind) = $self->sql->select(
                 'all_scores',
                 ['*'],
                 {
