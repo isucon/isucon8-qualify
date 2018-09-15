@@ -67,6 +67,7 @@ sub get_all_jobs {
                         table     => { teams => 't' },
                         condition => { 'b.team_id' => 't.id' },
                     },
+                    limit => 1000,
                 },
             );
             $jobs = $dbh->selectall_arrayref($stmt, { Slice => {} }, @bind);
