@@ -18,6 +18,9 @@
             </div>
         </div>
     </section>
+    <section class="graph">
+        <canvas id="myChart" width="400" height="200"></canvas>
+    </section>
     <section class="table-list">
         <div class="card events-card">
             <header class="card-header is-dark">
@@ -113,10 +116,6 @@
             </footer>
         </div>
         : }
-    </section>
-
-    <section class="graph">
-        <canvas id="myChart" width="400" height="200"></canvas>
     </section>
 </div>                
 : }
