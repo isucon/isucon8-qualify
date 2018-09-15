@@ -224,6 +224,15 @@ sub done_job {
         });
     };
     if (my $e = $@) {
+        $self->log->log_to(
+            [
+                'fatal.log.%Y%m%d%H',
+                'fatal.log',
+            ],
+            "job_id:%s\tresult_json:%s\tlog:%s",
+            $job_id, $self->json->encode($result_json), $log,
+        );
+
         $e->rethrow if ref $e eq 'ISUCON8::Portal::Exception';
         ISUCON8::Portal::Exception->throw(
             code    => ERROR_INTERNAL_ERROR,
