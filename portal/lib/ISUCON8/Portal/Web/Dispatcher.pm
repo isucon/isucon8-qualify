@@ -40,6 +40,7 @@ get  '/admin/teams/{team_id}' => 'Admin#get_team_edit';
 post '/admin/teams/{team_id}' => 'Admin#post_team_edit';
 
 get  '/admin/__enqueue_all_job__' => 'Admin#enqueue_all_jobs';
+get  '/admin/enqueue/{team_id}'   => 'Admin#enqueue_job';
 
 get  '/bench/job'        => 'Bench#get_job';
 post '/bench/job/result' => 'Bench#post_job_result';

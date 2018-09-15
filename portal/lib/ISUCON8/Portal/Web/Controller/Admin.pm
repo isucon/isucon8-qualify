@@ -292,4 +292,28 @@ sub enqueue_all_jobs {
     });
 }
 
+sub enqueue_job {
+    my ($self, $c, $captured) = @_;
+    state $rule = $c->make_validator(
+        team_id => { isa => 'Str' },
+    );
+
+    my $params = $c->validate($rule, $captured);
+    unless ($params) {
+        $c->log->warnf('validate error: %s', $rule->error->{message});
+        return $c->res_404;
+    }
+
+    my $team = $c->model('Team')->get_team({ id => $params->{team_id} });
+    my ($is_success, $error) = $c->model('Bench')->enqueue_job({
+        team_id  => $team->{id},
+        group_id => $team->{group_id},
+    });
+
+    return $c->render_json({
+        is_success => $is_success,
+        error      => $error,
+    });
+}
+
 1;
