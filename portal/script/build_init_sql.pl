@@ -34,8 +34,8 @@ for my $setting (
         team_regexp   => qr/9月16日/,
     },
 ) {
-    my $servers = [ grep { $setting->{server_regexp} } read_file $server_file ];
-    my $teams   = [ grep { $setting->{team_regexp}   } map { decode_utf8 $_ } read_file $team_file ];
+    my $servers = [ grep { $_ =~ $setting->{server_regexp} } read_file $server_file ];
+    my $teams   = [ grep { $_ =~ $setting->{team_regexp}   } map { decode_utf8 $_ } read_file $team_file ];
 
     my $server_sqls = [];
     for my $line (@$servers) {
