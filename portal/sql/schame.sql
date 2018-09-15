@@ -98,6 +98,7 @@ CREATE TABLE IF NOT EXISTS bench_queues (
     PRIMARY KEY (`id`),
     KEY idx_team_id (`team_id`),
     KEY idx_bench_hostname_and_state(`bench_hostname`),
-    KEY idx_node_id_and_state (`node`, `state`)
+    KEY idx_node_id_and_state (`node`, `state`),
+    KEY idx_state_and_updated_at (`state`, `updated_at`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
