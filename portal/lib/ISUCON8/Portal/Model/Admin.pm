@@ -98,7 +98,7 @@ sub get_processing_jobs {
                     { 't.name' => 'team_name' },
                 ],
                 {
-                    state => [ JOB_QUEUE_STATE_WAITING, JOB_QUEUE_STATE_RUNNING ],
+                    'b.state' => [ JOB_QUEUE_STATE_WAITING, JOB_QUEUE_STATE_RUNNING ],
                 },
                 {
                     order_by => { -asc => 'id' },
