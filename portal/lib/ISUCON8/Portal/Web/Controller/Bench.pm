@@ -51,21 +51,27 @@ sub post_job_result {
     my $job_id     = $params->{job_id};
     my $is_aborted = $params->{is_aborted} ? 1 : 0;
 
-    my $result_file = $c->req->upload('result');
-    unless ($result_file) {
-        return $c->create_response(
-            HTTP_BAD_REQUEST,
-            ['Content-Type', 'text/plain'],
-            ['result json must be specified.'],
-        );
-    }
-    my $result_json = eval {
-        $c->json->decode(scalar read_file $result_file->path);
-    };
-    if (my $e = $@) {
-        $is_aborted  = 1;
-        $result_json = { reason => 'Failed to decode result json' };
-        $c->log->warnf('Cannot parse result json (job_id: %s)', $job_id);
+    my $result_json;
+    if ($is_aborted) {
+        $result_json = { reason => 'aborted' };
+    } else {
+        my $result_file = $c->req->upload('result');
+        unless ($result_file) {
+            return $c->create_response(
+                HTTP_BAD_REQUEST,
+                ['Content-Type', 'text/plain'],
+                ['result json must be specified.'],
+            );
+        }
+
+        $result_json = eval {
+            $c->json->decode(scalar read_file $result_file->path);
+        };
+        if (my $e = $@) {
+            $is_aborted  = 1;
+            $result_json = { reason => 'Failed to decode result json' };
+            $c->log->warnf('Cannot parse result json (job_id: %s)', $job_id);
+        }
     }
 
     my $log_file = $c->req->upload('log');
