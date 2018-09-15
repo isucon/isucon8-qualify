@@ -143,14 +143,12 @@ sub get_scores {
     my ($self, $c) = @_;
     my $model = $c->model('Admin');
 
-    my $info       = $model->get_information;
-    my $scores     = $model->get_team_scores();
-    my $chart_data = $model->get_chart_data({ team_id => 0 });
+    my $info   = $model->get_information;
+    my $scores = $model->get_team_scores();
     return $c->render_admin('admin/scores.tx', {
-        page       => 'scores',
-        info       => $info,
-        scores     => $scores,
-        chart_data => $chart_data,
+        page   => 'scores',
+        info   => $info,
+        scores => $scores,
     });
 }
 
