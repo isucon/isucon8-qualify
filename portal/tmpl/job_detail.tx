@@ -31,7 +31,7 @@
                                 <td><: $job.id :></td>
                             </tr>
                             <tr>
-                                <th width="10%">Traget</th>
+                                <th width="10%">Target</th>
                                 <td><: $job.target_ip :></td>
                             </tr>
                             <tr>
