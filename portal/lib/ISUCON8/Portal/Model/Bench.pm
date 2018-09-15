@@ -276,7 +276,18 @@ sub abort_timeout_job {
     eval {
         $self->db->txn(sub {
             my $dbh = shift;
-            my ($stmt, @bind) = $self->sql->update(
+            my ($stmt, @bind) = $self->sql->select(
+                'bench_queues',
+                ['id'],
+                {
+                    state      => JOB_QUEUE_STATE_RUNNING,
+                    updated_at => { '<' => \'UNIX_TIMESTAMP() - 300' },
+                },
+            );
+            my $ids = $dbh->selectcol_arrayref($stmt, undef, @bind);
+            return unless @$ids;
+
+            ($stmt, @bind) = $self->sql->update(
                 'bench_queues',
                 {
                     state       => JOB_QUEUE_STATE_ABORTED,
@@ -284,8 +295,7 @@ sub abort_timeout_job {
                     updated_at  => \'UNIX_TIMESTAMP()',
                 },
                 {
-                    state      => JOB_QUEUE_STATE_RUNNING,
-                    updated_at => { '<' => \'UNIX_TIMESTAMP() - 300' },
+                    id => $ids,
                 },
             );
             $dbh->do($stmt, undef, @bind);
