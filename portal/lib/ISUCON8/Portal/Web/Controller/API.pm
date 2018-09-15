@@ -29,14 +29,6 @@ sub enqueue_job {
     }
 }
 
-sub cancel_job {
-    my ($self, $c) = @_;
-    my $team_id = $c->team_id;
-
-    # TODO
-    $c->res_404;
-}
-
 sub change_target {
     my ($self, $c) = @_;
     state $rule = $c->make_validator(
