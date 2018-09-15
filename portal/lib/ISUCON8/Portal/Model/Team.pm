@@ -97,7 +97,7 @@ sub get_servers {
                     group_id => $group_id,
                 },
                 {
-                    order_by => { -asc => 'global_ip' },
+                    order_by => { -asc => 'private_ip' },
                 },
             );
             $servers = $dbh->selectall_arrayref($stmt, { Slice => {} }, @bind);
