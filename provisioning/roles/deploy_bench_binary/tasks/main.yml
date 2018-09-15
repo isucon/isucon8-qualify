@@ -7,4 +7,4 @@
     dest: /home/isucon/torb/bench/bin/bench
     owner: isucon
     group: isucon
-    mode: u=rwX,g=rX,o=rX
+    mode: 0755
