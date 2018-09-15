@@ -6,6 +6,9 @@
     src: ../../../../torb/portal
     dest: /home/isucon/torb/
     recursive: yes
+    rsync_opts:
+      - "--exclude=local"
+      - "--exclude=log"
 
 - name: chown torb/portal
   become: yes
