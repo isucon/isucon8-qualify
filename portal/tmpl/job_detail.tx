@@ -5,7 +5,7 @@
     <nav class="breadcrumb" aria-label="breadcrumbs">
         <ul>
             <li><a href="/">ISUCON8</a></li>
-            <li><a href="/admin/jobs">Show All Jobs</a></li>
+            <li><a href="/jobs">Show All Jobs</a></li>
             <li class="is-active"><a href="#" aria-current="page">Job Details</a></li>
         </ul>
     </nav>

@@ -69,6 +69,45 @@
             </div>
         </div>
     </section>
+    <section class="table-list">
+        <div class="card events-card">
+            <header class="card-header is-info">
+                <p class="card-header-title">
+                    <span class="icon">
+                        <i class="fas fa-server"></i>
+                    </span>
+                    <span>Servers</span>
+                </p>
+            </header>
+            <div class="card-table">
+                <div class="content">
+                <table class="table is-fullwidth is-striped">
+                    <thead>
+                        <tr>
+                            <th>Hostname</th>
+                            <th>Password</th>
+                            <th>Global IP</th>
+                            <th>Private IP</th>
+                            <th>Bench IP</th>
+                            <th>Node</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        : for $servers -> $row {
+                            <tr>
+                                <td><: $row.hostname :></td>
+                                <td><: $row.password :></td>
+                                <td><: $row.global_ip :></td>
+                                <td><: $row.private_ip :></td>
+                                <td><: $row.bench_ip :></td>
+                                <td><: $row.node :></td>
+                            </tr>
+                        : }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </section>    
 
     <section class="team-edit">
         <article class="message is-danger">
