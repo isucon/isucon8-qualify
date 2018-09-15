@@ -933,16 +933,24 @@ func (s *State) BeginReservation(lockedUser *AppUser, reservation *Reservation) 
 	return
 }
 
-func (s *State) CommitReservation(logID uint64, lockedUser *AppUser, reservation *Reservation) {
-	func() {
+func (s *State) CommitReservation(logID uint64, lockedUser *AppUser, reservation *Reservation) error {
+	err := func() error {
 		s.reservationMtx.Lock()
 		defer s.reservationMtx.Unlock()
+
+		if _, ok := s.reservations[reservation.ID]; ok {
+			return fatalErrorf("予約IDが重複しています")
+		}
 
 		reservation.ReserveCompletedAt = time.Now()
 		s.reservations[reservation.ID] = reservation
 		s.reserveCompletedCount++
 		assert(uint(len(s.reservations)) == s.reserveCompletedCount)
+		return nil
 	}()
+	if err != nil {
+		return err
+	}
 	func() {
 		event := s.FindEventByID(reservation.EventID)
 		rank := reservation.SheetRank
@@ -959,7 +967,7 @@ func (s *State) CommitReservation(logID uint64, lockedUser *AppUser, reservation
 		lockedUser.Status.LastReservation.SetID(reservation.ID)
 	}
 	s.deleteReserveLog(logID, reservation)
-	return
+	return nil
 }
 
 func (s *State) BeginCancelation(lockedUser *AppUser, reservation *Reservation) (logID uint64) {
