@@ -1,0 +1,8 @@
+---
+- name: kill -HUP portal
+  become: yes
+  become_user: isucon
+  args:
+    chdir: /home/isucon/torb/portal
+  shell:
+    bash -lc "kill -HUP $(cat /tmp/torb.portal.pid)"
