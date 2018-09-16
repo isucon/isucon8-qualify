@@ -25,6 +25,7 @@
                         <thead>
                             <tr>
                                 <th>JobId</th>
+                                <th>TeamId</th>
                                 <th>Team</th>
                                 <th>Score</th>
                                 <th>Status</th>
@@ -37,7 +38,8 @@
                             : for $all_jobs -> $row {
                                 <tr>
                                     <td class="has-text-right"><: $row.id :></td>
-                                    <td><a href="/admin/teams/<: $row.team_id :>"><: $row.team_id :> : <: ellipsis($row.team_name, 30) :></a></td>
+                                    <td class="has-text-right"><: $row.team_id :></td>
+                                    <td><a href="/admin/teams/<: $row.team_id :>"><: ellipsis($row.team_name, 30) :></a></td>
                                     <td class="has-text-right"><: $row.result_score | commify :></td>
                                     <td><: $row.result_status :></td>
                                     <td><: $row.state :></td>

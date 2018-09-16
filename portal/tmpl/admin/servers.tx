@@ -26,17 +26,19 @@
                         <table class="table is-fullwidth is-striped">
                             <thead>
                                 <tr>
-                                    <th colspan="2">Team</th>
-                                    <th>Team State</th>
-                                    <th>Group Id</th>
+                                    <th>TeamId</th>
+                                    <th>Team</th>
+                                    <th>TeamState</th>
+                                    <th>GroupId</th>
                                     <th>Node</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 <tr>
-                                    <td colspan="2">
+                                    <td><: $server_data.team_id :></td>
+                                    <td>
                                         <a href="/admin/teams/<: $server_data.team_id :>">
-                                            <: $server_data.team_id :>: <: $server_data.team_name :>
+                                            <: $server_data.team_name :>
                                         </a>
                                     </td>
                                     <td><: $server_data.team_state :></td>
@@ -48,9 +50,9 @@
                                 <tr>
                                     <th>Hostname</th>
                                     <th>Password</th>
-                                    <th>Global IP</th>
-                                    <th>Private IP</th>
-                                    <th>Bench IP</th>
+                                    <th>GlobalIP</th>
+                                    <th>PrivateIP</th>
+                                    <th>BenchIP</th>
                                 </tr>
                             </thead>
                             <tbody>
