@@ -39,8 +39,10 @@ get  '/admin/teams'           => 'Admin#get_teams';
 get  '/admin/teams/{team_id}' => 'Admin#get_team_edit';
 post '/admin/teams/{team_id}' => 'Admin#post_team_edit';
 
-get  '/admin/__enqueue_all_job__' => 'Admin#enqueue_all_jobs';
-get  '/admin/enqueue/{team_id}'   => 'Admin#enqueue_job';
+get  '/admin/enqueue'     => 'Admin#get_enqueue';
+post '/admin/enqueue'     => 'Admin#post_enqueue';
+get  '/admin/enqueue_all' => 'Admin#get_enqueue_all';
+post '/admin/enqueue_all' => 'Admin#post_enqueue_all';
 
 get  '/bench/job'        => 'Bench#get_job';
 post '/bench/job/result' => 'Bench#post_job_result';

@@ -121,6 +121,29 @@
                             </a>
                         </li>
                     </ul>
+
+                    <p class="menu-label">
+                        Administration
+                    </p>
+                    <ul class="menu-list">
+                        <li>
+                            <a class="<: is_active($page, 'enqueue') :>" href="/admin/enqueue">
+                                <span class="icon">
+                                    <i class="fas fa-paper-plane"></i>
+                                </span>
+                                <span>Enqueue</span>
+                            </a>
+                        </li>
+                        <li>
+                            <a class="<: is_active($page, 'enqueue_all') :>" href="/admin/enqueue_all">
+                                <span class="icon">
+                                    <i class="far fa-paper-plane"></i>
+                                </span>
+                                <span>Enqueue All</span>
+                            </a>
+                        </li>
+                    </ul>
+
                     <p class="menu-label">
                         Links
                     </p>

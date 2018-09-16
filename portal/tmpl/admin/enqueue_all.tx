@@ -1,0 +1,76 @@
+: cascade "include/admin/layout.tx"
+
+: override content -> {
+<div class="column is-9">
+    <nav class="breadcrumb" aria-label="breadcrumbs">
+        <ul>
+            <li><a href="/admin">ISUCON8</a></li>
+            <li class="is-active"><a href="#" aria-current="page">Enqueue All</a></li>
+        </ul>
+    </nav>
+
+    <section class="team-edit">
+        <article class="message is-danger">
+            <div class="message-header">
+                <p>
+                    <span class="icon">
+                        <i class="far fa-paper-plane"></i>
+                    </span>
+                    <span>Enqueue All</span>
+                </p>
+            </div>
+            <div class="message-body">
+                <form method="post">
+                    <div class="field is-horizontal">
+                        <div class="field-body">
+                            <div class="field">
+                            <div class="control">
+                                <button class="button is-danger">
+                                    Enqueue All
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </article>
+    </section>
+
+    : if $results {
+        <section class="table-list">
+            <div class="card events-card">
+                <header class="card-header is-dark">
+                    <p class="card-header-title">
+                        <span class="icon">
+                            <i class="fas fa-list-alt"></i>
+                        </span>
+                        <span>Results ( successed: <: $successed :>, failed :<: $failed :> )</span>
+                    </p>
+                </header>
+                <div class="card-table">
+                    <div class="content">
+                        <table class="table is-fullwidth is-striped">
+                            <thead>
+                                <tr>
+                                    <th>Team</th>
+                                    <th>is_success</th>
+                                    <th>error</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                : for $results -> $row {
+                                    <tr>
+                                        <td><a href="/admin/team/<: $row.team.id :>"><: $row.team.id :>: <: $row.team.name :></a></td>
+                                        <td><: $row.is_success ? 'true' : 'false' :></td>
+                                        <td><: $row.error | '-' :></td>
+                                    </tr>
+                                : }
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </section>    
+    : }
+</div>
+: }

@@ -45,6 +45,13 @@ section {
     color: #fff;
 }
 
+.card-header.is-success {
+    background-color: hsl(141, 71%, 48%);
+}
+.card-header.is-success .card-header-title {
+    color: #fff;
+}
+
 label {
     display: block;
     position: relative;

@@ -274,47 +274,97 @@ sub post_team_edit {
     });
 }
 
-sub enqueue_all_jobs {
+sub get_enqueue {
+    my ($self, $c) = @_;
+    my $model = $c->model('Admin');
+    my $info  = $model->get_information;
+    $c->render('admin/enqueue.tx', {
+        page => 'enqueue',
+        info => $info,
+    });
+}
+
+sub post_enqueue {
+    my ($self, $c) = @_;
+    state $rule = $c->make_validator(
+        team_ids => { isa => 'Str' },
+    );
+
+    my $params = $c->validate($rule, $c->req->body_parameters->mixed);
+    unless ($params) {
+        $c->log->warnf('validate error: %s', $rule->error->{message});
+        return $c->res_400;
+    }
+
+    my $team_ids  = [
+        map { s/(?:^\s+)|(?:\s+$)//gr } split /,/, $params->{team_ids},
+    ];
+    my $teams     = $c->model('Admin')->get_teams({ ids => $team_ids });
+    my $results   = [];
+    my $teams_map = +{ map { $_->{id} => $_ } @$teams };
+    for my $team_id (@$team_ids) {
+        my $team = $teams_map->{ $team_id };
+        my ($is_success, $error);
+        if ($team) {
+            ($is_success, $error) = $c->model('Bench')->enqueue_job({
+                team_id  => $team->{id},
+                group_id => $team->{group_id},
+            });
+        }
+        else {
+            $is_success = 0;
+            $error      = sprintf('not found team: %s', $team_id);
+        }
+
+        push @$results, {
+            is_success => $is_success,
+            error      => $error,
+        };
+    }
+
+    return $c->render('admin/enqueue.tx', {
+        page    => 'enqueue',
+        results => $results,
+    });
+}
+
+sub get_enqueue_all {
+    my ($self, $c) = @_;
+    my $model = $c->model('Admin');
+    my $info  = $model->get_information;
+    $c->render('admin/enqueue_all.tx', {
+        page => 'enqueue_all',
+        info => $info,
+    });
+}
+
+sub post_enqueue_all {
     my ($self, $c) = @_;
     my $bench = $c->model('Bench');
     my $teams = $bench->get_teams;
 
-    my $queued = 0;
+    my $results   = [];
+    my $successed = 0;
+    my $failed    = 0;
     for my $row (@$teams) {
-        my ($is_success, $err) = $bench->enqueue_job({
+        my ($is_success, $error) = $bench->enqueue_job({
             team_id  => $row->{id},
             group_id => $row->{group_id},
         });
-        $queued++ if $is_success;
+
+        $is_success ? $successed++ : $failed++;
+        push @$results, {
+            team       => $row,
+            is_success => $is_success,
+            error      => $error,
+        };
     }
 
-    $c->render_json({
-        teams  => scalar @$teams,
-        queued => $queued,
-    });
-}
-
-sub enqueue_job {
-    my ($self, $c, $captured) = @_;
-    state $rule = $c->make_validator(
-        team_id => { isa => 'Str' },
-    );
-
-    my $params = $c->validate($rule, $captured);
-    unless ($params) {
-        $c->log->warnf('validate error: %s', $rule->error->{message});
-        return $c->res_404;
-    }
-
-    my $team = $c->model('Team')->get_team({ id => $params->{team_id} });
-    my ($is_success, $error) = $c->model('Bench')->enqueue_job({
-        team_id  => $team->{id},
-        group_id => $team->{group_id},
-    });
-
-    return $c->render_json({
-        is_success => $is_success,
-        error      => $error,
+    $c->render('admin/enqueue_all.tx', {
+        page      => 'enqueue_all',
+        results   => $results,
+        successed => $successed,
+        failed    => $failed,
     });
 }
 
