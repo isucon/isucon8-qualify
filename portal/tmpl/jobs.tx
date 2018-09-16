@@ -42,7 +42,7 @@
                                     <td><: $row.result_status :></td>
                                     <td><: $row.state :></td>
                                     <td><: $row.updated_at | unixtime2time :></td>
-                                    <td><a class="button is-small is-link" href="/jobs/<: $row.id :>">show</a></td>
+                                    <td><a class="button is-small is-link" href="/admin/jobs/<: $row.id :>">show</a></td>
                                 </tr>
                             : }
                         </tbody>
