@@ -51,7 +51,6 @@ CREATE TABLE IF NOT EXISTS servers (
     KEY idx_node (`node`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
-/*
 CREATE TABLE IF NOT EXISTS team_members (
     `team_id` int(10) unsigned NOT NULL,
     `member_number` tinyint(1) unsigned NOT NULL,
@@ -62,7 +61,6 @@ CREATE TABLE IF NOT EXISTS team_members (
     `updated_at` int(10) unsigned NOT NULL,
     PRIMARY KEY (`team_id`, `member_number`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-*/
 
 CREATE TABLE IF NOT EXISTS team_scores (
     `team_id` int(10) unsigned NOT NULL,

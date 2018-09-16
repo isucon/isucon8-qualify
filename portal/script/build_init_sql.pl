@@ -22,16 +22,18 @@ my $category_map = {
 
 for my $setting (
     {
-        team_out      => 'sql/isucon8q_day01_team.sql',
-        server_out    => 'sql/isucon8q_day01_server.sql',
-        server_regexp => qr/20180915/,
-        team_regexp   => qr/9月15日/,
+        team_out        => 'sql/isucon8q_day01_teams.sql',
+        server_out      => 'sql/isucon8q_day01_servers.sql',
+        team_member_out => 'sql/isucon8q_day01_team_members.sql',
+        server_regexp   => qr/20180915/,
+        team_regexp     => qr/9月15日/,
     },
     {
-        team_out      => 'sql/isucon8q_day02_team.sql',
-        server_out    => 'sql/isucon8q_day02_server.sql',
-        server_regexp => qr/20180916/,
-        team_regexp   => qr/9月16日/,
+        team_out        => 'sql/isucon8q_day02_teams.sql',
+        server_out      => 'sql/isucon8q_day02_servers.sql',
+        team_member_out => 'sql/isucon8q_day02_team_members.sql',
+        server_regexp   => qr/20180916/,
+        team_regexp     => qr/9月16日/,
     },
 ) {
     my $servers = [ grep { $_ =~ $setting->{server_regexp} } read_file $server_file ];
@@ -56,7 +58,7 @@ for my $setting (
         my $is_bench_host  = $is_bench eq 'TRUE' ? 1 : 0;
         my $is_target_host = $private_ip =~ /1$/ ? 1 : 0;
         push @$server_sqls, encode_utf8 sprintf(
-            "INSERT INTO servers VALUES('%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', %s, %s, %s, %s);",
+            "INSERT INTO servers VALUES('%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', %s, %s, %s, %s);\n",
             $group_id,
             $hostname,
             $passowrd,
@@ -75,7 +77,8 @@ for my $setting (
     say "write $setting->{server_out}";
     write_file $setting->{server_out}, $server_sqls;
 
-    my $teams_sqls = [];
+    my $teams_sqls        = [];
+    my $team_members_sqls = [];
     for my $line (@$teams) {
         my $team = [ split "\t", $line =~ s/\r?\n$//r ];
         my (
@@ -83,16 +86,16 @@ for my $setting (
             $category,
             $name,
             $num,
-            $p1,
-            $p2,
-            $p3,
+            $m1,
+            $m2,
+            $m3,
             $passowrd,
             $group_id,
         ) = map { escape($_) } @$team[qw/1 2 4 5 6 7 8 9 10/];
 
         $category = $category_map->{"$category\:$num"};
         push @$teams_sqls, encode_utf8 sprintf(
-            "INSERT INTO teams VALUES(%s, '%s', '%s', '%s', '%s', '%s', '', '', %s, %s);",
+            "INSERT INTO teams VALUES(%s, '%s', '%s', '%s', '%s', '%s', '', '', %s, %s);\n",
             $id,
             $group_id,
             'active',
@@ -102,9 +105,25 @@ for my $setting (
             'UNIX_TIMESTAMP()',
             'UNIX_TIMESTAMP()',
         );
+
+        my $member_number = 1;
+        for my $member ($m1, $m2, $m3) {
+            next unless length $member;
+            push @$team_members_sqls, encode_utf8 sprintf(
+                "INSERT INTO team_members VALUES('%s', '%s', '%s', '', '', %s, %s);\n",
+                $id,
+                $member_number++,
+                $member,
+                'UNIX_TIMESTAMP()',
+                'UNIX_TIMESTAMP()',
+            );
+        }
     }
     say "write $setting->{team_out}";
     write_file $setting->{team_out}, $teams_sqls;
+
+    say "write $setting->{team_member_out}";
+    write_file $setting->{team_member_out}, $team_members_sqls;
 }
 sub escape {
     my $str = shift;
