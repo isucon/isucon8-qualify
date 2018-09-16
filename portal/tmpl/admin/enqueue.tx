@@ -76,7 +76,7 @@
                             <tbody>
                                 : for $results -> $row {
                                     <tr>
-                                        <td><a href="/admin/team/<: $row.team.id :>"><: $row.team.id :>: <: $row.team.name :></a></td>
+                                        <td><a href="/admin/teams/<: $row.team.id :>"><: $row.team.id :>: <: $row.team.name :></a></td>
                                         <td><: $row.is_success :></td>
                                         <td><: $row.error || '-' :></td>
                                     </tr>
