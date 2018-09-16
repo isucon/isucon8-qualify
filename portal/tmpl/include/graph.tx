@@ -77,7 +77,8 @@
                     borderWidth: 2,
                     fill: false,
                     pointHoverRadius: 4,
-                    pointRadius: 0,
+                    pointRadius: 2,
+                    spanGaps: true,
                 },
                 : }
             ],

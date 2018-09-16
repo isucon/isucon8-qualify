@@ -284,7 +284,7 @@ __SQL__
                             push @$data, shift(@$scores)->{score};
                         }
                         else {
-                            push @$data, $data->[-1];
+                            push @$data, undef;
                         }
                     }
                 }
