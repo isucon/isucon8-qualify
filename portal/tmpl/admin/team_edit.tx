@@ -113,6 +113,47 @@
         <canvas id="myChart" width="400" height="200"></canvas>
     </section>
 
+    <section class="table-list">
+        <div class="card events-card">
+            <header class="card-header is-dark">
+                <p class="card-header-title">
+                    <span class="icon">
+                        <i class="fas fa-list-alt"></i>
+                    </span>
+                    <span>Jobs</span>
+                </p>
+            </header>
+            <div class="card-table">
+                <div class="content">
+                    <table class="table is-fullwidth is-striped">
+                        <thead>
+                            <tr>
+                                <th>JobId</th>
+                                <th>Score</th>
+                                <th>Status</th>
+                                <th>State</th>
+                                <th>UpdatedAt</th>
+                                <th>Detail</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            : for $jobs -> $row {
+                                <tr>
+                                    <td class="has-text-right"><: $row.id :></td>
+                                    <td class="has-text-right"><: $row.result_score | commify :></td>
+                                    <td><: $row.result_status :></td>
+                                    <td><: $row.state :></td>
+                                    <td><: $row.updated_at | unixtime2time :></td>
+                                    <td><a class="button is-small is-link" href="/jobs/<: $row.id :>">show</a></td>
+                                </tr>
+                            : }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </section>
+
     <section class="team-edit">
         <article class="message is-danger">
             <div class="message-header">
