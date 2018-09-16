@@ -30,7 +30,7 @@ __PACKAGE__->constants(
 );
 
 __PACKAGE__->constants(
-    BENCHMARK_MAX_CONCURRENCY => 3,
+    BENCHMARK_MAX_CONCURRENCY => 1,
 );
 
 __PACKAGE__->constants(
