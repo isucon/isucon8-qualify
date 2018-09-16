@@ -67,7 +67,20 @@ sub get_team {
             $team = $dbh->selectrow_hashref($stmt, undef, @bind);
             return unless $team;
 
-            $team->{category_display_name} = TEAM_CATEGORY_TO_DISPLAY_NAME_MAP->{ $team->{category} };
+            ($stmt, @bind) = $self->sql->select(
+                'team_members',
+                ['*'],
+                {
+                    team_id => $id,
+                },
+                {
+                    order_by => { -asc => 'member_number' },
+                },
+            );
+            $team->{members} = $dbh->selectall_arrayref($stmt, { Slice => {} }, @bind);
+
+            $team->{category_display_name} =
+                TEAM_CATEGORY_TO_DISPLAY_NAME_MAP->{ $team->{category} };
         });
     };
     if (my $e = $@) {

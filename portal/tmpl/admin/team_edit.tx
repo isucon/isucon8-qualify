@@ -63,6 +63,12 @@
                                 <th width="15%">Created At</th>
                                 <td><: $team.created_at | from_unixtime :></td>
                             </tr>
+                            : for $team.members -> $row {
+                                <tr>
+                                    <th width="15%">Member<: $row.member_number :></th>
+                                    <td><: $row.nickname :></td>
+                                </tr>
+                            : }
                         </tbody>
                     </table>
                 </div>
