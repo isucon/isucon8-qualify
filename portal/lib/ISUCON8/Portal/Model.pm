@@ -271,12 +271,8 @@ __SQL__
         my $list     = [];
         for my $id (@$team_ids) {
             my $team   = $team_map->{ $id };
-            my $scores = $team_score_map->{ $id };
+            my $scores = $team_score_map->{ $id } || next;
             my $data   = [];
-            unless ($scores) {
-                $self->log->warnf('Opps! team score not found (id: %s, from_team_id: %s)', $id, $team_id);
-                next;
-            }
             for my $label (@$labels) {
                 if (scalar @$scores) {
                     my $created_at = $scores->[0]{created_at};
