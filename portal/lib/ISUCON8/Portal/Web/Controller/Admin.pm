@@ -317,6 +317,7 @@ sub post_enqueue {
         }
 
         push @$results, {
+            team       => $team,
             is_success => $is_success,
             error      => $error,
         };

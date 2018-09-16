@@ -68,6 +68,7 @@
                         <table class="table is-fullwidth is-striped">
                             <thead>
                                 <tr>
+                                    <th>Team</th>
                                     <th>is_success</th>
                                     <th>error</th>
                                 </tr>
@@ -75,6 +76,7 @@
                             <tbody>
                                 : for $results -> $row {
                                     <tr>
+                                        <td><a href="/admin/team/<: $row.team.id :>"><: $row.team.id :>: <: $row.team.name :></a></td>
                                         <td><: $row.is_success :></td>
                                         <td><: $row.error || '-' :></td>
                                     </tr>
