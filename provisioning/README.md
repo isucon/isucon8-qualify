@@ -35,3 +35,21 @@ $ ansible-playbook -i development site.yml # or ansible-playbook -i production s
 - それぞれのロール(bench, webapp1, webapp2, webapp3)は、 `ロール名.yml` ファイルにそのロールで実行されるタスク一覧が書いてある。
     - ためしにあるタスクだけを実行したかったら、 `ロール名.yml` に書いてあるタスクをコメントアウトすることも可。
 - それぞれのタスクが具体的に何をやっているのかは、 `タスク名/tasks/main.yml` に書いてある。
+
+---
+
+## portalをデプロイ・kill -HUPするやつ
+
+```sh
+$ cd /path/to/torb/provisioning
+
+# ステージング環境
+$ vim development
+#=> [portal_web]のブロックで指定されているホストのコメントアウトを外す
+$ time ansible-playbook -i development portal_deploy_and_sighup.yml
+
+# 本番環境
+$ vim production
+#=> [portal_web]のブロックで指定されているホストのコメントアウトを外す
+$ time ansible-playbook -i production portal_deploy_and_sighup.yml
+```

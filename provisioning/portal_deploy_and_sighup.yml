@@ -1,0 +1,5 @@
+---
+- hosts: portal_web
+  roles:
+    - deploy_portal
+    - sighup_portal
