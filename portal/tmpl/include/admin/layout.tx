@@ -12,6 +12,8 @@
   <link href="<: static_file('/static/css/fontawesome.css') :>" rel="stylesheet" type="text/css">
   <link href="https://fonts.googleapis.com/css?family=Open+Sans:300,400,700" rel="stylesheet">
   <script src="<: static_file('/static/js/jquery.min.js') :>"></script>
+  <script src="<: static_file('/static/js/jquery.tablesorter.min.js') :>"></script>
+  <link href="<: static_file('/static/css/jquery.tablesorter.pager.min.css') :>" rel="stylesheet" type="text/css" media="screen">
   <script src="<: static_file('/static/js/xsrf-token.js') :>"></script>
   <link href="<: static_file('/static/css/main.css') :>" rel="stylesheet" type="text/css" media="screen">
   <script src="<: static_file('/static/js/main.js') :>"></script>
