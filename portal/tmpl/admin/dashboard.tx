@@ -8,16 +8,18 @@
             <li class="is-active"><a href="#" aria-current="page">Dashboard</a></li>
         </ul>
     </nav>
+
     <section class="hero welcome is-small is-danger">
         <div class="hero-body">
             <div class="container">
                 <h1 class="title">
                     いままでで最高の Admin 体験
                 </h1>
-                <h2 class="subtitle">お家に帰るまでが ISUCON</h2>
+                <h2 class="subtitle">すべてがまったく新しい管理ページ。あらゆる情報を思いのままに操ることができます。</h2>
             </div>
         </div>
     </section>
+
     <section class="graph">
         <canvas id="myChart" width="400" height="300"></canvas>
     </section>
