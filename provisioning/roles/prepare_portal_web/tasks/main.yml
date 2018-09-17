@@ -27,7 +27,7 @@
   become_user: root
   file:
     state: link
-    src: "/etc/h2o/{{ env_var }}.portal-h2o.conf"
+    src: "/etc/h2o/portal-h2o.conf"
     dest: /etc/h2o/h2o.conf
 
 - name: Put torb.portal.service

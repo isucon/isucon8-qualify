@@ -1,52 +1,18 @@
 [portal_web]
-### torb2-2G-1
-XX.XX.XX.XX ansible_ssh_user=isucon-admin
+# ポータルをデプロイするサーバ
 
 
 [bench]
-### torb1-2G-2
-XX.XX.XX.XX ansible_ssh_user=isucon-admin
-
-### torb2-2G-2
-XX.XX.XX.XX  ansible_ssh_user=isucon-admin
-
-### torb3-4
-XX.XX.XX.XX  ansible_ssh_user=isucon-admin
+# ベンチマーカをデプロイするサーバ
 
 
 [webapp1]
-### torb1-1G-1
-XX.XX.XX.XX ansible_ssh_user=isucon-admin
-
-### torb2-1G-1
-XX.XX.XX.XX  ansible_ssh_user=isucon-admin
-
-### torb3-1
-XX.XX.XX.XX  ansible_ssh_user=isucon-admin
+# 競技用webappをデプロイするサーバ(1)
 
 
 [webapp2]
-### torb1-1G-2
-XX.XX.XX.XX   ansible_ssh_user=isucon-admin
-
-### torb2-1G-2
-XX.XX.XX.XX  ansible_ssh_user=isucon-admin
-
-### torb3-2
-XX.XX.XX.XX  ansible_ssh_user=isucon-admin
+# 競技用webappをデプロイするサーバ(2)
 
 
 [webapp3]
-### torb1-1G-3
-XX.XX.XX.XX  ansible_ssh_user=isucon-admin
-
-### torb2-1G-3
-XX.XX.XX.XX ansible_ssh_user=isucon-admin
-
-### torb3-3
-XX.XX.XX.XX ansible_ssh_user=isucon-admin
-
-
-[all:vars]
-env_var="development"
-ansible_ssh_port=22
+# 競技用webappをデプロイするサーバ(3)
