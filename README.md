@@ -50,9 +50,8 @@ export PATH=$HOME/local/go/bin:$HOME/go/bin:$PATH
 ビルド
 
 ```sh
-go get github.com/constabulary/gb/...   # 初回のみ
 cd bench
-gb vendor restore
+make deps
 make
 ```
 
