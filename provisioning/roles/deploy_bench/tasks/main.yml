@@ -3,7 +3,7 @@
   become: yes
   become_user: isucon
   synchronize:
-    src: ../../../../torb/bench
+    src: ../../../../bench
     dest: /home/isucon/torb/
     recursive: yes
 

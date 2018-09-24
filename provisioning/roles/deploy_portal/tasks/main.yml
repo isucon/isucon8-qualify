@@ -3,7 +3,7 @@
   become: yes
   become_user: isucon
   synchronize:
-    src: ../../../../torb/portal
+    src: ../../../../portal
     dest: /home/isucon/torb/
     recursive: yes
     rsync_opts:

@@ -3,7 +3,7 @@
   become: yes
   become_user: isucon
   copy:
-    src: ../../../../torb/bench/bin.Linux.x86_64/bench
+    src: ../../../../bench/bin.Linux.x86_64/bench
     dest: /home/isucon/torb/bench/bin/bench
     owner: isucon
     group: isucon
