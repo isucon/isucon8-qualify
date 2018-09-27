@@ -51,16 +51,16 @@ export PATH=$HOME/local/go/bin:$HOME/go/bin:$PATH
 ビルド
 
 ```sh
-cd bench
-make deps
-make
+$ cd bench
+$ make deps
+$ make
 ```
 
 初期データ生成
 
 ```sh
-cd bench
-./bin/gen-initial-dataset   # ../db/isucon8q-initial-dataset.sql.gz ができる
+$ cd bench
+$ ./bin/gen-initial-dataset   # ../db/isucon8q-initial-dataset.sql.gz ができる
 ```
 
 ### データベース初期化
@@ -84,7 +84,7 @@ $ ./db/init.sh
 初回のみ
 
 ```
-$ cd ~/torb/webapp/perl
+$ cd webapp/perl
 $ cpanm --installdeps --notest --force .
 ```
 
