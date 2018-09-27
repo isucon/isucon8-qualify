@@ -32,7 +32,7 @@ git clone https://github.com/tagomoris/xbuild.git
 
 mkdir local
 xbuild/go-install     1.10.3  /home/isucon/local/go
-xbuild/perl-install   5.28.0  /home/centos/local/perl
+xbuild/perl-install   5.28.0  /home/isucon/local/perl
 xbuild/ruby-install   2.5.1   /home/isucon/local/ruby
 xbuild/node-install   v8.11.4 /home/isucon/local/node
 xbuild/go-install     1.9     /home/isucon/local/go
