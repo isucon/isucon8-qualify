@@ -1451,16 +1451,19 @@ func CheckReserveSheet(ctx context.Context, state *State) error {
 		return nil
 	}
 
-	err = userChecker.Play(ctx, &CheckAction{
-		Method:             "DELETE",
-		Path:               fmt.Sprintf("/api/events/%d/sheets/%s/%d/reservation", eventID, reservation.SheetRank, reservation.SheetNum),
-		ExpectedStatusCode: 400,
-		Description:        "すでにキャンセル済みの場合エラーになること",
-		CheckFunc:          checkJsonErrorResponse("not_reserved"),
-	})
-	if err != nil {
-		return err
-	}
+	// TODO(sonots): Fix race conditions that following error occurs
+	// Response code should be 400, got 403, data: <nil> (DELETE /api/events/11/sheets/C/498/reservation )
+	// It is caused if somebody else reserves the canceled sheet before calling the following 2nd cancelation.
+	// err = userChecker.Play(ctx, &CheckAction{
+	// 	Method:             "DELETE",
+	// 	Path:               fmt.Sprintf("/api/events/%d/sheets/%s/%d/reservation", eventID, reservation.SheetRank, reservation.SheetNum),
+	// 	ExpectedStatusCode: 400,
+	// 	Description:        "すでにキャンセル済みの場合エラーになること",
+	// 	CheckFunc:          checkJsonErrorResponse("not_reserved"),
+	// })
+	// if err != nil {
+	// 	return err
+	// }
 
 	// TODO(sonots): Need to find a sheet which somebody else reserved.
 	// err := userChecker.Play(ctx, &CheckAction{
