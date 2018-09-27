@@ -4,6 +4,7 @@ Description = isucon8 qualifier bench worker
 [Service]
 WorkingDirectory=/home/isucon/torb/bench
 EnvironmentFile=/home/isucon/torb/webapp/env.sh
+LimitNOFILE=655360
 
 ExecStart = /home/isucon/torb/bench/bin/bench -workermode -portal http://127.0.0.1
 
