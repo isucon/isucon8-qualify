@@ -39,6 +39,18 @@ See [../README.md](../README.md)
 
 あえて即座に500エラーを返すことにより、スコアブーストを狙うという戦法を防ぐために、エラーが起きた場合は500ミリ秒 sleep するという隠れ仕様があった。
 
+## workermode について
+
+* portal に polling で問い合わせて起動。portal から benchmarker を叩く必要がない。
+* benchmarker を外部コマンドとして起動しているので、benchmarker のメモリが太ったり panic を起こしても対処可能。ファイルを atomic に置き換えれば競技中に benchmarker の更新が可能。
+* benchmarker が固まった場合、300 sec で殺すようにしてある (土曜はここが 100 sec になっていて仕様上足りていなかった）。
+* benchmarker が不意に死んだ場合、`is_aborted` を portal に投げて abort させる (土曜はここがバグってた)。
+* TODO: graceful restart 未対応 (このため、土曜は #announce に投げて再起動させてもらった）。
+
+## 講評
+
+See also [ISUCON8 予選問題の解説と講評](http://isucon.net/archives/52520045.html)
+
 ### fail地獄について
 
 速くなるほどfailしやすくなる、という感想があった件についてこの仕様からの解説。
@@ -56,22 +68,19 @@ See [../README.md](../README.md)
 
 おそらく一番大きな要因となってしまったのが自動負荷レベルアップの仕様。
 
-## workermode について
+### 負荷レベルアップチートについて
 
-* portal に polling で問い合わせて起動。portal から benchmarker を叩く必要がない。
-* benchmarker を外部コマンドとして起動しているので、benchmarker のメモリが太ったり panic を起こしても対処可能。ファイルを atomic に置き換えれば競技中に benchmarker の更新が可能。
-* benchmarker が固まった場合、300 sec で殺すようにしてある (土曜はここが 100 sec になっていて仕様上足りていなかった）。
-* benchmarker が不意に死んだ場合、`is_aborted` を portal に投げて abort させる (土曜はここがバグってた)。
-* TODO: graceful restart 未対応 (このため、土曜は #announce に投げて再起動させてもらった）。
+遅いエンドポイントである `/admin/api/sales/reports` をさらに遅くなるように sleep を入れることで、ベンチマーカー起動直後のタイムアウトチェックに引っかからないようにして、負荷レベルをあげる裏技が可能だったようだ。
+幸い、競技中にこれをやったチームはいなかった認識だが、防ぎたい。
 
 ### 改善案
 
-来年の出題者へ。
+来年の出題者へ
 
 * 自動負荷レベルアップ方式については再考の余地あり
   * 5秒上がらない設定にしていたが、1秒で良かったかも
   * 遅いエンドポイントが１つでもあるとレベルアップしづらくなるのは、マニュアルに書いてあるとは言え、ベンチマーカの気持ちを忖度できる競技参加者しか見抜けない
+  * チートが可能だったのは防ぎたい(特にここに書いてしまったので防がないわけにはいかなそう)
   * 限界まで負荷をあげるのでタイムアウトが起こることを前提にせざるをえず、ベンチマーカの実装が非常に面倒
 * workermode は graceful restart できるようにしておこう
 
-See also [ISUCON8 予選問題の解説と講評](http://isucon.net/archives/52520045.html)
