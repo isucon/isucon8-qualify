@@ -609,4 +609,4 @@ def get_admin_sales():
 
 
 if __name__ == "__main__":
-    app.run(port=8080, debug=True, threaded=True)
+    app.run(port=8080, debug=True, threaded=True, host="0.0.0.0")
