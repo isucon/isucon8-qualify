@@ -384,28 +384,26 @@ def post_reserve(event_id):
 
     reservation_id = 0
 
-    while True:
-        conn = dbh()
+    conn = dbh()
+    cur = conn.cursor()
+    cur.execute(
+        "SELECT * FROM sheets WHERE id NOT IN (SELECT sheet_id FROM reservations WHERE event_id = %s"
+        " AND canceled_at IS NULL FOR UPDATE) AND `rank` =%s ORDER BY RAND() LIMIT 1",
+        [event['id'], rank])
+    sheet = cur.fetchone()
+    if not sheet:
+        return res_error("sold_out", 409)
+    try:
+        conn.autocommit(False)
         cur = conn.cursor()
         cur.execute(
-            "SELECT * FROM sheets WHERE id NOT IN (SELECT sheet_id FROM reservations WHERE event_id = %s"
-            " AND canceled_at IS NULL FOR UPDATE) AND `rank` =%s ORDER BY RAND() LIMIT 1",
-            [event['id'], rank])
-        sheet = cur.fetchone()
-        if not sheet:
-            return res_error("sold_out", 409)
-        try:
-            conn.autocommit(False)
-            cur = conn.cursor()
-            cur.execute(
-                "INSERT INTO reservations (event_id, sheet_id, user_id, reserved_at) VALUES (%s, %s, %s, %s)",
-                [event['id'], sheet['id'], user['id'], datetime.utcnow().strftime("%F %T.%f")])
-            reservation_id = cur.lastrowid
-            conn.commit()
-        except MySQLdb.Error as e:
-            conn.rollback()
-            print(e)
-        break
+            "INSERT INTO reservations (event_id, sheet_id, user_id, reserved_at) VALUES (%s, %s, %s, %s)",
+            [event['id'], sheet['id'], user['id'], datetime.utcnow().strftime("%F %T.%f")])
+        reservation_id = cur.lastrowid
+        conn.commit()
+    except MySQLdb.Error as e:
+        conn.rollback()
+        print(e)
 
     content = jsonify({
         "id": reservation_id,
