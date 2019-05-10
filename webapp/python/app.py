@@ -10,7 +10,6 @@ from io import StringIO
 import csv
 from datetime import datetime, timezone
 
-
 base_path = pathlib.Path(__file__).resolve().parent.parent
 static_folder = base_path / 'static'
 icons_folder = base_path / 'public' / 'icons'
@@ -31,7 +30,6 @@ class CustomFlask(flask.Flask):
 app = CustomFlask(__name__, static_folder=str(static_folder), static_url_path='')
 app.config['SECRET_KEY'] = 'tagomoris'
 
-
 if not os.path.exists(str(icons_folder)):
     os.makedirs(str(icons_folder))
 
@@ -50,7 +48,7 @@ def jsonify(target):
 
 
 def res_error(error="unknown", status=500):
-    return (jsonify({"error": error}), status)
+    return jsonify({"error": error}), status
 
 
 def login_required(f):
@@ -59,6 +57,7 @@ def login_required(f):
         if not get_login_user():
             return res_error('login_required', 401)
         return f(*args, **kwargs)
+
     return wrapper
 
 
@@ -68,6 +67,7 @@ def admin_login_required(f):
         if not get_login_administrator():
             return res_error('admin_login_required', 401)
         return f(*args, **kwargs)
+
     return wrapper
 
 
@@ -85,7 +85,9 @@ def dbh():
         autocommit=True,
     )
     cur = flask.g.db.cursor()
-    cur.execute("SET SESSION sql_mode='STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION'")
+    cur.execute(
+        "SET SESSION sql_mode='STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,"
+        "ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION'")
     return flask.g.db
 
 
@@ -95,14 +97,14 @@ def teardown(error):
         flask.g.db.close()
 
 
-def get_events(filter=lambda e: True):
+def get_events(filter_fn=lambda e: True):
     conn = dbh()
     conn.autocommit(False)
     cur = conn.cursor()
     try:
         cur.execute("SELECT * FROM events ORDER BY id ASC")
         rows = cur.fetchall()
-        event_ids = [row['id'] for row in rows if filter(row)]
+        event_ids = [row['id'] for row in rows if filter_fn(row)]
         events = []
         for event_id in event_ids:
             event = get_event(event_id)
@@ -120,7 +122,8 @@ def get_event(event_id, login_user_id=None):
     cur = dbh().cursor()
     cur.execute("SELECT * FROM events WHERE id = %s", [event_id])
     event = cur.fetchone()
-    if not event: return None
+    if not event:
+        return None
 
     event["total"] = 0
     event["remains"] = 0
@@ -137,7 +140,8 @@ def get_event(event_id, login_user_id=None):
         event['sheets'][sheet['rank']]['total'] += 1
 
         cur.execute(
-            "SELECT * FROM reservations WHERE event_id = %s AND sheet_id = %s AND canceled_at IS NULL GROUP BY event_id, sheet_id HAVING reserved_at = MIN(reserved_at)",
+            "SELECT * FROM reservations WHERE event_id = %s AND sheet_id = %s AND canceled_at IS NULL"
+            " GROUP BY event_id, sheet_id HAVING reserved_at = MIN(reserved_at)",
             [event['id'], sheet['id']])
         reservation = cur.fetchone()
         if reservation:
@@ -200,8 +204,7 @@ def render_report_csv(reports):
 
     keys = ["reservation_id", "event_id", "rank", "num", "price", "user_id", "sold_at", "canceled_at"]
 
-    body = []
-    body.append(keys)
+    body = [keys]
     for report in reports:
         body.append([report[key] for key in keys])
 
@@ -227,7 +230,7 @@ def get_index():
 @app.route('/initialize')
 def get_initialize():
     subprocess.call(["../../db/init.sh"])
-    return ('', 204)
+    return '', 204
 
 
 @app.route('/api/users', methods=['POST'])
@@ -254,7 +257,7 @@ def post_users():
         conn.rollback()
         print(e)
         return res_error()
-    return (jsonify({"id": user_id, "nickname": nickname}), 201)
+    return jsonify({"id": user_id, "nickname": nickname}), 201
 
 
 @app.route('/api/users/<int:user_id>')
@@ -264,10 +267,11 @@ def get_users(user_id):
     cur.execute('SELECT id, nickname FROM users WHERE id = %s', [user_id])
     user = cur.fetchone()
     if user['id'] != get_login_user()['id']:
-        return ('', 403)
+        return '', 403
 
     cur.execute(
-        "SELECT r.*, s.rank AS sheet_rank, s.num AS sheet_num FROM reservations r INNER JOIN sheets s ON s.id = r.sheet_id WHERE r.user_id = %s ORDER BY IFNULL(r.canceled_at, r.reserved_at) DESC LIMIT 5",
+        "SELECT r.*, s.rank AS sheet_rank, s.num AS sheet_num FROM reservations r INNER JOIN sheets s"
+        " ON s.id = r.sheet_id WHERE r.user_id = %s ORDER BY IFNULL(r.canceled_at, r.reserved_at) DESC LIMIT 5",
         [user['id']])
     recent_reservations = []
     for row in cur.fetchall():
@@ -294,13 +298,15 @@ def get_users(user_id):
 
     user['recent_reservations'] = recent_reservations
     cur.execute(
-        "SELECT IFNULL(SUM(e.price + s.price), 0) AS total_price FROM reservations r INNER JOIN sheets s ON s.id = r.sheet_id INNER JOIN events e ON e.id = r.event_id WHERE r.user_id = %s AND r.canceled_at IS NULL",
+        "SELECT IFNULL(SUM(e.price + s.price), 0) AS total_price FROM reservations r INNER JOIN sheets s"
+        " ON s.id = r.sheet_id INNER JOIN events e ON e.id = r.event_id WHERE r.user_id = %s AND r.canceled_at IS NULL",
         [user['id']])
     row = cur.fetchone()
     user['total_price'] = int(row['total_price'])
 
     cur.execute(
-        "SELECT event_id FROM reservations WHERE user_id = %s GROUP BY event_id ORDER BY MAX(IFNULL(canceled_at, reserved_at)) DESC LIMIT 5",
+        "SELECT event_id FROM reservations WHERE user_id = %s GROUP BY event_id"
+        " ORDER BY MAX(IFNULL(canceled_at, reserved_at)) DESC LIMIT 5",
         [user['id']])
     rows = cur.fetchall()
     recent_events = []
@@ -337,7 +343,7 @@ def post_login():
 @login_required
 def post_logout():
     flask.session.pop('user_id', None)
-    return ('', 204)
+    return '', 204
 
 
 @app.route('/api/events')
@@ -351,8 +357,10 @@ def get_events_api():
 @app.route('/api/events/<int:event_id>')
 def get_events_by_id(event_id):
     user = get_login_user()
-    if user: event = get_event(event_id, user['id'])
-    else: event = get_event(event_id)
+    if user:
+        event = get_event(event_id, user['id'])
+    else:
+        event = get_event(event_id)
 
     if not event or not event["public"]:
         return res_error("not_found", 404)
@@ -374,14 +382,14 @@ def post_reserve(event_id):
     if not validate_rank(rank):
         return res_error("invalid_rank", 400)
 
-    sheet = None
     reservation_id = 0
 
     while True:
-        conn =  dbh()
+        conn = dbh()
         cur = conn.cursor()
         cur.execute(
-            "SELECT * FROM sheets WHERE id NOT IN (SELECT sheet_id FROM reservations WHERE event_id = %s AND canceled_at IS NULL FOR UPDATE) AND `rank` =%s ORDER BY RAND() LIMIT 1",
+            "SELECT * FROM sheets WHERE id NOT IN (SELECT sheet_id FROM reservations WHERE event_id = %s"
+            " AND canceled_at IS NULL FOR UPDATE) AND `rank` =%s ORDER BY RAND() LIMIT 1",
             [event['id'], rank])
         sheet = cur.fetchone()
         if not sheet:
@@ -423,13 +431,14 @@ def delete_reserve(event_id, rank, num):
     if not sheet:
         return res_error("invalid_sheet", 404)
 
+    conn = dbh()
     try:
-        conn = dbh()
         conn.autocommit(False)
         cur = conn.cursor()
 
         cur.execute(
-            "SELECT * FROM reservations WHERE event_id = %s AND sheet_id = %s AND canceled_at IS NULL GROUP BY event_id HAVING reserved_at = MIN(reserved_at) FOR UPDATE",
+            "SELECT * FROM reservations WHERE event_id = %s AND sheet_id = %s AND canceled_at IS NULL"
+            " GROUP BY event_id HAVING reserved_at = MIN(reserved_at) FOR UPDATE",
             [event['id'], sheet['id']])
         reservation = cur.fetchone()
 
@@ -455,9 +464,12 @@ def delete_reserve(event_id, rank, num):
 @app.route('/admin/')
 def get_admin():
     administrator = get_login_administrator()
-    if administrator: events=get_events()
-    else: events={}
-    return flask.render_template('admin.html', administrator=administrator, events=events, base_url=make_base_url(flask.request))
+    if administrator:
+        events = get_events()
+    else:
+        events = {}
+    return flask.render_template('admin.html', administrator=administrator, events=events,
+                                 base_url=make_base_url(flask.request))
 
 
 @app.route('/admin/api/actions/login', methods=['POST'])
@@ -484,7 +496,7 @@ def post_adin_login():
 @admin_login_required
 def get_admin_logout():
     flask.session.pop('administrator_id', None)
-    return ('', 204)
+    return '', 204
 
 
 @app.route('/admin/api/events')
@@ -503,6 +515,7 @@ def post_admin_events_api():
     conn = dbh()
     conn.autocommit(False)
     cur = conn.cursor()
+    event_id = None
     try:
         cur.execute(
             "INSERT INTO events (title, public_fg, closed_fg, price) VALUES (%s, %s, 0, %s)",
@@ -529,7 +542,8 @@ def get_admin_events_by_id(event_id):
 def post_event_edit(event_id):
     public = flask.request.json['public'] if 'public' in flask.request.json.keys() else False
     closed = flask.request.json['closed'] if 'closed' in flask.request.json.keys() else False
-    if closed: public = False
+    if closed:
+        public = False
 
     event = get_event(event_id)
     if not event:
@@ -548,7 +562,7 @@ def post_event_edit(event_id):
             "UPDATE events SET public_fg = %s, closed_fg = %s WHERE id = %s",
             [public, closed, event['id']])
         conn.commit()
-    except MySQLdb.Error as e:
+    except MySQLdb.Error:
         conn.rollback()
     return jsonify(get_event(event_id))
 
@@ -559,16 +573,19 @@ def get_admin_event_sales(event_id):
     event = get_event(event_id)
 
     cur = dbh().cursor()
-    reservations = cur.execute(
-        'SELECT r.*, s.rank AS sheet_rank, s.num AS sheet_num, s.price AS sheet_price, e.price AS event_price FROM reservations r INNER JOIN sheets s ON s.id = r.sheet_id INNER JOIN events e ON e.id = r.event_id WHERE r.event_id = %s ORDER BY reserved_at ASC FOR UPDATE',
+    cur.execute(
+        'SELECT r.*, s.rank AS sheet_rank, s.num AS sheet_num, s.price AS sheet_price, e.price AS event_price'
+        ' FROM reservations r INNER JOIN sheets s ON s.id = r.sheet_id INNER JOIN events e ON e.id = r.event_id'
+        ' WHERE r.event_id = %s ORDER BY reserved_at ASC FOR UPDATE',
         [event['id']])
     reservations = cur.fetchall()
     reports = []
 
     for reservation in reservations:
         if reservation['canceled_at']:
-            canceled_at = reservation['canceled_at'].isoformat()+"Z"
-        else: canceled_at = ''
+            canceled_at = reservation['canceled_at'].isoformat() + "Z"
+        else:
+            canceled_at = ''
         reports.append({
             "reservation_id": reservation['id'],
             "event_id":       event['id'],
@@ -587,14 +604,18 @@ def get_admin_event_sales(event_id):
 @admin_login_required
 def get_admin_sales():
     cur = dbh().cursor()
-    reservations = cur.execute('SELECT r.*, s.rank AS sheet_rank, s.num AS sheet_num, s.price AS sheet_price, e.id AS event_id, e.price AS event_price FROM reservations r INNER JOIN sheets s ON s.id = r.sheet_id INNER JOIN events e ON e.id = r.event_id ORDER BY reserved_at ASC FOR UPDATE')
+    cur.execute(
+        'SELECT r.*, s.rank AS sheet_rank, s.num AS sheet_num, s.price AS sheet_price, e.id AS event_id, e.price'
+        ' AS event_price FROM reservations r INNER JOIN sheets s ON s.id = r.sheet_id INNER JOIN events e'
+        ' ON e.id = r.event_id ORDER BY reserved_at ASC FOR UPDATE')
     reservations = cur.fetchall()
 
     reports = []
     for reservation in reservations:
         if reservation['canceled_at']:
             canceled_at = reservation['canceled_at'].isoformat()+"Z"
-        else: canceled_at = ''
+        else:
+            canceled_at = ''
         reports.append({
             "reservation_id": reservation['id'],
             "event_id":       reservation['event_id'],
