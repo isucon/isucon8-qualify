@@ -9,11 +9,13 @@ import subprocess
 from io import StringIO
 import csv
 from datetime import datetime, timezone
-from pprint import pprint
 
 base_path = pathlib.Path(__file__).resolve().parent.parent
 static_folder = base_path / 'static'
 icons_folder = base_path / 'public' / 'icons'
+ranks_num = None
+ranks_id = None
+ranks_price = None
 
 
 class CustomFlask(flask.Flask):
@@ -92,6 +94,27 @@ def dbh():
     return flask.g.db
 
 
+def ranks_data():
+    global ranks_num, ranks_id, ranks_price
+    if ranks_num and ranks_id and ranks_price:
+        return
+    cur = dbh().cursor()
+    if ranks_num is None:
+        cur.execute("SELECT rank, COUNT(id) FROM sheets GROUP BY rank")
+        ranks_num = {e["rank"]: e["COUNT(id)"] for e in cur.fetchall()}
+
+    if ranks_price is None:
+        cur.execute("SELECT price, rank FROM sheets GROUP BY rank")
+        ranks_price = {e["rank"]: e["price"] for e in cur.fetchall()}
+
+    if ranks_id is None:
+        cur.execute("SELECT * FROM sheets ORDER BY `rank`, num")
+        sheets = cur.fetchall()
+        ranks_id = {k: dict() for k in ranks_num.keys()}
+        for sheet in sheets:
+            ranks_id[sheet["rank"]][sheet["id"]] = len(ranks_id[sheet["rank"]])
+
+
 @app.teardown_appcontext
 def teardown(error):
     if hasattr(flask.g, "db"):
@@ -121,6 +144,7 @@ def get_events(filter_fn=lambda e: True):
 
 def get_event(event_id, login_user_id=None):
     cur = dbh().cursor()
+    ranks_data()
     cur.execute("SELECT * FROM events WHERE id = %s", [event_id])
     event = cur.fetchone()
     if not event:
@@ -129,50 +153,30 @@ def get_event(event_id, login_user_id=None):
     event["total"] = 0
     event["remains"] = 0
     event["sheets"] = {}
-    for rank in ["S", "A", "B", "C"]:
+
+    for rank in ranks_num.keys():
         event["sheets"][rank] = {'total': 0, 'remains': 0, 'detail': []}
-
-    cur.execute("SELECT * FROM sheets ORDER BY id")
-    sheets = cur.fetchall()
-
-    cur.execute("SELECT rank, COUNT(id) FROM sheets GROUP BY rank")
-    ranks_num = {e["rank"]: e["COUNT(id)"] for e in cur.fetchall()}
-
-    ranks_id = {k: dict() for k in ranks_num.keys()}
-    for sheet in sheets:
-        ranks_id[sheet["rank"]][sheet["id"]] = len(ranks_id[sheet["rank"]])
-
-    # for s in sheets:
-    #     print("sheets", s)
 
     cur.execute(
         "SELECT * FROM sheets LEFT OUTER JOIN reservations as r ON r.sheet_id = sheets.id"
         " WHERE r.event_id = %s AND r.canceled_at IS NULL"
         " GROUP BY sheet_id HAVING r.reserved_at = MIN(r.reserved_at)", [event['id']])
     reservations = cur.fetchall()
-    # res = reservations
-    # print(type(res), res)
 
     for rank in ranks_num.keys():
-        event['sheets'][rank]['detail'] = [{"num": i} for i in range(ranks_num[rank])]
+        event['sheets'][rank]['detail'] = [{"num": i+1} for i in range(ranks_num[rank])]
         event["sheets"][rank]["remains"] = ranks_num[rank]
+        event['sheets'][rank]['total'] = ranks_num[rank]
+        if not event['sheets'][rank].get('price'):
+            event["sheets"][rank]["price"] = event['price'] + ranks_price[rank]
 
     event["remains"] = sum(ranks_num.values())
     event['total'] = sum(ranks_num.values())
     for reservation in reservations:
-        if not event['sheets'][reservation['rank']].get('price'):
-            event['sheets'][reservation['rank']]['price'] = event['price'] + reservation['price']
-
-        event['sheets'][reservation['rank']]['total'] = ranks_num[reservation["rank"]]
         sheet = {
             "num": reservation["num"]
         }
 
-        # cur.execute(
-        #     "SELECT * FROM reservations WHERE event_id = %s AND sheet_id = %s AND canceled_at IS NULL"
-        #     " GROUP BY event_id, sheet_id HAVING reserved_at = MIN(reserved_at)",
-        #     [event['id'], sheet['id']])
-        # reservation = cur.fetchone()
         if reservation:
             if login_user_id and reservation['user_id'] == login_user_id:
                 sheet['mine'] = True
@@ -181,17 +185,12 @@ def get_event(event_id, login_user_id=None):
             event["remains"] -= 1
             event["sheets"][reservation["rank"]]["remains"] -= 1
 
-        # del sheet['id']
-        # del sheet['price']
-        # del sheet['rank']
-
         event['sheets'][reservation['rank']]['detail'][ranks_id[reservation["rank"]][reservation["sheet_id"]]] = sheet
 
     event['public'] = True if event['public_fg'] else False
     event['closed'] = True if event['closed_fg'] else False
     del event['public_fg']
     del event['closed_fg']
-    print(event, file=open("/root/isucon8-qualify/tmp.txt", "w"))
     return event
 
 
