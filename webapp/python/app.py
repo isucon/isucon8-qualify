@@ -9,6 +9,7 @@ import subprocess
 from io import StringIO
 import csv
 from datetime import datetime, timezone
+from pprint import pprint
 
 base_path = pathlib.Path(__file__).resolve().parent.parent
 static_folder = base_path / 'static'
@@ -131,19 +132,39 @@ def get_event(event_id, login_user_id=None):
     for rank in ["S", "A", "B", "C"]:
         event["sheets"][rank] = {'total': 0, 'remains': 0, 'detail': []}
 
-    cur.execute("SELECT * FROM sheets ORDER BY `rank`, num")
+    cur.execute("SELECT * FROM sheets")
     sheets = cur.fetchall()
-    for sheet in sheets:
-        if not event['sheets'][sheet['rank']].get('price'):
-            event['sheets'][sheet['rank']]['price'] = event['price'] + sheet['price']
-        event['total'] += 1
-        event['sheets'][sheet['rank']]['total'] += 1
 
-        cur.execute(
-            "SELECT * FROM reservations WHERE event_id = %s AND sheet_id = %s AND canceled_at IS NULL"
-            " GROUP BY event_id, sheet_id HAVING reserved_at = MIN(reserved_at)",
-            [event['id'], sheet['id']])
-        reservation = cur.fetchone()
+    cur.execute("SELECT rank, COUNT(id) FROM sheets GROUP BY rank")
+    ranks_num = {e["rank"]: e["COUNT(id)"] for e in cur.fetchall()}
+
+    # for s in sheets:
+    #     print("sheets", s)
+
+    cur.execute(
+        "SELECT * FROM sheets LEFT OUTER JOIN reservations as r ON r.sheet_id = sheets.id"
+        " WHERE r.event_id = %s AND r.canceled_at IS NULL"
+        " GROUP BY sheet_id HAVING r.reserved_at = MIN(r.reserved_at)", [event['id']])
+    reservations = cur.fetchall()
+    res = reservations
+    print(type(res), res)
+    # for rank in ranks:
+    #     event['sheets'][rank]['detail'] = sheet_list
+
+    for reservation in reservations:
+        if not event['sheets'][reservation['rank']].get('price'):
+            event['sheets'][reservation['rank']]['price'] = event['price'] + reservation['price']
+        event['total'] = ranks_num[reservation["rank"]]
+        event['sheets'][reservation['rank']]['total'] = ranks_num[reservation["rank"]]
+        sheet = {
+            "num": reservation["num"]
+        }
+
+        # cur.execute(
+        #     "SELECT * FROM reservations WHERE event_id = %s AND sheet_id = %s AND canceled_at IS NULL"
+        #     " GROUP BY event_id, sheet_id HAVING reserved_at = MIN(reserved_at)",
+        #     [event['id'], sheet['id']])
+        # reservation = cur.fetchone()
         if reservation:
             if login_user_id and reservation['user_id'] == login_user_id:
                 sheet['mine'] = True
@@ -153,16 +174,17 @@ def get_event(event_id, login_user_id=None):
             event['remains'] += 1
             event['sheets'][sheet['rank']]['remains'] += 1
 
-        event['sheets'][sheet['rank']]['detail'].append(sheet)
+        # del sheet['id']
+        # del sheet['price']
+        # del sheet['rank']
 
-        del sheet['id']
-        del sheet['price']
-        del sheet['rank']
+        event['sheets'][sheet['rank']]['detail'][reservation["sheet_id"]] = sheet
 
     event['public'] = True if event['public_fg'] else False
     event['closed'] = True if event['closed_fg'] else False
     del event['public_fg']
     del event['closed_fg']
+    print(event, file=open("/root/isucon8-qualify/tmp.txt", "w"))
     return event
 
 
