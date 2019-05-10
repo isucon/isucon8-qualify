@@ -132,11 +132,15 @@ def get_event(event_id, login_user_id=None):
     for rank in ["S", "A", "B", "C"]:
         event["sheets"][rank] = {'total': 0, 'remains': 0, 'detail': []}
 
-    cur.execute("SELECT * FROM sheets")
+    cur.execute("SELECT * FROM sheets ORDER BY id")
     sheets = cur.fetchall()
 
     cur.execute("SELECT rank, COUNT(id) FROM sheets GROUP BY rank")
     ranks_num = {e["rank"]: e["COUNT(id)"] for e in cur.fetchall()}
+
+    ranks_id = {k: dict() for k in ranks_num.keys()}
+    for sheet in sheets:
+        ranks_id[sheet["rank"]][sheet["id"]] = len(ranks_id[sheet["rank"]])
 
     # for s in sheets:
     #     print("sheets", s)
@@ -146,15 +150,19 @@ def get_event(event_id, login_user_id=None):
         " WHERE r.event_id = %s AND r.canceled_at IS NULL"
         " GROUP BY sheet_id HAVING r.reserved_at = MIN(r.reserved_at)", [event['id']])
     reservations = cur.fetchall()
-    res = reservations
-    print(type(res), res)
-    # for rank in ranks:
-    #     event['sheets'][rank]['detail'] = sheet_list
+    # res = reservations
+    # print(type(res), res)
 
+    for rank in ranks_num.keys():
+        event['sheets'][rank]['detail'] = [{"num": i} for i in range(ranks_num[rank])]
+        event["sheets"][rank]["remains"] = ranks_num[rank]
+
+    event["remains"] = sum(ranks_num.values())
+    event['total'] = sum(ranks_num.values())
     for reservation in reservations:
         if not event['sheets'][reservation['rank']].get('price'):
             event['sheets'][reservation['rank']]['price'] = event['price'] + reservation['price']
-        event['total'] = ranks_num[reservation["rank"]]
+
         event['sheets'][reservation['rank']]['total'] = ranks_num[reservation["rank"]]
         sheet = {
             "num": reservation["num"]
@@ -170,15 +178,14 @@ def get_event(event_id, login_user_id=None):
                 sheet['mine'] = True
             sheet['reserved'] = True
             sheet['reserved_at'] = int(reservation['reserved_at'].replace(tzinfo=timezone.utc).timestamp())
-        else:
-            event['remains'] += 1
-            event['sheets'][sheet['rank']]['remains'] += 1
+            event["remains"] -= 1
+            event["sheets"][reservation["rank"]]["remains"] -= 1
 
         # del sheet['id']
         # del sheet['price']
         # del sheet['rank']
 
-        event['sheets'][sheet['rank']]['detail'][reservation["sheet_id"]] = sheet
+        event['sheets'][reservation['rank']]['detail'][ranks_id[reservation["rank"]][reservation["sheet_id"]]] = sheet
 
     event['public'] = True if event['public_fg'] else False
     event['closed'] = True if event['closed_fg'] else False
