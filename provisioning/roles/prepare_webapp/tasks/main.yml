@@ -119,6 +119,18 @@
   shell: |
     bash -lc "sh setup.sh"
 
+- name: Uninstall bundler 2.x
+  become: yes
+  become_user: isucon
+  shell: |
+    bash -lc "gem uninstall bundler -x"
+
+- name: Install bundler 1.16.4
+  become: yes
+  become_user: isucon
+  shell: |
+    bash -lc "gem install bundler -v 1.16.4"
+
 - name: Install for torb.ruby
   become: yes
   become_user: isucon
