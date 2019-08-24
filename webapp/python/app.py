@@ -128,18 +128,24 @@ def get_event(event_id, login_user_id=None):
     for rank in ["S", "A", "B", "C"]:
         event["sheets"][rank] = {'total': 0, 'remains': 0, 'detail': []}
 
+    # TODO: 関連するEventのSheetだけとってこれるようにする
     cur.execute("SELECT * FROM sheets ORDER BY `rank`, num")
     sheets = cur.fetchall()
+
+    cur.execute("SELECT * FROM reservations WHERE event_id = %s AND canceled_at IS NULL GROUP BY event_id, sheet_id HAVING reserved_at = MIN(reserved_at)", (event['id'],))
+    reservations = cur.fetchall()
+
+    reservation_dict = {
+        r['sheet_id']: r for r in reservations
+    }
+
     for sheet in sheets:
         if not event['sheets'][sheet['rank']].get('price'):
             event['sheets'][sheet['rank']]['price'] = event['price'] + sheet['price']
         event['total'] += 1
         event['sheets'][sheet['rank']]['total'] += 1
 
-        cur.execute(
-            "SELECT * FROM reservations WHERE event_id = %s AND sheet_id = %s AND canceled_at IS NULL GROUP BY event_id, sheet_id HAVING reserved_at = MIN(reserved_at)",
-            [event['id'], sheet['id']])
-        reservation = cur.fetchone()
+        reservation = reservation_dict[sheet['id']] if sheet['id'] in reservation_dict else None
         if reservation:
             if login_user_id and reservation['user_id'] == login_user_id:
                 sheet['mine'] = True
@@ -149,6 +155,9 @@ def get_event(event_id, login_user_id=None):
             event['remains'] += 1
             event['sheets'][sheet['rank']]['remains'] += 1
 
+        # sheet = { num: number }
+        # sheet = { num: number, reserved: True, reserved_at: time }
+        # sheet = { num: number, reserved: True, reserved_at: time, mine: True }
         event['sheets'][sheet['rank']]['detail'].append(sheet)
 
         del sheet['id']
