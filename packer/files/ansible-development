@@ -10,12 +10,11 @@ PrivateIP
 # 競技用webappをデプロイするサーバ(1)
 PrivateIP
 
-
 [webapp2]
 # 競技用webappをデプロイするサーバ(2)
 PrivateIP
 
-
 [webapp3]
 # 競技用webappをデプロイするサーバ(3)
 PrivateIP
+

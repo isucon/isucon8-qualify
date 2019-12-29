@@ -1,0 +1,30 @@
+{
+  "variables": {
+    "aws_profie": "",
+    "ami_id": "",
+    "instance_type": "t3.large"
+  },
+  "builders": [
+    {
+      "profile": "{{ user `aws_profile` }}",
+      "region": "ap-northeast-1",
+      "type": "amazon-ebs",
+      "source_ami": "{{ user `ami_id` }}",
+      "instance_type": "{{ user `instance_type` }}",
+      "ssh_username": "centos",
+      "ami_name": "Base CentOS7.5 - {{isotime | clean_resource_name}}"
+    }
+  ],
+    "provisioners": [
+      {
+        "type":  "shell",
+        "inline": [
+          "sudo yum -y update",
+          "sudo yum -y install epel-release"
+       ]
+      }
+    ]
+}
+
+
+
