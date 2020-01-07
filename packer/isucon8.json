@@ -1,0 +1,58 @@
+{
+  "variables": {
+    "aws_profie": "",
+    "ami_id": "",
+    "instance_type": "t3.large"
+  },
+  "builders": [
+    {
+      "profile": "{{ user `aws_profile` }}",
+      "region": "ap-northeast-1",
+      "type": "amazon-ebs",
+      "source_ami": "{{ user `ami_id` }}",
+      "instance_type": "{{ user `instance_type` }}",
+      "ssh_username": "centos",
+      "ami_name": "ISUCON8 - {{isotime | clean_resource_name}}"
+    }
+  ],
+    "provisioners": [
+      {
+        "type":  "shell",
+        "inline": [
+          "sudo yum -y update",
+          "sudo yum -y install epel-release",
+          "sudo yum -y install git python-pip wget vim",
+          "sudo pip install ansible",
+          "ssh-keygen -b 2048 -t rsa -f ~/.ssh/id_rsa -q -N ''",
+          "cat ~/.ssh/id_rsa.pub >> ~/.ssh/authorized_keys",
+          "wget https://dl.google.com/go/go1.10.3.linux-amd64.tar.gz",
+          "tar -xzf go1.10.3.linux-amd64.tar.gz",
+          "sudo mv go /usr/local",
+          "git clone https://github.com/yakult1995/isucon8-qualify.git",
+          "echo 'export GOROOT=/usr/local/go' >> .bash_profile",
+          "echo 'export PATH=$GOROOT/bin:$PATH' >> .bash_profile",
+          "bash -l -c 'go get -v github.com/constabulary/gb/...'"
+        ]
+      },
+      {
+        "type": "file",
+        "source": "files/ansible-development",
+        "destination": "~/isucon8-qualify/provisioning/development"
+      },
+      {
+        "type": "shell",
+        "inline": [
+          "sed -ie \"s/PrivateIP/localhost/g\" ~/isucon8-qualify/provisioning/development"
+        ]
+      },
+      {
+        "type": "shell",
+        "inline": [
+          "cd ~/isucon8-qualify/provisioning/ && ansible-playbook -i development site.yml"
+        ]
+      }
+    ]
+}
+
+
+
