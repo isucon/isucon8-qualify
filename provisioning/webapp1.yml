@@ -13,4 +13,4 @@
     - deploy_webapp
     - prepare_webapp
     - initialize_db
-    - start_perl_webapp
+    - start_go_webapp
