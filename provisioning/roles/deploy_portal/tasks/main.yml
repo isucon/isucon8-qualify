@@ -1,14 +1,19 @@
 ---
 - name: deploy torb/portal
   become: yes
-  become_user: isucon
-  synchronize:
-    src: ../../../../portal
-    dest: /home/isucon/torb/
-    recursive: yes
-    rsync_opts:
-      - "--exclude=local"
-      - "--exclude=log"
+  become_user: root
+  shell: rsnyc -r /home/isucon/isucon8-qualify/portal /home/isucon/torb/
+
+#- name: deploy torb/portal
+#  become: yes
+#  become_user: isucon
+#  synchronize:
+#    src: ../../../../portal
+#    dest: /home/isucon/torb/
+#    recursive: yes
+#    rsync_opts:
+#      - "--exclude=local"
+#      - "--exclude=log"
 
 - name: chown torb/portal
   become: yes
