@@ -15,12 +15,12 @@
     src: default-h2o.conf
     dest: /etc/h2o/default-h2o.conf
 
-- name: Put php-h2o.conf
-  become: yes
-  become_user: root
-  copy:
-    src: php-h2o.conf
-    dest: /etc/h2o/php-h2o.conf
+#- name: Put php-h2o.conf
+#  become: yes
+#  become_user: root
+#  copy:
+#    src: php-h2o.conf
+#    dest: /etc/h2o/php-h2o.conf
 
 - name: Remove h2o.conf
   become: yes
@@ -51,19 +51,19 @@
     src: torb.go.service
     dest: /etc/systemd/system/torb.go.service
 
-- name: Put torb.perl.service
-  become: yes
-  become_user: root
-  copy:
-    src: torb.perl.service
-    dest: /etc/systemd/system/torb.perl.service
+#- name: Put torb.perl.service
+#  become: yes
+#  become_user: root
+#  copy:
+#    src: torb.perl.service
+#    dest: /etc/systemd/system/torb.perl.service
 
-- name: Put torb.php.service
-  become: yes
-  become_user: root
-  copy:
-    src: torb.php.service
-    dest: /etc/systemd/system/torb.php.service
+#- name: Put torb.php.service
+#  become: yes
+#  become_user: root
+#  copy:
+#    src: torb.php.service
+#    dest: /etc/systemd/system/torb.php.service
 
 #- name: Put torb.python.service
 #  become: yes
@@ -95,21 +95,21 @@
   shell: |
     bash -lc "make clean && make deps && make"
 
-- name: Install for torb.perl
-  become: yes
-  become_user: isucon
-  args:
-    chdir: /home/isucon/torb/webapp/perl
-  shell: |
-    bash -lc "carton install"
+#- name: Install for torb.perl
+#  become: yes
+#  become_user: isucon
+#  args:
+#    chdir: /home/isucon/torb/webapp/perl
+#  shell: |
+#    bash -lc "carton install"
 
-- name: Install for torb.php
-  become: yes
-  become_user: isucon
-  args:
-    chdir: /home/isucon/torb/webapp/php
-  shell: |
-    bash -lc "composer install"
+#- name: Install for torb.php
+#  become: yes
+#  become_user: isucon
+#  args:
+#    chdir: /home/isucon/torb/webapp/php
+#  shell: |
+#    bash -lc "composer install"
 
 #- name: Install for torb.python
 #  become: yes
