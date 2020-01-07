@@ -9,7 +9,7 @@
 - name: deploy torb webapp
   become: yes
   become_user: root
-  shell: rsync -r /home/isucon/isucon8-qualify/ /home/isucon/torb
+  shell: rsync -r /home/centos/isucon8-qualify/ /home/isucon/torb
 
 #- name: deploy torb webapp
 #  become: yes
