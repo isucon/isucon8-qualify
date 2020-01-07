@@ -28,7 +28,7 @@
           "wget https://dl.google.com/go/go1.10.3.linux-amd64.tar.gz",
           "tar -xzf go1.10.3.linux-amd64.tar.gz",
           "sudo mv go /usr/local",
-          "git clone https://github.com/isucon/isucon8-qualify.git",
+          "git clone https://github.com/yakult1995/isucon8-qualify.git",
           "echo 'export GOROOT=/usr/local/go' >> .bash_profile",
           "echo 'export PATH=$GOROOT/bin:$PATH' >> .bash_profile",
           "bash -l -c 'go get -v github.com/constabulary/gb/...'"
@@ -43,6 +43,12 @@
         "type": "shell",
         "inline": [
           "sed -ie \"s/PrivateIP/localhost/g\" ~/isucon8-qualify/provisioning/development"
+        ]
+      },
+      {
+        "type": "shell",
+        "inline": [
+          "cd ~/isucon8-qualify/provisioning/ && ansible-playbook -i development site.yml"
         ]
       }
     ]
