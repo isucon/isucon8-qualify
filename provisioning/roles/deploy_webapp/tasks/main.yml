@@ -8,7 +8,6 @@
 
 - name: deploy torb webapp
   become: yes
-  become_user: isucon
   synchronize:
     src: ../../../../
     dest: /home/isucon/torb
