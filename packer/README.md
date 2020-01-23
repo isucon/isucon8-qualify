@@ -5,7 +5,6 @@
 
 ## 構築
 * ベースCentOSイメージ作成
-`packer build -parallel=false -var aws_profile=**** -var ami_id=** base_centos.json`
-  * 12/28時点 AMI : `ami_045f38c93733dd48d`
+`packer build -parallel=false -var aws_profile=**** base_centos.json`
 * ISUCON8イメージ作成
 `packer build -parallel=false -var aws_profile=**** -var ami_id=** isucon8.json`

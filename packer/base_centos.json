@@ -1,7 +1,6 @@
 {
   "variables": {
     "aws_profie": "",
-    "ami_id": "",
     "instance_type": "t3.large"
   },
   "builders": [
@@ -9,7 +8,13 @@
       "profile": "{{ user `aws_profile` }}",
       "region": "ap-northeast-1",
       "type": "amazon-ebs",
-      "source_ami": "{{ user `ami_id` }}",
+      "source_ami_filter": {
+        "filters": {
+          "product-code": "aw0evgkw8e5c1q413zgy5pjce"
+        },
+        "owners": ["aws-marketplace"],
+        "most_recent": true
+      },
       "instance_type": "{{ user `instance_type` }}",
       "ssh_username": "centos",
       "ami_name": "Base CentOS7.5 - {{isotime | clean_resource_name}}"
