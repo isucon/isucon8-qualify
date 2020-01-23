@@ -9,3 +9,5 @@ isucon8q-initial-dataset.sql.gz
 /bench/*.json
 /bench/*.log
 .env
+docker/data/
+docker/redis-data/
