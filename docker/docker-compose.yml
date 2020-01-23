@@ -1,0 +1,22 @@
+version: '3'
+
+services:
+  db:
+    image: mariadb
+    container_name: mariadb
+    environment:
+      MYSQL_ROOT_PASSWORD: password
+      MYSQL_DATABASE: torb
+      MYSQL_USER: isucon
+      MYSQL_PASSWORD: isucon
+    volumes:
+    - ./data:/var/lib/mysql
+    ports:
+    - 3306:3306
+  redis:
+    image: redis
+    container_name: redis
+    volumes:
+    - ./redis-data:/data
+    ports:
+    - 6379:6379
