@@ -100,4 +100,4 @@
   shell:
     "anyenv install -s goenv"
   environment:
-     PATH: "{{ anyenv_installation_dir }}/bin:{{ lookup('env', 'PATH') }}"
+     PATH: "/home/isucon/.anyenv/bin:{{ lookup('env', 'PATH') }}"
