@@ -12,5 +12,8 @@ push:
 build/linux:
 	cd ./webapp/go && GOPATH=`pwd`:`pwd`/vendor GOARCH="amd64" GOOS="linux" go build -o torb src/torb/app.go
 
+build/mac:
+	cd ./webapp/go && go build -o torb src/torb/app.go
+
 torb.go/restart:
 	ssh -i ${KEY} centos@${IP} sudo systemctl restart torb.go
