@@ -99,6 +99,7 @@
 - name: Reset anyenv
   become: yes
   become_user: isucon
+  ignore_errors: true
   shell:
     "anyenv install --init"
   environment:
@@ -118,5 +119,5 @@
   shell:
     "goenv install 1.10.3"
   environment:
-     PATH: "/home/isucon/.anyenv/bin:{{ lookup('env', 'PATH') }}"
+     PATH: "/home/isucon/.anyenv/envs/goenv/bin:/home/isucon/.anyenv/bin:{{ lookup('env', 'PATH') }}"
 
