@@ -96,10 +96,27 @@
     repo: https://github.com/yakult1995/isucon8-qualify.git
     dest: /home/isucon/.anyenv/anyenv-update
 
+- name: Reset anyenv
+  become: yes
+  become_user: isucon
+  shell:
+    "anyenv install --init"
+  environment:
+     PATH: "/home/isucon/.anyenv/bin:{{ lookup('env', 'PATH') }}"
+
 - name: Install goenv
   become: yes
   become_user: isucon
   shell:
-    "anyenv install -s goenv"
+    "anyenv install goenv"
   environment:
      PATH: "/home/isucon/.anyenv/bin:{{ lookup('env', 'PATH') }}"
+
+- name: Install go
+  become: yes
+  become_user: isucon
+  shell:
+    "goenv install 1.10.3"
+  environment:
+     PATH: "/home/isucon/.anyenv/bin:{{ lookup('env', 'PATH') }}"
+
