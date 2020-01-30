@@ -108,6 +108,7 @@
 - name: Install goenv
   become: yes
   become_user: isucon
+  ignore_errors: true
   shell:
     "anyenv install goenv"
   environment:
