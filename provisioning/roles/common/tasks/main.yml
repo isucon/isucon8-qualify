@@ -116,6 +116,7 @@
 - name: Install go
   become: yes
   become_user: isucon
+  ignore_errors: true
   shell:
     "goenv install 1.10.3"
   environment:
