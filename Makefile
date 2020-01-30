@@ -1,19 +1,16 @@
 include .env
 
-bench/exec:
+bench/remote:
 	ssh -i ${KEY} centos@${IP} make -C /home/centos/isucon8-qualify/bench bench
 
-go/replace: go/push go/build go/restart
+deploy: build/linux push torb.go/restart
 
-go/push:
-	tar --exclude ./webapp/go/torb --exclude ./webapp/go/vendor/ -zcvf ./torb.tar.gz ./webapp/go/*
-	scp -i ${KEY} torb.tar.gz centos@${IP}:/tmp
-	ssh -i ${KEY} centos@${IP} tar -zxvf /tmp/torb.tar.gz -C /tmp
-	ssh -i ${KEY} centos@${IP} rm -rf /home/centos/isucon8-qualify/webapp/go
-	ssh -i ${KEY} centos@${IP} mv /tmp/webapp/go /home/centos/isucon8-qualify/webapp/
+push:
+	scp -i ${KEY} ./webapp/go/torb centos@${IP}:/tmp
+	ssh -i ${KEY} centos@${IP} sudo mv /tmp/torb /home/isucon/torb/webapp/go/torb
 
-go/build:
-	ssh -i ${KEY} centos@${IP} make -C /home/centos/isucon8-qualify/webapp/go build
+build/linux:
+	cd ./webapp/go && GOPATH=`pwd`:`pwd`/vendor GOARCH="amd64" GOOS="linux" go build -o torb src/torb/app.go
 
-go/restart:
+torb.go/restart:
 	ssh -i ${KEY} centos@${IP} sudo systemctl restart torb.go
