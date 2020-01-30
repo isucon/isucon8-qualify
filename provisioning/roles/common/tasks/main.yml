@@ -97,6 +97,8 @@
     dest: /home/isucon/.anyenv/anyenv-update
 
 - name: Install goenv
+  become: yes
+  become_user: isucon
   shell:
     "anyenv install -s goenv"
   environment:
