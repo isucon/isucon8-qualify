@@ -1,21 +1,22 @@
 [portal_web]
 # ポータルをデプロイするサーバ
-PrivateIP
+127.0.0.1
 
 [bench]
 # ベンチマーカをデプロイするサーバ
-PrivateIP
+127.0.0.1
 
 [webapp1]
 # 競技用webappをデプロイするサーバ(1)
-PrivateIP
+127.0.0.1
 
 
 [webapp2]
 # 競技用webappをデプロイするサーバ(2)
-PrivateIP
+127.0.0.1
 
 
 [webapp3]
 # 競技用webappをデプロイするサーバ(3)
-PrivateIP
+127.0.0.1
+

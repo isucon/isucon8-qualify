@@ -70,6 +70,7 @@
     - readline-devel
     - sudo
     - zlib-devel
+    - vim
 
 - name: Restart and enable firewalld
   become: yes
@@ -80,17 +81,23 @@
     daemon_reload: yes
     enabled: yes
 
-- name: Install xbuild
+- name: Install anyenv
   become: yes
   become_user: isucon
   git:
-    repo: https://github.com/tagomoris/xbuild.git
-    dest: /home/isucon/xbuild
+    repo: https://github.com/anyenv/anyenv.git
+    dest: /home/isucon/.anyenv
     version: master
 
-- name: mkdir /home/isucon/local for xbuild
+- name: Install anyenv plugins
   become: yes
   become_user: isucon
-  file:
-    path=/home/isucon/local
-    state=directory
+  git:
+    repo: https://github.com/yakult1995/isucon8-qualify.git
+    dest: /home/isucon/.anyenv/anyenv-update
+
+- name: Install goenv
+  shell:
+    "anyenv install -s goenv"
+  environment:
+     PATH: "{{ anyenv_installation_dir }}/bin:{{ lookup('env', 'PATH') }}"
