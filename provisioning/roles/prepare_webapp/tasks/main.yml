@@ -37,55 +37,12 @@
     src: /etc/h2o/default-h2o.conf
     dest: /etc/h2o/h2o.conf
 
-- name: Put torb.nodejs.service
-  become: yes
-  become_user: root
-  copy:
-    src: torb.nodejs.service
-    dest: /etc/systemd/system/torb.nodejs.service
-
 - name: Put torb.go.service
   become: yes
   become_user: root
   copy:
     src: torb.go.service
     dest: /etc/systemd/system/torb.go.service
-
-- name: Put torb.perl.service
-  become: yes
-  become_user: root
-  copy:
-    src: torb.perl.service
-    dest: /etc/systemd/system/torb.perl.service
-
-- name: Put torb.php.service
-  become: yes
-  become_user: root
-  copy:
-    src: torb.php.service
-    dest: /etc/systemd/system/torb.php.service
-
-- name: Put torb.python.service
-  become: yes
-  become_user: root
-  copy:
-    src: torb.python.service
-    dest: /etc/systemd/system/torb.python.service
-
-- name: Put torb.ruby.service
-  become: yes
-  become_user: root
-  copy:
-    src: torb.ruby.service
-    dest: /etc/systemd/system/torb.ruby.service
-
-- name: Install for torb.nodejs
-  become: yes
-  become_user: isucon
-  args:
-    chdir: /home/isucon/torb/webapp/nodejs
-  shell: |
-    bash -lc "/home/isucon/local/node/bin/npm install"
 
 - name: Install for torb.go
   become: yes
@@ -94,47 +51,3 @@
     chdir: /home/isucon/torb/webapp/go
   shell: |
     bash -lc "make clean && make deps && make"
-
-- name: Install for torb.perl
-  become: yes
-  become_user: isucon
-  args:
-    chdir: /home/isucon/torb/webapp/perl
-  shell: |
-    bash -lc "carton install"
-
-- name: Install for torb.php
-  become: yes
-  become_user: isucon
-  args:
-    chdir: /home/isucon/torb/webapp/php
-  shell: |
-    bash -lc "composer install"
-
-- name: Install for torb.python
-  become: yes
-  become_user: isucon
-  args:
-    chdir: /home/isucon/torb/webapp/python
-  shell: |
-    bash -lc "sh setup.sh"
-
-- name: Uninstall bundler 2.x
-  become: yes
-  become_user: isucon
-  shell: |
-    bash -lc "gem uninstall bundler -x"
-
-- name: Install bundler 1.16.4
-  become: yes
-  become_user: isucon
-  shell: |
-    bash -lc "gem install bundler -v 1.16.4"
-
-- name: Install for torb.ruby
-  become: yes
-  become_user: isucon
-  args:
-    chdir: /home/isucon/torb/webapp/ruby
-  shell: |
-    bash -lc "bundle install --path=.bundle"
