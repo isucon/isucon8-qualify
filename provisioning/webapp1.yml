@@ -5,12 +5,7 @@
     - install_h2o
     - install_mariadb
     - install_go
-    - install_nodejs
-    - install_perl
-    - install_php
-    - install_python
-    - install_ruby
     - deploy_webapp
     - prepare_webapp
     - initialize_db
-    - start_perl_webapp
+    - start_go_webapp

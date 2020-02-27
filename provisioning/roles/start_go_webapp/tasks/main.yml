@@ -1,0 +1,27 @@
+---
+- name: Restart and enable mariadb
+  become: yes
+  become_user: root
+  systemd:
+    name: mariadb
+    state: restarted
+    daemon_reload: yes
+    enabled: yes
+
+- name: Restart and enable h2o
+  become: yes
+  become_user: root
+  systemd:
+    name: h2o
+    state: restarted
+    daemon_reload: yes
+    enabled: yes
+
+- name: systemd restart torb.go
+  become: yes
+  become_user: root
+  systemd:
+    name: torb.go
+    state: restarted
+    daemon_reload: yes
+    enabled: yes

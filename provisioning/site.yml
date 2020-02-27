@@ -1,6 +1,3 @@
 ---
-- import_playbook: portal_web.yml
 - import_playbook: bench.yml
 - import_playbook: webapp1.yml
-- import_playbook: webapp2.yml
-- import_playbook: webapp3.yml
