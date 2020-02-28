@@ -7,4 +7,4 @@ export DB_PORT=3306
 export DB_USER=isucon
 export DB_PASS=isucon
 
-GOPATH=`pwd`:`pwd`/vendor go run torb
+GOPATH=`pwd`:`pwd`/vendor gb build && ./bin/torb
