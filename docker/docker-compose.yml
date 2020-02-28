@@ -11,5 +11,6 @@ services:
       MYSQL_PASSWORD: isucon
     volumes:
     - ./data:/var/lib/mysql
+    - ./db/files/my.cnf:/etc/mysql/my.cnf
     ports:
     - 3306:3306
