@@ -1,0 +1,23 @@
+settings:
+  legacy:
+    force: false
+    interval: 0s
+schema:
+- name: go
+  path: .
+  commands:
+    install:
+      status: true
+      method: gb build
+    run:
+      status: true
+      method: ./run_local.sh
+  watcher:
+    extensions:
+    - go
+    paths:
+    - /
+    ignored_paths:
+    - .git
+    - .realize
+    - vendor
