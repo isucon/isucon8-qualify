@@ -8,7 +8,7 @@ schema:
   commands:
     install:
       status: true
-      method: gb build
+      method: gb build -f
     run:
       status: true
       method: ./run_local.sh
