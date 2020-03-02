@@ -101,16 +101,26 @@
   become_user: isucon
   ignore_errors: true
   shell:
-    "anyenv install --init"
+    "echo y | anyenv install --init"
   environment:
      PATH: "/home/isucon/.anyenv/bin:{{ lookup('env', 'PATH') }}"
+
+- name: Register anyenv path
+  become: yes
+  become_user: isucon
+  ignore_errors: true
+  blockinfile:
+    dest: ~/.bash_prifile
+    content: |
+      "echo 'export PATH=\"$HOME/.anyenv/bin:$PATH\"' >> ~/.bash_profile"
+      "echo 'eval \"$(anyenv init -)\"' >> ~/.bash_profile"
 
 - name: Install goenv
   become: yes
   become_user: isucon
   ignore_errors: true
   shell:
-    "anyenv install goenv"
+    "echo y | anyenv install goenv"
   environment:
      PATH: "/home/isucon/.anyenv/bin:{{ lookup('env', 'PATH') }}"
 
@@ -119,7 +129,7 @@
   become_user: isucon
   ignore_errors: true
   shell:
-    "goenv install 1.10.3"
+    "bash -lc \"goenv install 1.10.3\""
   environment:
      PATH: "/home/isucon/.anyenv/envs/goenv/bin:/home/isucon/.anyenv/bin:{{ lookup('env', 'PATH') }}"
 
