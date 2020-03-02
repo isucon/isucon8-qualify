@@ -1,39 +1,43 @@
 ---
 - name: mkdir /home/isucon/torb
   become: yes
-  become_user: isucon
+  become_user: root
   file:
     path=/home/isucon/torb
     state=directory
 
 - name: deploy torb webapp
   become: yes
-  become_user: isucon
-  synchronize:
-    src: ../../../../
-    dest: /home/isucon/torb
-    delete: yes
-    recursive: yes
-    rsync_opts:
-      - "--exclude=.git"
-      - "--exclude=.gitignore"
-      - "--exclude=README.md"
-      - "--exclude=admin"
-      - "--exclude=bench"
-      - "--exclude=portal"
-      - "--exclude=provisioning"
-      - "--exclude=bench/vendor/src"
-      - "--exclude=webapp/*/run_local.sh"
-      - "--exclude=webapp/nodejs/node_modules"
-      - "--exclude=webapp/go/vendor/src"
-      - "--exclude=webapp/go/torb"
-      - "--exclude=webapp/perl/local"
-      - "--exclude=webapp/perl/t"
-      - "--exclude=webapp/php/run_local.php"
-      - "--exclude=webapp/php/vendor"
-      - "--exclude=webapp/python/__pycache__"
-      - "--exclude=webapp/python/venv"
-      - "--exclude=webapp/ruby/.bundle"
+  become_user: root
+  shell: rsync -r /home/centos/isucon8-qualify/ /home/isucon/torb
+
+#- name: deploy torb webapp
+#  become: yes
+#  synchronize:
+#    src: ../../../../
+#    dest: /home/isucon/torb
+#    delete: yes
+#    recursive: yes
+#    rsync_opts:
+#      - "--exclude=.git"
+#      - "--exclude=.gitignore"
+#      - "--exclude=README.md"
+#      - "--exclude=admin"
+#      - "--exclude=bench"
+#      - "--exclude=portal"
+#      - "--exclude=provisioning"
+#      - "--exclude=bench/vendor/src"
+#      - "--exclude=webapp/*/run_local.sh"
+#      - "--exclude=webapp/nodejs/node_modules"
+#      - "--exclude=webapp/go/vendor/src"
+#      - "--exclude=webapp/go/torb"
+#      - "--exclude=webapp/perl/local"
+#      - "--exclude=webapp/perl/t"
+#      - "--exclude=webapp/php/run_local.php"
+#      - "--exclude=webapp/php/vendor"
+#      - "--exclude=webapp/python/__pycache__"
+#      - "--exclude=webapp/python/venv"
+#      - "--exclude=webapp/ruby/.bundle"
 
 - name: chown torb
   become: yes

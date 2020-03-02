@@ -1,0 +1,12 @@
+[portal_web]
+PrivateIP
+
+[bench]
+PrivateIP
+
+[webapp1]
+PrivateIP
+
+[webapp2]
+
+[webapp3]

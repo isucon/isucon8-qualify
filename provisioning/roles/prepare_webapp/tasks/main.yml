@@ -15,12 +15,12 @@
     src: default-h2o.conf
     dest: /etc/h2o/default-h2o.conf
 
-- name: Put php-h2o.conf
-  become: yes
-  become_user: root
-  copy:
-    src: php-h2o.conf
-    dest: /etc/h2o/php-h2o.conf
+#- name: Put php-h2o.conf
+#  become: yes
+#  become_user: root
+#  copy:
+#    src: php-h2o.conf
+#    dest: /etc/h2o/php-h2o.conf
 
 - name: Remove h2o.conf
   become: yes
