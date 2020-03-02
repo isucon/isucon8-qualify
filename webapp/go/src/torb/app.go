@@ -233,7 +233,7 @@ func getEvent(eventID, loginUserID int64) (*Event, error) {
 		"C": &Sheets{},
 	}
 
-    // TODO: なんとかする
+	// TODO: なんとかする
 	event.Remains = 1000
 	event.Sheets["S"].Remains = 50
 	event.Sheets["A"].Remains = 150
@@ -246,38 +246,32 @@ func getEvent(eventID, loginUserID int64) (*Event, error) {
 	}
 	defer rows.Close()
 
-    reserved_sheets, err := db.Query("SELECT COALESCE(user_id, 0) AS user_id, sheets.id, COALESCE(reserved_at, \"1970-01-01 00:00:00.000000\") AS reserved_at, sheets.rank, sheets.price, sheets.num FROM sheets LEFT OUTER JOIN reservations ON sheets.id = reservations.sheet_id AND event_id = ? AND canceled_at IS NULL", eventID)
-    if err != nil {
-        return nil, err
-    }
+	reserved_sheets, err := db.Query("SELECT COALESCE(user_id, 0) AS user_id, sheets.id, reserved_at, sheets.rank, sheets.price, sheets.num FROM sheets LEFT OUTER JOIN reservations ON sheets.id = reservations.sheet_id AND event_id = ? AND canceled_at IS NULL", eventID)
+	if err != nil {
+		return nil, err
+	}
 
-    for reserved_sheets.Next() {
+	for reserved_sheets.Next() {
 		var sheet Sheet
 		var reservation Reservation
 		if err := reserved_sheets.Scan(&reservation.UserID, &sheet.ID, &reservation.ReservedAt, &sheet.Rank, &sheet.Price, &sheet.Num); err != nil {
-            log.Println(err)
+			log.Println(err)
 			return nil, err
 		}
 
-		sheet.Mine = reservation.UserID == loginUserID
-		sheet.Reserved = true
-		sheet.ReservedAtUnix = reservation.ReservedAt.Unix()
+		if reservation.ReservedAt != nil {
+			sheet.Mine = reservation.UserID == loginUserID
+			sheet.Reserved = true
+			sheet.ReservedAtUnix = reservation.ReservedAt.Unix()
+			event.Remains--
+			event.Sheets[sheet.Rank].Remains--
+		}
 
-        event.Remains--
-        event.Sheets[sheet.Rank].Remains--
-	    event.Sheets[sheet.Rank].Detail = append(event.Sheets[sheet.Rank].Detail, &sheet)
-    }
-
-
-    // Detailの中に入らなかった空のsheet情報を埋める作業
-//    for i, a := range event.Sheets["A"].Detail {
-//        if i != int(a.Num) - 1 {
-//		    var sheet Sheet
-//            sheet.Num = a.Num
-//            sheet.Rank = "A"
-//		    event.Sheets[sheet.Rank].Detail = append(event.Sheets[sheet.Rank].Detail, &sheet)
-//        }
-//    }
+		event.Total++
+        event.Sheets[sheet.Rank].Total++
+		event.Sheets[sheet.Rank].Price = event.Price + sheet.Price
+		event.Sheets[sheet.Rank].Detail = append(event.Sheets[sheet.Rank].Detail, &sheet)
+	}
 
 	return &event, nil
 }
