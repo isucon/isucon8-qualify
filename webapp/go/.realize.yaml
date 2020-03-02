@@ -3,9 +3,12 @@ settings:
     force: false
     interval: 0s
 schema:
-- name: go
+- name: torb
   path: .
   commands:
+    fmt:
+      status: true
+      method: ./src/torb/app.go
     install:
       status: true
       method: gb build -f
@@ -15,9 +18,9 @@ schema:
   watcher:
     extensions:
     - go
+    - yaml
     paths:
     - /
     ignored_paths:
     - .git
-    - .realize
     - vendor
