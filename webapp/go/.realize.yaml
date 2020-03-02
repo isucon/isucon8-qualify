@@ -1,0 +1,26 @@
+settings:
+  legacy:
+    force: false
+    interval: 0s
+schema:
+- name: torb
+  path: .
+  commands:
+    fmt:
+      status: true
+      method: ./src/torb/app.go
+    install:
+      status: true
+      method: gb build -f
+    run:
+      status: true
+      method: ./run_local.sh
+  watcher:
+    extensions:
+    - go
+    - yaml
+    paths:
+    - /
+    ignored_paths:
+    - .git
+    - vendor

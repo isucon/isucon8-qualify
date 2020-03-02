@@ -7,4 +7,5 @@ export DB_PORT=3306
 export DB_USER=isucon
 export DB_PASS=isucon
 
-GOPATH=`pwd`:`pwd`/vendor go run torb
+ lsof -i:8080 | grep torb | grep LISTEN | awk '{print $2}' | xargs -IPID kill -TERM PID
+./bin/torb
