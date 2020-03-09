@@ -1,0 +1,17 @@
+settings:
+  legacy:
+    force: false
+    interval: 0s
+schema:
+- name: torb
+  path: .
+  commands: {}
+  watcher:
+    extensions:
+    - go
+    paths:
+    - /
+    ignored_paths:
+    - .git
+    - .realize
+    - vendor
