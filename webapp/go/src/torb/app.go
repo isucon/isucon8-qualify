@@ -22,6 +22,7 @@ import (
 	"github.com/labstack/echo"
 	"github.com/labstack/echo-contrib/session"
 	"github.com/labstack/echo/middleware"
+	measure "github.com/najeira/measure"
 	_ "net/http/pprof"
 )
 
@@ -87,6 +88,10 @@ type Administrator struct {
 }
 
 func sessUserID(c echo.Context) int64 {
+	defer measure.Start(
+		"sessUserID",
+	).Stop()
+
 	sess, _ := session.Get("session", c)
 	var userID int64
 	if x, ok := sess.Values["user_id"]; ok {
@@ -96,6 +101,10 @@ func sessUserID(c echo.Context) int64 {
 }
 
 func sessSetUserID(c echo.Context, id int64) {
+	defer measure.Start(
+		"sessSetUserID",
+	).Stop()
+
 	sess, _ := session.Get("session", c)
 	sess.Options = &sessions.Options{
 		Path:     "/",
@@ -107,6 +116,10 @@ func sessSetUserID(c echo.Context, id int64) {
 }
 
 func sessDeleteUserID(c echo.Context) {
+	defer measure.Start(
+		"sessDeleteUserID",
+	).Stop()
+
 	sess, _ := session.Get("session", c)
 	sess.Options = &sessions.Options{
 		Path:     "/",
@@ -118,6 +131,10 @@ func sessDeleteUserID(c echo.Context) {
 }
 
 func sessAdministratorID(c echo.Context) int64 {
+	defer measure.Start(
+		"sessAdministratorID",
+	).Stop()
+
 	sess, _ := session.Get("session", c)
 	var administratorID int64
 	if x, ok := sess.Values["administrator_id"]; ok {
@@ -127,6 +144,10 @@ func sessAdministratorID(c echo.Context) int64 {
 }
 
 func sessSetAdministratorID(c echo.Context, id int64) {
+	defer measure.Start(
+		"sessSetAdministratorID",
+	).Stop()
+
 	sess, _ := session.Get("session", c)
 	sess.Options = &sessions.Options{
 		Path:     "/",
@@ -138,6 +159,10 @@ func sessSetAdministratorID(c echo.Context, id int64) {
 }
 
 func sessDeleteAdministratorID(c echo.Context) {
+	defer measure.Start(
+		"sessDeleteAdministratorID",
+	).Stop()
+
 	sess, _ := session.Get("session", c)
 	sess.Options = &sessions.Options{
 		Path:     "/",
@@ -149,7 +174,16 @@ func sessDeleteAdministratorID(c echo.Context) {
 }
 
 func loginRequired(next echo.HandlerFunc) echo.HandlerFunc {
+	defer measure.Start(
+		"loginRequired",
+	).Stop()
+
 	return func(c echo.Context) error {
+		defer measure.Start(
+			"loginRequired-1",
+		).
+			Stop()
+
 		if _, err := getLoginUser(c); err != nil {
 			return resError(c, "login_required", 401)
 		}
@@ -158,7 +192,15 @@ func loginRequired(next echo.HandlerFunc) echo.HandlerFunc {
 }
 
 func adminLoginRequired(next echo.HandlerFunc) echo.HandlerFunc {
+	defer measure.Start(
+		"adminLoginRequired",
+	).Stop()
+
 	return func(c echo.Context) error {
+		defer measure.Start(
+			"adminLoginRequired-1",
+		).Stop()
+
 		if _, err := getLoginAdministrator(c); err != nil {
 			return resError(c, "admin_login_required", 401)
 		}
@@ -167,6 +209,10 @@ func adminLoginRequired(next echo.HandlerFunc) echo.HandlerFunc {
 }
 
 func getLoginUser(c echo.Context) (*User, error) {
+	defer measure.Start(
+		"getLoginUser",
+	).Stop()
+
 	userID := sessUserID(c)
 	if userID == 0 {
 		return nil, errors.New("not logged in")
@@ -177,6 +223,10 @@ func getLoginUser(c echo.Context) (*User, error) {
 }
 
 func getLoginAdministrator(c echo.Context) (*Administrator, error) {
+	defer measure.Start(
+		"getLoginAdministrator",
+	).Stop()
+
 	administratorID := sessAdministratorID(c)
 	if administratorID == 0 {
 		return nil, errors.New("not logged in")
@@ -187,6 +237,10 @@ func getLoginAdministrator(c echo.Context) (*Administrator, error) {
 }
 
 func getEvents(all bool) ([]*Event, error) {
+	defer measure.Start(
+		"getEvents",
+	).Stop()
+
 	tx, err := db.Begin()
 	if err != nil {
 		return nil, err
@@ -224,6 +278,10 @@ func getEvents(all bool) ([]*Event, error) {
 }
 
 func getEvent(eventID, loginUserID int64) (*Event, error) {
+	defer measure.Start(
+		"getEvent",
+	).Stop()
+
 	var event Event
 	if err := db.QueryRow("SELECT * FROM events WHERE id = ?", eventID).Scan(&event.ID, &event.Title, &event.PublicFg, &event.ClosedFg, &event.Price); err != nil {
 		return nil, err
@@ -279,6 +337,10 @@ func getEvent(eventID, loginUserID int64) (*Event, error) {
 }
 
 func sanitizeEvent(e *Event) *Event {
+	defer measure.Start(
+		"sanitizeEvent",
+	).Stop()
+
 	sanitized := *e
 	sanitized.Price = 0
 	sanitized.PublicFg = false
@@ -287,7 +349,15 @@ func sanitizeEvent(e *Event) *Event {
 }
 
 func fillinUser(next echo.HandlerFunc) echo.HandlerFunc {
+	defer measure.Start(
+		"fillinUser",
+	).Stop()
+
 	return func(c echo.Context) error {
+		defer measure.Start(
+			"fillinUser-1",
+		).Stop()
+
 		if user, err := getLoginUser(c); err == nil {
 			c.Set("user", user)
 		}
@@ -296,7 +366,15 @@ func fillinUser(next echo.HandlerFunc) echo.HandlerFunc {
 }
 
 func fillinAdministrator(next echo.HandlerFunc) echo.HandlerFunc {
+	defer measure.Start(
+		"fillinAdministrator",
+	).Stop()
+
 	return func(c echo.Context) error {
+		defer measure.Start(
+			"fillinAdministrator-1",
+		).Stop()
+
 		if administrator, err := getLoginAdministrator(c); err == nil {
 			c.Set("administrator", administrator)
 		}
@@ -305,6 +383,10 @@ func fillinAdministrator(next echo.HandlerFunc) echo.HandlerFunc {
 }
 
 func validateRank(rank string) bool {
+	defer measure.Start(
+		"validateRank",
+	).Stop()
+
 	var count int
 	db.QueryRow("SELECT COUNT(*) FROM sheets WHERE `rank` = ?", rank).Scan(&count)
 	return count > 0
@@ -315,13 +397,24 @@ type Renderer struct {
 }
 
 func (r *Renderer) Render(w io.Writer, name string, data interface{}, c echo.Context) error {
+	defer measure.Start(
+		"Render").
+		Stop()
+
 	return r.templates.ExecuteTemplate(w, name, data)
 }
 
 var db *sql.DB
 
 func main() {
+	defer measure.Start(
+		"main").Stop()
+
 	go func() {
+		defer measure.Start(
+			"main-1").
+			Stop()
+
 		log.Println(http.ListenAndServe("localhost:6060", nil))
 	}()
 
@@ -340,6 +433,10 @@ func main() {
 	e := echo.New()
 	funcs := template.FuncMap{
 		"encode_json": func(v interface{}) string {
+			defer measure.Start(
+				"main-2").
+				Stop()
+
 			b, _ := json.Marshal(v)
 			return string(b)
 		},
@@ -351,6 +448,10 @@ func main() {
 	e.Use(middleware.LoggerWithConfig(middleware.LoggerConfig{Output: os.Stderr}))
 	e.Static("/", "public")
 	e.GET("/", func(c echo.Context) error {
+		defer measure.Start(
+			"main-3").
+			Stop()
+
 		events, err := getEvents(false)
 		if err != nil {
 			return err
@@ -365,6 +466,10 @@ func main() {
 		})
 	}, fillinUser)
 	e.GET("/initialize", func(c echo.Context) error {
+		defer measure.Start(
+			"main-4").
+			Stop()
+
 		cmd := exec.Command("../../db/init.sh")
 		cmd.Stdin = os.Stdin
 		cmd.Stdout = os.Stdout
@@ -376,6 +481,10 @@ func main() {
 		return c.NoContent(204)
 	})
 	e.POST("/api/users", func(c echo.Context) error {
+		defer measure.Start(
+			"main-5").
+			Stop()
+
 		var params struct {
 			Nickname  string `json:"nickname"`
 			LoginName string `json:"login_name"`
@@ -417,6 +526,10 @@ func main() {
 		})
 	})
 	e.GET("/api/users/:id", func(c echo.Context) error {
+		defer measure.Start(
+			"main-6").
+			Stop()
+
 		var user User
 		if err := db.QueryRow("SELECT id, nickname FROM users WHERE id = ?", c.Param("id")).Scan(&user.ID, &user.Nickname); err != nil {
 			return err
@@ -506,6 +619,10 @@ func main() {
 		})
 	}, loginRequired)
 	e.POST("/api/actions/login", func(c echo.Context) error {
+		defer measure.Start(
+			"main-7").
+			Stop()
+
 		var params struct {
 			LoginName string `json:"login_name"`
 			Password  string `json:"password"`
@@ -536,10 +653,18 @@ func main() {
 		return c.JSON(200, user)
 	})
 	e.POST("/api/actions/logout", func(c echo.Context) error {
+		defer measure.Start(
+			"main-8").
+			Stop()
+
 		sessDeleteUserID(c)
 		return c.NoContent(204)
 	}, loginRequired)
 	e.GET("/api/events", func(c echo.Context) error {
+		defer measure.Start(
+			"main-9").
+			Stop()
+
 		events, err := getEvents(true)
 		if err != nil {
 			return err
@@ -550,6 +675,10 @@ func main() {
 		return c.JSON(200, events)
 	})
 	e.GET("/api/events/:id", func(c echo.Context) error {
+		defer measure.Start(
+			"main-10",
+		).Stop()
+
 		eventID, err := strconv.ParseInt(c.Param("id"), 10, 64)
 		if err != nil {
 			return resError(c, "not_found", 404)
@@ -572,6 +701,10 @@ func main() {
 		return c.JSON(200, sanitizeEvent(event))
 	})
 	e.POST("/api/events/:id/actions/reserve", func(c echo.Context) error {
+		defer measure.Start(
+			"main-11",
+		).Stop()
+
 		eventID, err := strconv.ParseInt(c.Param("id"), 10, 64)
 		if err != nil {
 			return resError(c, "not_found", 404)
@@ -642,6 +775,10 @@ func main() {
 		})
 	}, loginRequired)
 	e.DELETE("/api/events/:id/sheets/:rank/:num/reservation", func(c echo.Context) error {
+		defer measure.Start(
+			"main-12",
+		).Stop()
+
 		eventID, err := strconv.ParseInt(c.Param("id"), 10, 64)
 		if err != nil {
 			return resError(c, "not_found", 404)
@@ -706,6 +843,10 @@ func main() {
 		return c.NoContent(204)
 	}, loginRequired)
 	e.GET("/admin/", func(c echo.Context) error {
+		defer measure.Start(
+			"main-13",
+		).Stop()
+
 		var events []*Event
 		administrator := c.Get("administrator")
 		if administrator != nil {
@@ -721,6 +862,10 @@ func main() {
 		})
 	}, fillinAdministrator)
 	e.POST("/admin/api/actions/login", func(c echo.Context) error {
+		defer measure.Start(
+			"main-14",
+		).Stop()
+
 		var params struct {
 			LoginName string `json:"login_name"`
 			Password  string `json:"password"`
@@ -751,10 +896,18 @@ func main() {
 		return c.JSON(200, administrator)
 	})
 	e.POST("/admin/api/actions/logout", func(c echo.Context) error {
+		defer measure.Start(
+			"main-15",
+		).Stop()
+
 		sessDeleteAdministratorID(c)
 		return c.NoContent(204)
 	}, adminLoginRequired)
 	e.GET("/admin/api/events", func(c echo.Context) error {
+		defer measure.Start(
+			"main-16",
+		).Stop()
+
 		events, err := getEvents(true)
 		if err != nil {
 			return err
@@ -762,6 +915,10 @@ func main() {
 		return c.JSON(200, events)
 	}, adminLoginRequired)
 	e.POST("/admin/api/events", func(c echo.Context) error {
+		defer measure.Start(
+			"main-17",
+		).Stop()
+
 		var params struct {
 			Title  string `json:"title"`
 			Public bool   `json:"public"`
@@ -795,6 +952,10 @@ func main() {
 		return c.JSON(200, event)
 	}, adminLoginRequired)
 	e.GET("/admin/api/events/:id", func(c echo.Context) error {
+		defer measure.Start(
+			"main-18",
+		).Stop()
+
 		eventID, err := strconv.ParseInt(c.Param("id"), 10, 64)
 		if err != nil {
 			return resError(c, "not_found", 404)
@@ -809,6 +970,10 @@ func main() {
 		return c.JSON(200, event)
 	}, adminLoginRequired)
 	e.POST("/admin/api/events/:id/actions/edit", func(c echo.Context) error {
+		defer measure.Start(
+			"main-19",
+		).Stop()
+
 		eventID, err := strconv.ParseInt(c.Param("id"), 10, 64)
 		if err != nil {
 			return resError(c, "not_found", 404)
@@ -857,6 +1022,10 @@ func main() {
 		return nil
 	}, adminLoginRequired)
 	e.GET("/admin/api/reports/events/:id/sales", func(c echo.Context) error {
+		defer measure.Start(
+			"main-20",
+		).Stop()
+
 		eventID, err := strconv.ParseInt(c.Param("id"), 10, 64)
 		if err != nil {
 			return resError(c, "not_found", 404)
@@ -897,6 +1066,10 @@ func main() {
 		return renderReportCSV(c, reports)
 	}, adminLoginRequired)
 	e.GET("/admin/api/reports/sales", func(c echo.Context) error {
+		defer measure.Start(
+			"main-21",
+		).Stop()
+
 		rows, err := db.Query("select r.*, s.rank as sheet_rank, s.num as sheet_num, s.price as sheet_price, e.id as event_id, e.price as event_price from reservations r inner join sheets s on s.id = r.sheet_id inner join events e on e.id = r.event_id order by reserved_at asc for update")
 		if err != nil {
 			return err
@@ -927,6 +1100,18 @@ func main() {
 		}
 		return renderReportCSV(c, reports)
 	}, adminLoginRequired)
+    e.GET("/status", func(c echo.Context) error {
+        stats := measure.GetStats()
+        stats.SortDesc("sum")
+        
+        // print stats in CSV format
+        for _, s := range stats {
+        	fmt.Fprintf(os.Stdout, "%s,%d,%f,%f,%f,%f,%f,%f\n",
+        		s.Key, s.Count, s.Sum, s.Min, s.Max, s.Avg, s.Rate, s.P95)
+        }
+        measure.Reset()
+        return c.JSON(200, stats)
+    })
 
 	e.Start(":8080")
 }
@@ -943,7 +1128,18 @@ type Report struct {
 }
 
 func renderReportCSV(c echo.Context, reports []Report) error {
-	sort.Slice(reports, func(i, j int) bool { return strings.Compare(reports[i].SoldAt, reports[j].SoldAt) < 0 })
+	defer measure.Start(
+		"renderReportCSV",
+	).
+		Stop()
+
+	sort.Slice(reports, func(i, j int) bool {
+		defer measure.Start(
+			"renderReportCSV-1",
+		).Stop()
+
+		return strings.Compare(reports[i].SoldAt, reports[j].SoldAt) < 0
+	})
 
 	body := bytes.NewBufferString("reservation_id,event_id,rank,num,price,user_id,sold_at,canceled_at\n")
 	for _, v := range reports {
@@ -958,6 +1154,10 @@ func renderReportCSV(c echo.Context, reports []Report) error {
 }
 
 func resError(c echo.Context, e string, status int) error {
+	defer measure.Start(
+		"resError",
+	).Stop()
+
 	if e == "" {
 		e = "unknown"
 	}
@@ -966,3 +1166,4 @@ func resError(c echo.Context, e string, status int) error {
 	}
 	return c.JSON(status, map[string]string{"error": e})
 }
+

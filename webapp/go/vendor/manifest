@@ -92,6 +92,18 @@
 			"branch": "master"
 		},
 		{
+			"importpath": "github.com/najeira/measure",
+			"repository": "https://github.com/najeira/measure",
+			"revision": "22a5dc927668d32a6af649bb286e865c6fb24d82",
+			"branch": "master"
+		},
+		{
+			"importpath": "github.com/rcrowley/go-metrics",
+			"repository": "https://github.com/rcrowley/go-metrics",
+			"revision": "cac0b30c2563378d434b5af411844adff8e32960",
+			"branch": "master"
+		},
+		{
 			"importpath": "github.com/valyala/bytebufferpool",
 			"repository": "https://github.com/valyala/bytebufferpool",
 			"revision": "e746df99fe4a3986f4d4f79e13c1e0117ce9c2f7",
