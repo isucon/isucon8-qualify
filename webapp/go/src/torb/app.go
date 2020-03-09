@@ -87,20 +87,23 @@ type Administrator struct {
 	PassHash  string `json:"pass_hash,omitempty"`
 }
 
-func sessUserID(c echo.Context) int64 {
+func sessUserID(c echo.Context) User {
 	defer measure.Start(
 		"sessUserID",
 	).Stop()
 
+    var user User
 	sess, _ := session.Get("session", c)
-	var userID int64
 	if x, ok := sess.Values["user_id"]; ok {
-		userID, _ = x.(int64)
+        user.ID = x.(int64)
 	}
-	return userID
+	if x, ok := sess.Values["user_nickname"]; ok {
+        user.Nickname = x.(string)
+	}
+	return user
 }
 
-func sessSetUserID(c echo.Context, id int64) {
+func sessSetUserID(c echo.Context, user *User) {
 	defer measure.Start(
 		"sessSetUserID",
 	).Stop()
@@ -111,7 +114,8 @@ func sessSetUserID(c echo.Context, id int64) {
 		MaxAge:   3600,
 		HttpOnly: true,
 	}
-	sess.Values["user_id"] = id
+	sess.Values["user_id"] = user.ID
+	sess.Values["user_nickname"] = user.Nickname
 	sess.Save(c.Request(), c.Response())
 }
 
@@ -213,13 +217,14 @@ func getLoginUser(c echo.Context) (*User, error) {
 		"getLoginUser",
 	).Stop()
 
-	userID := sessUserID(c)
-	if userID == 0 {
+	var user User
+    user = sessUserID(c)
+	if user.ID == 0 {
 		return nil, errors.New("not logged in")
 	}
-	var user User
-	err := db.QueryRow("SELECT id, nickname FROM users WHERE id = ?", userID).Scan(&user.ID, &user.Nickname)
-	return &user, err
+    return &user, nil
+	//err := db.QueryRow("SELECT id, nickname FROM users WHERE id = ?", userID).Scan(&user.ID, &user.Nickname)
+	//return &user, err
 }
 
 func getLoginAdministrator(c echo.Context) (*Administrator, error) {
@@ -315,7 +320,6 @@ func getEvent(eventID, loginUserID int64) (*Event, error) {
 		var sheet Sheet
 		var reservation Reservation
 		if err := reserved_sheets.Scan(&reservation.UserID, &sheet.ID, &reservation.ReservedAt, &sheet.Rank, &sheet.Price, &sheet.Num); err != nil {
-			log.Println(err)
 			return nil, err
 		}
 
@@ -630,7 +634,7 @@ func main() {
 		c.Bind(&params)
 
 		user := new(User)
-		if err := db.QueryRow("SELECT * FROM users WHERE login_name = ?", params.LoginName).Scan(&user.ID, &user.LoginName, &user.Nickname, &user.PassHash); err != nil {
+		if err := db.QueryRow("SELECT * FROM users WHERE login_name = ?", params.LoginName).Scan(&user.ID, &user.Nickname, &user.LoginName, &user.PassHash); err != nil {
 			if err == sql.ErrNoRows {
 				return resError(c, "authentication_failed", 401)
 			}
@@ -645,7 +649,7 @@ func main() {
 			return resError(c, "authentication_failed", 401)
 		}
 
-		sessSetUserID(c, user.ID)
+		sessSetUserID(c, user)
 		user, err = getLoginUser(c)
 		if err != nil {
 			return err
