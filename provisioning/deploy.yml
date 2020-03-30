@@ -1,0 +1,6 @@
+---
+- hosts: webapp1
+  roles:
+    - deploy_webapp
+    - prepare_webapp
+    - start_go_webapp

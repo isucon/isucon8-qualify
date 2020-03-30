@@ -1,0 +1,6 @@
+---
+- hosts: db
+  roles:
+    - common
+    - install_mariadb
+    - initialize_db
