@@ -360,8 +360,6 @@ func getEvent(eventID, loginUserID int64) (*Event, error) {
 	event.Sheets["B"].Remains = 300
 	event.Sheets["C"].Remains = 500
 
-	start := time.Now()
-
 	// この変更で最大100ms以上かかっていたものが目視で~15ms
 //	reserved_sheets, err := db.Query("SELECT COALESCE(user_id, 0) AS user_id, sheets.id, reserved_at, sheets.rank, sheets.price, sheets.num FROM sheets LEFT OUTER JOIN reservations ON sheets.id = reservations.sheet_id AND event_id = ? AND canceled_at IS NULL", eventID)
 //	if err != nil {
@@ -419,10 +417,6 @@ func getEvent(eventID, loginUserID int64) (*Event, error) {
 		event.Sheets[s.Rank].Price = event.Price + s.Price
 		event.Sheets[s.Rank].Detail = append(event.Sheets[s.Rank].Detail, &s)
 	}
-	log.Println(&event)
-
-	log.Println("getEvent改悪クエリ", strconv.Itoa(int(eventID)))
-	log.Println(time.Since(start))
 
 	return &event, nil
 }
@@ -478,9 +472,14 @@ func validateRank(rank string) bool {
 		"validateRank",
 	).Stop()
 
-	var count int
-	db.QueryRow("SELECT COUNT(*) FROM sheets WHERE `rank` = ?", rank).Scan(&count)
-	return count > 0
+	ranks := [4]string{"S", "A", "B", "C"}
+	for _, r := range ranks {
+		if r == rank {
+			return true
+		}
+	}
+
+	return false
 }
 
 type Renderer struct {
