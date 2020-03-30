@@ -360,32 +360,69 @@ func getEvent(eventID, loginUserID int64) (*Event, error) {
 	event.Sheets["B"].Remains = 300
 	event.Sheets["C"].Remains = 500
 
-	// TODO: 次解消するクエリ
-	reserved_sheets, err := db.Query("SELECT COALESCE(user_id, 0) AS user_id, sheets.id, reserved_at, sheets.rank, sheets.price, sheets.num FROM sheets LEFT OUTER JOIN reservations ON sheets.id = reservations.sheet_id AND event_id = ? AND canceled_at IS NULL", eventID)
+	start := time.Now()
+
+	// この変更で最大100ms以上かかっていたものが目視で~15ms
+//	reserved_sheets, err := db.Query("SELECT COALESCE(user_id, 0) AS user_id, sheets.id, reserved_at, sheets.rank, sheets.price, sheets.num FROM sheets LEFT OUTER JOIN reservations ON sheets.id = reservations.sheet_id AND event_id = ? AND canceled_at IS NULL", eventID)
+//	if err != nil {
+//		return nil, err
+//	}
+//
+//	for reserved_sheets.Next() {
+//		var sheet Sheet
+//		var reservation Reservation
+//		if err := reserved_sheets.Scan(&reservation.UserID, &sheet.ID, &reservation.ReservedAt, &sheet.Rank, &sheet.Price, &sheet.Num); err != nil {
+//			return nil, err
+//		}
+//
+//		if reservation.ReservedAt != nil {
+//			sheet.Mine = reservation.UserID == loginUserID
+//			sheet.Reserved = true
+//			sheet.ReservedAtUnix = reservation.ReservedAt.Unix()
+//			event.Remains--
+//			event.Sheets[sheet.Rank].Remains--
+//		}
+//
+//		event.Total++
+//		event.Sheets[sheet.Rank].Total++
+//		event.Sheets[sheet.Rank].Price = event.Price + sheet.Price
+//		event.Sheets[sheet.Rank].Detail = append(event.Sheets[sheet.Rank].Detail, &sheet)
+//	}
+
+	event.Total = 1000
+	event.Sheets["S"].Total = 50
+	event.Sheets["A"].Total = 150
+	event.Sheets["B"].Total = 300
+	event.Sheets["C"].Total = 500
+	reserved_sheets, err := db.Query("SELECT user_id, sheet_id, reserved_at FROM reservations WHERE event_id = ? AND canceled_at IS NULL", eventID)
 	if err != nil {
 		return nil, err
 	}
-
+	reserved := make(map[int64]Reservation)
 	for reserved_sheets.Next() {
-		var sheet Sheet
-		var reservation Reservation
-		if err := reserved_sheets.Scan(&reservation.UserID, &sheet.ID, &reservation.ReservedAt, &sheet.Rank, &sheet.Price, &sheet.Num); err != nil {
+		var r Reservation
+		if err:= reserved_sheets.Scan(&r.UserID, &r.SheetID, &r.ReservedAt); err != nil {
 			return nil, err
 		}
-
-		if reservation.ReservedAt != nil {
-			sheet.Mine = reservation.UserID == loginUserID
-			sheet.Reserved = true
-			sheet.ReservedAtUnix = reservation.ReservedAt.Unix()
-			event.Remains--
-			event.Sheets[sheet.Rank].Remains--
-		}
-
-		event.Total++
-		event.Sheets[sheet.Rank].Total++
-		event.Sheets[sheet.Rank].Price = event.Price + sheet.Price
-		event.Sheets[sheet.Rank].Detail = append(event.Sheets[sheet.Rank].Detail, &sheet)
+		reserved[r.SheetID] = r
 	}
+
+	for _, s := range SheetsMaster {
+		s := s
+		if reserved[s.ID].ReservedAt != nil {
+			s.Mine = reserved[s.ID].UserID == loginUserID
+			s.Reserved = true
+			s.ReservedAtUnix = reserved[s.ID].ReservedAt.Unix()
+			event.Remains--
+			event.Sheets[s.Rank].Remains--
+		}
+		event.Sheets[s.Rank].Price = event.Price + s.Price
+		event.Sheets[s.Rank].Detail = append(event.Sheets[s.Rank].Detail, &s)
+	}
+	log.Println(&event)
+
+	log.Println("getEvent改悪クエリ", strconv.Itoa(int(eventID)))
+	log.Println(time.Since(start))
 
 	return &event, nil
 }
@@ -905,7 +942,7 @@ func main() {
 			return resError(c, "invalid_rank", 404)
 		}
 
-		log.Println("パラメータチェック")
+		log.Println("イベント情報取得")
 		log.Println(time.Since(start))
 		start = time.Now()
 
@@ -924,6 +961,7 @@ func main() {
 			return resError(c, "invalid_sheet", 404)
 		}
 		// ↑追加して↓削除(dbへのアクセス減らした)
+		// この変更で"座席情報取得"が4~6ms→50μs
 		//if err := db.QueryRow("SELECT * FROM sheets WHERE `rank` = ? AND num = ?", rank, num).Scan(&sheet.ID, &sheet.Rank, &sheet.Num, &sheet.Price); err != nil {
 		//	if err == sql.ErrNoRows {
 		//		return resError(c, "invalid_sheet", 404)
