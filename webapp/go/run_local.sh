@@ -8,4 +8,4 @@ export DB_USER=isucon
 export DB_PASS=isucon
 
  lsof -i:8080 | grep torb | grep LISTEN | awk '{print $2}' | xargs -IPID kill -TERM PID
-./bin/torb
+./torb

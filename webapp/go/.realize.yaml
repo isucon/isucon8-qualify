@@ -8,10 +8,9 @@ schema:
   commands:
     fmt:
       status: true
-      method: ./src/torb/app.go
-    install:
+    build:
       status: true
-      method: gb build -f
+      method: make build
     run:
       status: true
       method: ./run_local.sh
