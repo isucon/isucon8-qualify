@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"html/template"
 	"io"
+	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
@@ -17,13 +18,14 @@ import (
 	"strings"
 	"time"
 
+	_ "net/http/pprof"
+
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/gorilla/sessions"
 	"github.com/labstack/echo"
 	"github.com/labstack/echo-contrib/session"
 	"github.com/labstack/echo/middleware"
 	measure "github.com/najeira/measure"
-	_ "net/http/pprof"
 )
 
 type User struct {
@@ -540,7 +542,8 @@ func main() {
 		templates: template.Must(template.New("").Delims("[[", "]]").Funcs(funcs).ParseGlob("views/*.tmpl")),
 	}
 	e.Use(session.Middleware(sessions.NewCookieStore([]byte("secret"))))
-	e.Use(middleware.LoggerWithConfig(middleware.LoggerConfig{Output: os.Stderr}))
+	// e.Use(middleware.LoggerWithConfig(middleware.LoggerConfig{Output: os.Stderr}))
+	e.Use(middleware.LoggerWithConfig(middleware.LoggerConfig{Output: ioutil.Discard}))
 	e.Static("/", "public")
 	e.GET("/", func(c echo.Context) error {
 		defer measure.Start(
