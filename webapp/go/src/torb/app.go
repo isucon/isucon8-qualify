@@ -10,6 +10,7 @@ import (
 	"io"
 	"io/ioutil"
 	"log"
+	"math/rand"
 	"net/http"
 	"os"
 	"os/exec"
@@ -877,19 +878,45 @@ func main() {
 		var sheet Sheet
 		var reservationID int64
 		for {
-			if err := db.QueryRow("SELECT * FROM sheets WHERE id NOT IN (SELECT sheet_id FROM reservations WHERE event_id = ? AND canceled_at IS NULL FOR UPDATE) AND `rank` = ? ORDER BY RAND() LIMIT 1", event.ID, params.Rank).Scan(&sheet.ID, &sheet.Rank, &sheet.Num, &sheet.Price); err != nil {
-				//if err := db.QueryRow("SELECT * FROM sheets WHERE id NOT IN (SELECT sheet_id FROM reservations WHERE event_id = ? AND canceled_at IS NULL) AND `rank` = ? ORDER BY RAND() LIMIT 1", event.ID, params.Rank).Scan(&sheet.ID, &sheet.Rank, &sheet.Num, &sheet.Price); err != nil {
-				if err == sql.ErrNoRows {
-					return resError(c, "sold_out", 409)
-				}
+			//			if err := db.QueryRow("SELECT * FROM sheets WHERE id NOT IN (SELECT sheet_id FROM reservations WHERE event_id = ? AND canceled_at IS NULL FOR UPDATE) AND `rank` = ? ORDER BY RAND() LIMIT 1", event.ID, params.Rank).Scan(&sheet.ID, &sheet.Rank, &sheet.Num, &sheet.Price); err != nil {
+			//				//if err := db.QueryRow("SELECT * FROM sheets WHERE id NOT IN (SELECT sheet_id FROM reservations WHERE event_id = ? AND canceled_at IS NULL) AND `rank` = ? ORDER BY RAND() LIMIT 1", event.ID, params.Rank).Scan(&sheet.ID, &sheet.Rank, &sheet.Num, &sheet.Price); err != nil {
+			//				if err == sql.ErrNoRows {
+			//					return resError(c, "sold_out", 409)
+			//				}
+			//				return err
+			//			}
+
+			// 予約する席を見つける 5msくらいに縮まった
+			rows, err := db.Query("SELECT sheet_id FROM reservations WHERE event_id = ? AND canceled_at IS NULL FOR UPDATE", event.ID)
+			if err != nil {
 				return err
 			}
+			var reservedSheets []int
+			var vacantSheets = make([]int, 1000)
+			for i := range vacantSheets {
+				vacantSheets[i] = i + 1
+			}
+
+			for rows.Next() {
+				var i int
+				if err := rows.Scan(&i); err != nil {
+					return nil
+				}
+				reservedSheets = append(reservedSheets, i)
+			}
+			vacantSheets = getDifference(vacantSheets, reservedSheets)
+			vacantSheets = reduceSheetByRank(vacantSheets, params.Rank)
+			if len(vacantSheets) == 0 {
+				return resError(c, "sold_out", 409)
+			}
+			randomID := rand.Intn(len(vacantSheets))
+			sheet.ID = int64(vacantSheets[randomID])
+			sheet.Num = getSheetsInfo(sheet.ID).Num
+			// ここまで
 
 			log.Println("予約席を見つけるクエリ")
 			log.Println(time.Since(start))
 			start = time.Now()
-
-			// TODO: 予約する席を見つける
 
 			tx, err := db.Begin()
 			if err != nil {
@@ -1366,4 +1393,53 @@ func getSheetsInfo(sheet_id int64) Sheet {
 	}
 
 	return sheet
+}
+
+func getDifference(a, b []int) []int {
+	if len(b) == 0 {
+		return a
+	}
+
+	var diff []int
+	for _, va := range a {
+		isExist := false
+		for _, vb := range b {
+			if va == vb {
+				isExist = true
+				break
+			}
+		}
+		if !isExist {
+			diff = append(diff, va)
+		}
+	}
+	return diff
+}
+
+// 特定のランク内の空いてる席idのsliceを返す
+func reduceSheetByRank(a []int, r string) []int {
+	var min, max int
+	switch r {
+	case "S":
+		min = 1
+		max = 50
+	case "A":
+		min = 51
+		max = 200
+	case "B":
+		min = 201
+		max = 500
+	case "C":
+		min = 501
+		max = 1000
+	}
+
+	var result []int
+	for _, v := range a {
+		if v < min || v > max {
+			continue
+		}
+		result = append(result, v)
+	}
+	return result
 }
