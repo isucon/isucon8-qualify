@@ -831,13 +831,11 @@ func main() {
 		}
 		return c.JSON(200, sanitizeEvent(event))
 	})
-	// TODO: 次ここ 2020年4月13日
+	// 2020年4月13日
 	e.POST("/api/events/:id/actions/reserve", func(c echo.Context) error {
 		defer measure.Start(
 			"main-11",
 		).Stop()
-
-		start := time.Now()
 
 		eventID, err := strconv.ParseInt(c.Param("id"), 10, 64)
 		if err != nil {
@@ -853,11 +851,8 @@ func main() {
 			return err
 		}
 
-		log.Println("ユーザ情報取得")
-		log.Println(time.Since(start))
-		start = time.Now()
-
-		event, err := getEvent(eventID, user.ID)
+		//event, err := getEvent(eventID, user.ID)
+		event, err := getMinimalEvent(eventID)
 		if err != nil {
 			if err == sql.ErrNoRows {
 				return resError(c, "invalid_event", 404)
@@ -870,10 +865,6 @@ func main() {
 		if !validateRank(params.Rank) {
 			return resError(c, "invalid_rank", 400)
 		}
-
-		log.Println("イベント情報取得")
-		log.Println(time.Since(start))
-		start = time.Now()
 
 		var sheet Sheet
 		var reservationID int64
@@ -904,6 +895,7 @@ func main() {
 				}
 				reservedSheets = append(reservedSheets, i)
 			}
+
 			vacantSheets = getDifference(vacantSheets, reservedSheets)
 			vacantSheets = reduceSheetByRank(vacantSheets, params.Rank)
 			if len(vacantSheets) == 0 {
@@ -913,10 +905,6 @@ func main() {
 			sheet.ID = int64(vacantSheets[randomID])
 			sheet.Num = getSheetsInfo(sheet.ID).Num
 			// ここまで
-
-			log.Println("予約席を見つけるクエリ")
-			log.Println(time.Since(start))
-			start = time.Now()
 
 			tx, err := db.Begin()
 			if err != nil {
@@ -929,10 +917,6 @@ func main() {
 				log.Println("re-try: rollback by", err)
 				continue
 			}
-
-			log.Println("予約情報登録")
-			log.Println(time.Since(start))
-			start = time.Now()
 
 			reservationID, err = res.LastInsertId()
 			if err != nil {
@@ -954,11 +938,14 @@ func main() {
 			"sheet_num":  sheet.Num,
 		})
 	}, loginRequired)
-	// TODO: 次ここ 2020/03/30
+	// TODO: 次ここ 2020年4月13日
+	// ここのdeadlockが解消出来ない
 	e.DELETE("/api/events/:id/sheets/:rank/:num/reservation", func(c echo.Context) error {
 		defer measure.Start(
 			"main-12",
 		).Stop()
+
+		start := time.Now()
 
 		eventID, err := strconv.ParseInt(c.Param("id"), 10, 64)
 		if err != nil {
@@ -972,7 +959,8 @@ func main() {
 			return err
 		}
 
-		event, err := getEvent(eventID, user.ID)
+		//event, err := getEvent(eventID, user.ID)
+		event, err := getMinimalEvent(eventID)
 		if err != nil {
 			if err == sql.ErrNoRows {
 				return resError(c, "invalid_event", 404)
@@ -985,6 +973,10 @@ func main() {
 		if !validateRank(rank) {
 			return resError(c, "invalid_rank", 404)
 		}
+
+		log.Println("イベント情報取得")
+		log.Println(time.Since(start))
+		start = time.Now()
 
 		var sheet Sheet
 		for _, s := range SheetsMaster {
@@ -1009,31 +1001,48 @@ func main() {
 		//	return err
 		//}
 
+		log.Println("シート情報取得")
+		log.Println(time.Since(start))
+		start = time.Now()
+
 		tx, err := db.Begin()
 		if err != nil {
-			return err
+			return resError(c, "failed to begin tx", 505)
+			//return err
 		}
 
 		var reservation Reservation
-		if err := tx.QueryRow("SELECT * FROM reservations WHERE event_id = ? AND sheet_id = ? AND canceled_at IS NULL GROUP BY event_id HAVING reserved_at = MIN(reserved_at) FOR UPDATE", event.ID, sheet.ID).Scan(&reservation.ID, &reservation.EventID, &reservation.SheetID, &reservation.UserID, &reservation.ReservedAt, &reservation.CanceledAt); err != nil {
+		//if err := tx.QueryRow("SELECT * FROM reservations WHERE event_id = ? AND sheet_id = ? AND canceled_at IS NULL GROUP BY event_id HAVING reserved_at = MIN(reserved_at) FOR UPDATE", event.ID, sheet.ID).Scan(&reservation.ID, &reservation.EventID, &reservation.SheetID, &reservation.UserID, &reservation.ReservedAt, &reservation.CanceledAt); err != nil {
+		if err := tx.QueryRow("SELECT * FROM reservations WHERE event_id = ? AND sheet_id = ? AND canceled_at IS NULL FOR UPDATE", event.ID, sheet.ID).Scan(&reservation.ID, &reservation.EventID, &reservation.SheetID, &reservation.UserID, &reservation.ReservedAt, &reservation.CanceledAt); err != nil {
 			tx.Rollback()
 			if err == sql.ErrNoRows {
 				return resError(c, "not_reserved", 400)
 			}
 			return err
 		}
+
 		if reservation.UserID != user.ID {
 			tx.Rollback()
 			return resError(c, "not_permitted", 403)
 		}
 
+		log.Println("予約情報取得")
+		log.Println(time.Since(start))
+		start = time.Now()
+
 		if _, err := tx.Exec("UPDATE reservations SET canceled_at = ? WHERE id = ?", time.Now().UTC().Format("2006-01-02 15:04:05.000000"), reservation.ID); err != nil {
 			tx.Rollback()
+			log.Println(err)
 			return resError(c, "rollback", 499)
 			//return err
 		}
 
+		log.Println("キャンセル登録")
+		log.Println(time.Since(start))
+		start = time.Now()
+
 		if err := tx.Commit(); err != nil {
+			log.Println(err)
 			return resError(c, "commit error", 499)
 			//return err
 		}
@@ -1393,6 +1402,14 @@ func getSheetsInfo(sheet_id int64) Sheet {
 	}
 
 	return sheet
+}
+
+func getMinimalEvent(eID int64) (*Event, error) {
+	var event Event
+	if err := db.QueryRow("SELECT * FROM events WHERE id = ?", eID).Scan(&event.ID, &event.Title, &event.PublicFg, &event.ClosedFg, &event.Price); err != nil {
+		return nil, err
+	}
+	return &event, nil
 }
 
 func getDifference(a, b []int) []int {
