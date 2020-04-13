@@ -310,10 +310,10 @@ func getEventWithoutDetail(event *Event) (*Event, error) {
 
 	//var sheets Sheets
 	event.Sheets = map[string]*Sheets{
-		"S": &Sheets{},
-		"A": &Sheets{},
-		"B": &Sheets{},
-		"C": &Sheets{},
+		"S": {},
+		"A": {},
+		"B": {},
+		"C": {},
 	}
 	event.Remains = 1000
 	event.Total = 1000
@@ -347,10 +347,10 @@ func getEvent(eventID, loginUserID int64) (*Event, error) {
 		return nil, err
 	}
 	event.Sheets = map[string]*Sheets{
-		"S": &Sheets{},
-		"A": &Sheets{},
-		"B": &Sheets{},
-		"C": &Sheets{},
+		"S": {},
+		"A": {},
+		"B": {},
+		"C": {},
 	}
 
 	// TODO: なんとかする
@@ -361,31 +361,31 @@ func getEvent(eventID, loginUserID int64) (*Event, error) {
 	event.Sheets["C"].Remains = 500
 
 	// この変更で最大100ms以上かかっていたものが目視で~15ms
-//	reserved_sheets, err := db.Query("SELECT COALESCE(user_id, 0) AS user_id, sheets.id, reserved_at, sheets.rank, sheets.price, sheets.num FROM sheets LEFT OUTER JOIN reservations ON sheets.id = reservations.sheet_id AND event_id = ? AND canceled_at IS NULL", eventID)
-//	if err != nil {
-//		return nil, err
-//	}
-//
-//	for reserved_sheets.Next() {
-//		var sheet Sheet
-//		var reservation Reservation
-//		if err := reserved_sheets.Scan(&reservation.UserID, &sheet.ID, &reservation.ReservedAt, &sheet.Rank, &sheet.Price, &sheet.Num); err != nil {
-//			return nil, err
-//		}
-//
-//		if reservation.ReservedAt != nil {
-//			sheet.Mine = reservation.UserID == loginUserID
-//			sheet.Reserved = true
-//			sheet.ReservedAtUnix = reservation.ReservedAt.Unix()
-//			event.Remains--
-//			event.Sheets[sheet.Rank].Remains--
-//		}
-//
-//		event.Total++
-//		event.Sheets[sheet.Rank].Total++
-//		event.Sheets[sheet.Rank].Price = event.Price + sheet.Price
-//		event.Sheets[sheet.Rank].Detail = append(event.Sheets[sheet.Rank].Detail, &sheet)
-//	}
+	//	reserved_sheets, err := db.Query("SELECT COALESCE(user_id, 0) AS user_id, sheets.id, reserved_at, sheets.rank, sheets.price, sheets.num FROM sheets LEFT OUTER JOIN reservations ON sheets.id = reservations.sheet_id AND event_id = ? AND canceled_at IS NULL", eventID)
+	//	if err != nil {
+	//		return nil, err
+	//	}
+	//
+	//	for reserved_sheets.Next() {
+	//		var sheet Sheet
+	//		var reservation Reservation
+	//		if err := reserved_sheets.Scan(&reservation.UserID, &sheet.ID, &reservation.ReservedAt, &sheet.Rank, &sheet.Price, &sheet.Num); err != nil {
+	//			return nil, err
+	//		}
+	//
+	//		if reservation.ReservedAt != nil {
+	//			sheet.Mine = reservation.UserID == loginUserID
+	//			sheet.Reserved = true
+	//			sheet.ReservedAtUnix = reservation.ReservedAt.Unix()
+	//			event.Remains--
+	//			event.Sheets[sheet.Rank].Remains--
+	//		}
+	//
+	//		event.Total++
+	//		event.Sheets[sheet.Rank].Total++
+	//		event.Sheets[sheet.Rank].Price = event.Price + sheet.Price
+	//		event.Sheets[sheet.Rank].Detail = append(event.Sheets[sheet.Rank].Detail, &sheet)
+	//	}
 
 	event.Total = 1000
 	event.Sheets["S"].Total = 50
@@ -399,7 +399,7 @@ func getEvent(eventID, loginUserID int64) (*Event, error) {
 	reserved := make(map[int64]Reservation)
 	for reserved_sheets.Next() {
 		var r Reservation
-		if err:= reserved_sheets.Scan(&r.UserID, &r.SheetID, &r.ReservedAt); err != nil {
+		if err := reserved_sheets.Scan(&r.UserID, &r.SheetID, &r.ReservedAt); err != nil {
 			return nil, err
 		}
 		reserved[r.SheetID] = r
@@ -702,7 +702,7 @@ func main() {
 		if len(recentReservations) >= 5 {
 			recentReservations = recentReservations[:5]
 		}
-		for i, _ := range recentReservations {
+		for i := range recentReservations {
 			recentReservations[i].LatestActionAtUnix = 0
 		}
 
@@ -827,11 +827,13 @@ func main() {
 		}
 		return c.JSON(200, sanitizeEvent(event))
 	})
-	// TODO: 次ここ
+	// TODO: 次ここ 2020年4月13日
 	e.POST("/api/events/:id/actions/reserve", func(c echo.Context) error {
 		defer measure.Start(
 			"main-11",
 		).Stop()
+
+		start := time.Now()
 
 		eventID, err := strconv.ParseInt(c.Param("id"), 10, 64)
 		if err != nil {
@@ -847,6 +849,10 @@ func main() {
 			return err
 		}
 
+		log.Println("ユーザ情報取得")
+		log.Println(time.Since(start))
+		start = time.Now()
+
 		event, err := getEvent(eventID, user.ID)
 		if err != nil {
 			if err == sql.ErrNoRows {
@@ -861,6 +867,10 @@ func main() {
 			return resError(c, "invalid_rank", 400)
 		}
 
+		log.Println("イベント情報取得")
+		log.Println(time.Since(start))
+		start = time.Now()
+
 		var sheet Sheet
 		var reservationID int64
 		for {
@@ -871,6 +881,12 @@ func main() {
 				}
 				return err
 			}
+
+			log.Println("予約席を見つけるクエリ")
+			log.Println(time.Since(start))
+			start = time.Now()
+
+			// TODO: 予約する席を見つける
 
 			tx, err := db.Begin()
 			if err != nil {
@@ -883,6 +899,11 @@ func main() {
 				log.Println("re-try: rollback by", err)
 				continue
 			}
+
+			log.Println("予約情報登録")
+			log.Println(time.Since(start))
+			start = time.Now()
+
 			reservationID, err = res.LastInsertId()
 			if err != nil {
 				tx.Rollback()
@@ -909,8 +930,6 @@ func main() {
 			"main-12",
 		).Stop()
 
-		start := time.Now()
-
 		eventID, err := strconv.ParseInt(c.Param("id"), 10, 64)
 		if err != nil {
 			return resError(c, "not_found", 404)
@@ -922,10 +941,6 @@ func main() {
 		if err != nil {
 			return err
 		}
-
-		log.Println("パラメータチェック")
-		log.Println(time.Since(start))
-		start = time.Now()
 
 		event, err := getEvent(eventID, user.ID)
 		if err != nil {
@@ -940,10 +955,6 @@ func main() {
 		if !validateRank(rank) {
 			return resError(c, "invalid_rank", 404)
 		}
-
-		log.Println("イベント情報取得")
-		log.Println(time.Since(start))
-		start = time.Now()
 
 		var sheet Sheet
 		for _, s := range SheetsMaster {
@@ -968,10 +979,6 @@ func main() {
 		//	return err
 		//}
 
-		log.Println("座席情報取得")
-		log.Println(time.Since(start))
-		start = time.Now()
-
 		tx, err := db.Begin()
 		if err != nil {
 			return err
@@ -990,22 +997,16 @@ func main() {
 			return resError(c, "not_permitted", 403)
 		}
 
-		log.Println("予約席取得")
-		log.Println(time.Since(start))
-		start = time.Now()
-
 		if _, err := tx.Exec("UPDATE reservations SET canceled_at = ? WHERE id = ?", time.Now().UTC().Format("2006-01-02 15:04:05.000000"), reservation.ID); err != nil {
 			tx.Rollback()
-			return err
+			return resError(c, "rollback", 499)
+			//return err
 		}
 
 		if err := tx.Commit(); err != nil {
-			return err
+			return resError(c, "commit error", 499)
+			//return err
 		}
-
-		log.Println("データベース更新")
-		log.Println(time.Since(start))
-		start = time.Now()
 
 		return c.NoContent(204)
 	}, loginRequired)
