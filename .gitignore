@@ -10,5 +10,6 @@ isucon8q-initial-dataset.sql.gz
 /bench/*.log
 .env
 docker/data/
+docker/log/
 docker/redis-data/
 *.tar.gz
