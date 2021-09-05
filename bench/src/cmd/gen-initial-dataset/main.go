@@ -1,8 +1,9 @@
 package main
 
 import (
-	"bench"
 	"flag"
+
+	"github.com/Altech/isucon8-qualify/bench/src/bench"
 )
 
 var dataPath = flag.String("data", "./data", "path to data directory")

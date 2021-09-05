@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bench"
 	"bytes"
 	"crypto/md5"
 	"encoding/hex"
@@ -21,6 +20,8 @@ import (
 	"sort"
 	"strings"
 	"text/template"
+
+	"github.com/Altech/isucon8-qualify/bench/src/bench"
 
 	htmldigest "github.com/karupanerura/go-html-digest"
 	"golang.org/x/net/html"
