@@ -16,7 +16,7 @@ import (
 	"strings"
 	"time"
 
-	"bench/parameter"
+	"github.com/Altech/isucon8-qualify/bench/src/bench/parameter"
 )
 
 var (

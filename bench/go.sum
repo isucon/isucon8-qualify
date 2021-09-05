@@ -1,0 +1,17 @@
+github.com/LK4D4/trylock v0.0.0-20160524210250-5d1441de6705 h1:yeg9QLN7QTUekHfPZKjzkGTCegMqbXA8i4CpRmsknFI=
+github.com/LK4D4/trylock v0.0.0-20160524210250-5d1441de6705/go.mod h1:uHbOgfPowb74TKlV4AR5Az2haG6evxzM8Lmj1Xil25E=
+github.com/PuerkitoBio/goquery v1.1.1-0.20170816133831-ce645ea5e67a h1:FX+M/dHeg5R1EsrdH6iPM08n066B2AB14a4sXUSltf8=
+github.com/PuerkitoBio/goquery v1.1.1-0.20170816133831-ce645ea5e67a/go.mod h1:T9ezsOHcCrDCgA8aF1Cqr3sSYbO/xgdy8/R/XiIMAhA=
+github.com/andybalholm/cascadia v0.0.0-20161224141413-349dd0209470 h1:4jHLmof+Hba81591gfH5xYA8QXzuvgksxwPNrmjR2BA=
+github.com/andybalholm/cascadia v0.0.0-20161224141413-349dd0209470/go.mod h1:3I+3V7B6gTBYfdpYgIG2ymALS9H+5VDKUl3lHH7ToM4=
+github.com/comail/colog v0.0.0-20160416085026-fba8e7b1f46c h1:bzYQ6WpR+t35/y19HUkolcg7SYeWZ15IclC9Z4naGHI=
+github.com/comail/colog v0.0.0-20160416085026-fba8e7b1f46c/go.mod h1:1WwgAwMKQLYG5I2FBhpVx94YTOAuB2W59IZ7REjSE6Y=
+github.com/k0kubun/pp v2.3.1-0.20170926225754-e057ee7a2827+incompatible/go.mod h1:GWse8YhT0p8pT4ir3ZgBbfZild3tgzSScAn6HmfYukg=
+github.com/karupanerura/go-html-digest v0.0.0-20180729212851-4b87ce2c121c h1:bSJxgDwbxs6w9PUoHXjw9sAmjsgZfktUWJz3XUrOGts=
+github.com/karupanerura/go-html-digest v0.0.0-20180729212851-4b87ce2c121c/go.mod h1:NtZzlOy4jj8QGkfgWeKOsgANc4q1j1flR8iNBvORa7s=
+github.com/marcw/cachecontrol v0.0.0-20140722115028-30341fe9a7d5 h1:Wnc+HxXmAhN6xRzhmPJTiip9/sVZzwa6XlWksxjObCA=
+github.com/marcw/cachecontrol v0.0.0-20140722115028-30341fe9a7d5/go.mod h1:e4ZZwiqLDqvzKu9TVxuGnh2kXCWeU6PxLG2hw/+no7g=
+github.com/mattn/go-colorable v0.1.0/go.mod h1:9vuHe8Xs5qXnSaW/c/ABM9alt+Vo+STaOChaDxuIBZU=
+github.com/mattn/go-isatty v0.0.4/go.mod h1:M+lRXTBqGeGNdLjl/ufCoiOlB5xdOkqRJdNxMWT7Zi4=
+golang.org/x/net v0.0.0-20170809000501-1c05540f6879 h1:0rFa7EaCGdQPmZVbo9F7MNF65b8dyzS6EUnXjs9Cllk=
+golang.org/x/net v0.0.0-20170809000501-1c05540f6879/go.mod h1:mL1N/T3taQHkDXs73rZJwtUhF3w3ftmwwsq0BUmARs4=

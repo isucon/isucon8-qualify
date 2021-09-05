@@ -18,9 +18,9 @@ import (
 	"strings"
 	"time"
 
-	"bench"
-	"bench/counter"
-	"bench/parameter"
+	"github.com/Altech/isucon8-qualify/bench/src/bench"
+	"github.com/Altech/isucon8-qualify/bench/src/bench/counter"
+	"github.com/Altech/isucon8-qualify/bench/src/bench/parameter"
 
 	"github.com/comail/colog"
 )

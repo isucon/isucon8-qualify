@@ -1,8 +1,8 @@
 package bench
 
 import (
-	"bench/counter"
-	"bench/parameter"
+	"github.com/Altech/isucon8-qualify/bench/src/bench/counter"
+	"github.com/Altech/isucon8-qualify/bench/src/bench/parameter"
 	"bytes"
 	"context"
 	"crypto/md5"

@@ -20,9 +20,9 @@ import (
 	"sync/atomic"
 	"time"
 
-	"bench/counter"
-	"bench/parameter"
-	"bench/urlcache"
+	"github.com/Altech/isucon8-qualify/bench/src/bench/counter"
+	"github.com/Altech/isucon8-qualify/bench/src/bench/parameter"
+	"github.com/Altech/isucon8-qualify/bench/src/bench/urlcache"
 )
 
 const TorbAppHost = "torb.example.com"
